@@ -25,24 +25,36 @@ export async function loadModule(
   }
 
   // Verificar si el módulo está habilitado (solo si está en la lista de modules)
-  const moduleKey = moduleName.toLowerCase() as keyof typeof tenant.modules;
-  if (moduleKey in tenant.modules && tenant.modules[moduleKey] === false) {
-    throw new Error(`Módulo ${moduleName} no habilitado para ${tenantId}`);
+  // Login es especial y no está en modules, se maneja con hasLogin
+  if (moduleName !== 'Login') {
+    const moduleKey = moduleName.toLowerCase() as keyof typeof tenant.modules;
+    if (moduleKey in tenant.modules && tenant.modules[moduleKey] === false) {
+      throw new Error(`Módulo ${moduleName} no habilitado para ${tenantId}`);
+    }
   }
 
   // Intentar cargar módulo custom primero
   const hasCustomModule = tenant.customModules?.includes(moduleName);
 
   if (hasCustomModule) {
+    // Intentar primero en la nueva estructura: modules/ModuleName
     try {
       const CustomModule = await import(
-        `@/modules/extensions/${tenantId}/${moduleName}`
+        `@/modules/extensions/${tenantId}/modules/${moduleName}`
       );
       return CustomModule.default;
     } catch (error) {
-      console.warn(
-        `Módulo custom ${moduleName} no encontrado para ${tenantId}, usando core`
-      );
+      // Si no existe en modules/, intentar en la raíz (estructura antigua)
+      try {
+        const CustomModule = await import(
+          `@/modules/extensions/${tenantId}/${moduleName}`
+        );
+        return CustomModule.default;
+      } catch (error2) {
+        console.warn(
+          `Módulo custom ${moduleName} no encontrado para ${tenantId}, usando core`
+        );
+      }
     }
   }
 

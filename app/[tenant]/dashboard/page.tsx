@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import { getTenantConfig } from '@/lib/tenants';
 import { loadModule } from '@/lib/module-loader';
+import AuthGuard from '../AuthGuard';
 
 export default async function DashboardPage({
   params,
@@ -15,9 +16,13 @@ export default async function DashboardPage({
   }
 
   // Cargar módulo Dashboard dinámicamente
-  // Si empresa-demo tiene custom, carga ese; si no, carga el core
+  // Si empresa-techpro tiene custom, carga ese; si no, carga el core
   const DashboardModule = await loadModule('Dashboard', tenantId);
 
-  return <DashboardModule tenantId={tenantId} tenant={tenant} />;
+  return (
+    <AuthGuard tenantId={tenantId}>
+      <DashboardModule tenantId={tenantId} tenant={tenant} />
+    </AuthGuard>
+  );
 }
 

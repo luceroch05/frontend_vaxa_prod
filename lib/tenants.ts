@@ -5,7 +5,7 @@ export interface TenantConfig {
   name: string;
   primaryColor: string;
   logo?: string;
-  
+
   // Módulos habilitados para este tenant
   modules: {
     dashboard: boolean;
@@ -14,38 +14,29 @@ export interface TenantConfig {
     terapeutas: boolean;
     facturacion?: boolean;
   };
-  
+
+  // Indica si este tenant utiliza inicio de sesión
+  hasLogin?: boolean;
+
   // Módulos custom que sobrescriben los core
   customModules?: string[];
 }
 
 // Base de datos simulada de tenants (luego vendrá del backend)
 const tenants: Record<string, TenantConfig> = {
-  'empresa-demo': {
-    id: 'empresa-demo',
-    name: 'Centro de Terapia Demo',
-    primaryColor: 'blue',
+  'empresa-techpro': {
+    id: 'empresa-techpro',
+    name: 'Empresa TechPro',
+    primaryColor: 'purple',
+    hasLogin: true,
     modules: {
       dashboard: true,
-      pacientes: true,
-      citas: true,
-      terapeutas: true,
+      pacientes: false,
+      citas: false,
+      terapeutas: false,
       facturacion: false,
     },
-    customModules: ['Dashboard', 'Home'], // Dashboard y Home son custom para esta empresa
-  },
-  'centro-abc': {
-    id: 'centro-abc',
-    name: 'Centro ABC',
-    primaryColor: 'green',
-    modules: {
-      dashboard: true,
-      pacientes: true,
-      citas: true,
-      terapeutas: true,
-      facturacion: true, // Este centro sí tiene facturación
-    },
-    customModules: [], // Usa todos los módulos core
+    customModules: ['Dashboard', 'Login'], // Dashboard y Login personalizados para esta empresa
   },
 };
 

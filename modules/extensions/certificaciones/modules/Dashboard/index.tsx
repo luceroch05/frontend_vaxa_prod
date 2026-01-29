@@ -11,7 +11,7 @@ import {
   Activity,
   CheckCircle2,
   ArrowRight,
-} from 'lucide-react';
+} from '@/components/ui/icon';
 import { TENANT_CONFIG } from '../../shared/constants';
 import { Header } from '../../shared/components';
 import GeneradorCertificados from './GeneradorCertificados';

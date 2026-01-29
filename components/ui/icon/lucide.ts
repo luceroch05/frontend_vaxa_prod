@@ -14,7 +14,53 @@ import {
   EyeOff,
   AlertCircle,
   Loader2,
-  type LucideIcon as LucideIconType,
+
+  FileText,
+  Calendar,
+  Download,
+
+  Edit2,
+  Save,
+  X,
+  RefreshCw,
+  Package,
+  Users,
+ 
+  Star,
+  ChevronDown,
+  ChevronUp,
+  ArrowLeft,
+  
+  CheckCircle,
+  XCircle,
+  Award,
+
+  Shield,
+  Clock,
+
+  Verified,
+  Sparkles,
+ 
+  FolderOpen,
+ 
+  TrendingUp,
+ 
+  Activity,
+  
+  ArrowRight,
+  
+  Upload,
+  FileSpreadsheet,
+  Type,
+  PenTool,
+ 
+  CheckCircle2,
+  ChevronRight,
+  
+  Image as ImageIcon,
+ 
+  
+  type LucideIcon,
 } from 'lucide-react';
 
 export const lucideIcons = {
@@ -54,5 +100,51 @@ export {
   EyeOff,
   AlertCircle,
   Loader2,
+   FileText,
+  Calendar,
+  Download,
+  Edit2,
+  Save,
+  X,
+  RefreshCw,
+  Package,
+  Users,
+  Star,
+  ChevronDown,
+  ChevronUp,
+  ArrowLeft,
+   CheckCircle,
+  XCircle,
+  Award,
+
+  Shield,
+  Clock,
+
+  Verified,
+  Sparkles,
+  FolderOpen,
+    TrendingUp,
+ 
+  Activity,
+
+  ArrowRight,
+  
+ 
+ 
+  
+
+  
+  
+   
+  Upload,
+  FileSpreadsheet,
+  Type,
+  PenTool,
+
+  CheckCircle2,
+  ChevronRight,
+
+  ImageIcon,
+ 
 };
-export type { LucideIconType };
+  export type { LucideIcon };

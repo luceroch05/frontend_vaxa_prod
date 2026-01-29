@@ -12,9 +12,9 @@ import {
   ChevronRight,
   Loader2,
   AlertCircle,
-  Image as ImageIcon,
+  ImageIcon,
   X
-} from 'lucide-react';
+} from '@/components/ui/icon';
 import { TENANT_CONFIG } from '../../shared/constants';
 
 type PasoType = 1 | 2 | 3 | 4 | 5 | 6;

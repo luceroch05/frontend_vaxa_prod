@@ -12,7 +12,7 @@ import {
   FolderOpen,
   Package,
   ArrowLeft
-} from 'lucide-react';
+} from '@/components/ui/icon';
 import { TENANT_CONFIG } from '../../shared/constants';
 import { Header } from '../../shared/components';
 

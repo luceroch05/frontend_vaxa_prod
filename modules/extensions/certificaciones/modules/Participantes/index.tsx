@@ -22,7 +22,7 @@ import {
   ChevronDown,
   ChevronUp,
   ArrowLeft
-} from 'lucide-react';
+} from '@/components/ui/icon';
 import Header from '@/components/shared/Header';
 import { TENANT_CONFIG } from '../../shared/constants';
 import { getHeaderConfig } from '../../shared/utils/config';

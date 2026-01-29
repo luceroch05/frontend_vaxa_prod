@@ -17,7 +17,7 @@ import {
   Building2,
   Verified,
   Sparkles,
-} from 'lucide-react';
+} from '@/components/ui/icon';
 import {
   getCertificadoByCodigo,
   type Certificado,

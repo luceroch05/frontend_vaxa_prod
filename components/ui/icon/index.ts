@@ -16,5 +16,42 @@ export {
   EyeOff,
   AlertCircle,
   Loader2,
+  FileText,
+  Calendar,
+  Download,
+
+  Edit2,
+  Save,
+  X,
+  RefreshCw,
+  Package,
+  Users,
+ 
+  Star,
+  ChevronDown,
+  ChevronUp,
+  ArrowLeft,
+ CheckCircle,
+  XCircle,
+  Award,
+
+  Shield,
+  Clock,
+
+  Verified,
+  Sparkles,
+  FolderOpen,
+    TrendingUp,
+ 
+  Activity,
+  CheckCircle2,
+  ArrowRight,
+  Upload,
+  ImageIcon,
+  FileSpreadsheet,
+  Type,
+  PenTool,
+  ChevronRight
+
 } from './lucide';
-export type { LucideIconType } from './lucide';
+export type { LucideIcon } from './lucide';

@@ -5,7 +5,7 @@ import { useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { getTenantConfig } from '@/lib/tenants';
 import Image from 'next/image';
-import { Lock, Mail, Building2, Eye, EyeOff, AlertCircle, Loader2 } from 'lucide-react';
+import { Mail, Lock, Building2, Eye, EyeOff, AlertCircle, Loader2 } from '@/components/ui/icon';
 import { TENANT_CONFIG } from '../../shared/constants';
 
 interface LoginProps {

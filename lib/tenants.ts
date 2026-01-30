@@ -1,6 +1,4 @@
-// Utilidades para manejar tenants (empresas/centros)
 
-import GestionSistema from "@/modules/extensions/sistemas-vaxa/modules/GestionSistema";
 
 export interface TenantConfig {
   id: string;

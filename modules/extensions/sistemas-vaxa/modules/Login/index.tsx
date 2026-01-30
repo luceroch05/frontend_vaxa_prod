@@ -3,27 +3,17 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { TenantConfig } from '@/lib/tenants';
-import { Lock, Mail, Building2, Eye, EyeOff } from 'lucide-react';
-import { VAXA_CONFIG } from '../../shared/constants';
+import { Mail, Lock, LogIn, AlertCircle } from '@/components/ui/icon';
 
 interface LoginProps {
   tenantId: string;
   tenant: TenantConfig;
 }
 
-// Credenciales hardcodeadas para el admin de sistemas-vaxa
-const ADMIN_CREDENTIALS = {
-  email: 'admin@vaxa.com',
-  password: 'admin123',
-  nombre: 'Administrador',
-  role: 'super-admin',
-};
-
-export default function VaxaLogin({ tenantId, tenant }: LoginProps) {
+export default function LoginSistemasVaxa({ tenantId, tenant }: LoginProps) {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -32,60 +22,77 @@ export default function VaxaLogin({ tenantId, tenant }: LoginProps) {
     setError('');
     setLoading(true);
 
-    // Simular delay de autenticación
-    await new Promise((resolve) => setTimeout(resolve, 800));
-
-    if (email === ADMIN_CREDENTIALS.email && password === ADMIN_CREDENTIALS.password) {
-      // Guardar auth en localStorage
-      localStorage.setItem(`auth_${tenantId}`, 'true');
-      localStorage.setItem(
-        `auth_user_${tenantId}`,
-        JSON.stringify({
-          email: ADMIN_CREDENTIALS.email,
-          nombre: ADMIN_CREDENTIALS.nombre,
-          role: ADMIN_CREDENTIALS.role,
-        })
-      );
-
-      // Redirigir al dashboard
-      router.push(`/${tenantId}`);
-    } else {
-      setError('Credenciales incorrectas');
-      setLoading(false);
-    }
+    // Simulación de login - en producción esto sería una llamada al API
+    setTimeout(() => {
+      if (email === 'admin@vaxa.com' && password === 'admin123') {
+        // Guardar auth
+        localStorage.setItem(`auth_${tenantId}`, 'true');
+        localStorage.setItem(
+          `auth_user_${tenantId}`,
+          JSON.stringify({
+            email: 'admin@vaxa.com',
+            nombre: 'Admin Vaxa',
+            role: 'superadmin',
+          })
+        );
+        router.push(`/${tenantId}/sistemas`);
+      } else {
+        setError('Email o contraseña incorrectos');
+        setLoading(false);
+      }
+    }, 1000);
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-emerald-500 to-emerald-700 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        {/* Logo y Header */}
-        <div className="text-center mb-8">
-          <div
-            className="w-20 h-20 mx-auto mb-6 rounded-2xl flex items-center justify-center text-white shadow-2xl"
-            style={{
-              background: `linear-gradient(135deg, ${VAXA_CONFIG.PRIMARY_COLOR}, ${VAXA_CONFIG.SECONDARY_COLOR})`,
-            }}
-          >
-            <Building2 className="w-10 h-10" />
+        {/* Card */}
+        <div className="bg-white rounded-2xl shadow-2xl p-8">
+          {/* Logo y título */}
+          <div className="text-center mb-8">
+            <div className="w-16 h-16 bg-emerald-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <svg
+                className="w-10 h-10 text-emerald-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+                />
+              </svg>
+            </div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Sistemas Vaxa</h1>
+            <p className="text-gray-600">Panel de Administración</p>
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">{VAXA_CONFIG.NAME}</h1>
-          <p className="text-gray-600">Panel de Administración</p>
-        </div>
 
-        {/* Card de Login */}
-        <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 p-8">
+          {/* Error message */}
+          {error && (
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-center gap-3">
+              <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
+              <p className="text-sm text-red-800">{error}</p>
+            </div>
+          )}
+
+          {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Correo Electrónico
+              <label htmlFor="email" className="block text-sm font-semibold text-gray-700 mb-2">
+                Email
               </label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Mail className="h-5 w-5 text-gray-400" />
+                </div>
                 <input
+                  id="email"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                  className="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
                   placeholder="admin@vaxa.com"
                   required
                 />
@@ -93,64 +100,55 @@ export default function VaxaLogin({ tenantId, tenant }: LoginProps) {
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Contraseña</label>
+              <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-2">
+                Contraseña
+              </label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Lock className="h-5 w-5 text-gray-400" />
+                </div>
                 <input
-                  type={showPassword ? 'text' : 'password'}
+                  id="password"
+                  type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                  className="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
                   placeholder="••••••••"
                   required
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                  {showPassword ? (
-                    <EyeOff className="w-5 h-5" />
-                  ) : (
-                    <Eye className="w-5 h-5" />
-                  )}
-                </button>
               </div>
             </div>
-
-            {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
-                {error}
-              </div>
-            )}
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 rounded-xl font-bold text-white shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-              style={{
-                background: loading
-                  ? '#94a3b8'
-                  : `linear-gradient(135deg, ${VAXA_CONFIG.PRIMARY_COLOR}, ${VAXA_CONFIG.SECONDARY_COLOR})`,
-              }}
+              className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
+              {loading ? (
+                <>
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  Ingresando...
+                </>
+              ) : (
+                <>
+                  <LogIn className="w-5 h-5" />
+                  Ingresar
+                </>
+              )}
             </button>
           </form>
 
-          {/* Credenciales de prueba */}
-          <div className="mt-6 pt-6 border-t border-gray-200">
-            <p className="text-xs text-gray-500 text-center mb-2">Credenciales de prueba:</p>
-            <div className="bg-gray-50 rounded-lg p-3 text-center">
-              <p className="text-sm font-mono text-gray-700">admin@vaxa.com</p>
-              <p className="text-sm font-mono text-gray-700">admin123</p>
-            </div>
+          {/* Credentials hint */}
+          <div className="mt-6 p-4 bg-emerald-50 border border-emerald-200 rounded-xl">
+            <p className="text-xs text-emerald-800 font-semibold mb-2">Credenciales de prueba:</p>
+            <p className="text-xs text-emerald-700">Email: admin@vaxa.com</p>
+            <p className="text-xs text-emerald-700">Contraseña: admin123</p>
           </div>
         </div>
 
         {/* Footer */}
-        <p className="text-center text-sm text-gray-500 mt-8">
-          &copy; 2026 Sistemas Vaxa. Todos los derechos reservados.
+        <p className="text-center text-white text-sm mt-6">
+          © 2024 Sistemas Vaxa. Todos los derechos reservados.
         </p>
       </div>
     </div>

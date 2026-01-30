@@ -1,7 +1,7 @@
-import { notFound } from 'next/navigation';
+import { use } from 'react';
 import { getTenantConfig } from '@/lib/tenants';
-import { loadModule } from '@/lib/module-loader';
-import AuthGuard from '../AuthGuard';
+import { redirect } from 'next/navigation';
+import UsuariosSistemasVaxa from '@/modules/extensions/sistemas-vaxa/modules/UsuariosSistemasVaxa';
 
 interface PageProps {
   params: Promise<{
@@ -9,25 +9,17 @@ interface PageProps {
   }>;
 }
 
-export default async function UsuariosPage({ params }: PageProps) {
-  const { tenant: tenantId } = await params;
+export default function UsuariosPage({ params }: PageProps) {
+  const { tenant: tenantId } = use(params);
   const tenant = getTenantConfig(tenantId);
 
   if (!tenant) {
-    notFound();
+    redirect('/');
   }
 
-  // Intentar cargar el módulo Usuarios
-  let UsuariosModule;
-  try {
-    UsuariosModule = await loadModule('Usuarios', tenantId);
-  } catch (error) {
-    notFound();
+  if (tenantId !== 'sistemas-vaxa') {
+    redirect(`/${tenantId}`);
   }
 
-  return (
-    <AuthGuard tenantId={tenantId}>
-      <UsuariosModule tenantId={tenantId} tenant={tenant} />
-    </AuthGuard>
-  );
+  return <UsuariosSistemasVaxa tenantId={tenantId} tenant={tenant} />;
 }

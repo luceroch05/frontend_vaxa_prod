@@ -17,6 +17,11 @@ export default async function TenantPage({ params }: TenantPageProps) {
     notFound();
   }
 
+  // Para sistemas-vaxa, redirigir directamente a /sistemas
+  if (tenantId === 'sistemas-vaxa') {
+    redirect(`/${tenantId}/sistemas`);
+  }
+
   // Si solo tiene dashboard habilitado, redirigir al dashboard
   const enabledModules = Object.entries(tenant.modules).filter(([_, enabled]) => enabled);
   if (enabledModules.length === 1 && tenant.modules.dashboard) {

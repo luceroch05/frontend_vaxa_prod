@@ -17,8 +17,14 @@ import {
   Edit,
 } from '@/components/ui/icon';
 import Header from '@/components/shared/Header';
-import { VAXA_CONFIG } from '../../shared/constants';
 import { EMPRESAS_MOCK } from '../../shared/data/mockData';
+
+// Configuración específica del sistema de certificaciones
+const CERTIFICACIONES_CONFIG = {
+  NAME: 'Sistema de Certificaciones',
+  PRIMARY_COLOR: '#ea6733',
+  SECONDARY_COLOR: '#b63b19',
+};
 import TabInformacion from './TabInformacion';
 import TabPlan from './TabPlan';
 import TabUsuarios from './TabUsuarios';
@@ -103,9 +109,9 @@ export default function PerfilEmpresa({ tenantId, tenant, empresaId }: PerfilEmp
         tenantId={tenantId}
         usuario={usuario}
         config={{
-          name: VAXA_CONFIG.NAME,
-          primaryColor: VAXA_CONFIG.PRIMARY_COLOR,
-          secondaryColor: VAXA_CONFIG.SECONDARY_COLOR,
+          name: CERTIFICACIONES_CONFIG.NAME,
+          primaryColor: CERTIFICACIONES_CONFIG.PRIMARY_COLOR,
+          secondaryColor: CERTIFICACIONES_CONFIG.SECONDARY_COLOR,
         }}
       />
 

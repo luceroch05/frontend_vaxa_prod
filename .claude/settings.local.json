@@ -12,7 +12,8 @@
       "Bash(dir \"C:\\Users\\Lucero\\Desktop\\frontend_vaxa_prod\\node_modules\\geist\" /s /b)",
       "Bash(dir /s /b node_modulesgeist*.woff2)",
       "Bash(dir:*)",
-      "Bash(del DashboardTab.tsx UsuariosTab.tsx PlanTab.tsx ElementosTab.tsx)"
+      "Bash(del DashboardTab.tsx UsuariosTab.tsx PlanTab.tsx ElementosTab.tsx)",
+      "Bash(cat:*)"
     ],
     "deny": [],
     "ask": []

@@ -77,6 +77,7 @@ import {
  
  Phone, MapPin, Globe,
  DollarSign,
+ LogIn,
    Info,
   type LucideIcon,
 } from 'lucide-react';
@@ -174,5 +175,6 @@ export {
    Phone, MapPin, Globe,
    DollarSign,
      Info,
+     LogIn,
 };
   export type { LucideIcon };

@@ -1,4 +1,4 @@
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { getTenantConfig } from '@/lib/tenants';
 import { loadModule } from '@/lib/module-loader';
 import AuthGuard from '../AuthGuard';
@@ -13,6 +13,11 @@ export default async function DashboardPage({
 
   if (!tenant) {
     notFound();
+  }
+
+  // Para sistemas-vaxa, redirigir a /sistemas
+  if (tenantId === 'sistemas-vaxa') {
+    redirect(`/${tenantId}/sistemas`);
   }
 
   // Cargar módulo Dashboard dinámicamente

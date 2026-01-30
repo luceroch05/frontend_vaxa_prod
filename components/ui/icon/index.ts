@@ -19,14 +19,12 @@ export {
   FileText,
   Calendar,
   Download,
-
   Edit2,
   Save,
   X,
   RefreshCw,
   Package,
   Users,
- 
   Star,
   ChevronDown,
   ChevronUp,
@@ -52,9 +50,8 @@ export {
   Type,
   PenTool,
   ChevronRight,
-    CreditCard,
+  CreditCard,
   Check,
- 
   Zap,
   FileImage,
   Unlock,
@@ -64,5 +61,6 @@ export {
    Phone, MapPin, Globe,
    DollarSign,
      Info,
+     LogIn,
 } from './lucide';
 export type { LucideIcon } from './lucide';

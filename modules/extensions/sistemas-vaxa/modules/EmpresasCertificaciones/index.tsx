@@ -16,9 +16,16 @@ import {
   Phone,
 } from '@/components/ui/icon';
 import Header from '@/components/shared/Header';
-import { VAXA_CONFIG, PLANES } from '../../shared/constants';
+import { PLANES } from '../../shared/constants';
 import { EMPRESAS_MOCK } from '../../shared/data/mockData';
 import type { Empresa } from '../../shared/types';
+
+// Configuración específica del sistema de certificaciones
+const CERTIFICACIONES_CONFIG = {
+  NAME: 'Sistema de Certificaciones',
+  PRIMARY_COLOR: '#ea6733',
+  SECONDARY_COLOR: '#b63b19',
+};
 
 interface EmpresasCertificacionesProps {
   tenantId: string;
@@ -91,9 +98,9 @@ export default function EmpresasCertificaciones({ tenantId, tenant }: EmpresasCe
         tenantId={tenantId}
         usuario={usuario}
         config={{
-          name: VAXA_CONFIG.NAME,
-          primaryColor: VAXA_CONFIG.PRIMARY_COLOR,
-          secondaryColor: VAXA_CONFIG.SECONDARY_COLOR,
+          name: CERTIFICACIONES_CONFIG.NAME,
+          primaryColor: CERTIFICACIONES_CONFIG.PRIMARY_COLOR,
+          secondaryColor: CERTIFICACIONES_CONFIG.SECONDARY_COLOR,
         }}
       />
 

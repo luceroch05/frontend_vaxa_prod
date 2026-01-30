@@ -3,7 +3,16 @@
     "allow": [
       "Bash(tree:*)",
       "Bash(mkdir:*)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(taskkill //F //PID 8232)",
+      "Bash(npx tsc:*)",
+      "Bash(npm run dev:*)",
+      "Bash(tasklist:*)",
+      "Bash(findstr:*)",
+      "Bash(dir \"C:\\Users\\Lucero\\Desktop\\frontend_vaxa_prod\\node_modules\\geist\" /s /b)",
+      "Bash(dir /s /b node_modulesgeist*.woff2)",
+      "Bash(dir:*)",
+      "Bash(del DashboardTab.tsx UsuariosTab.tsx PlanTab.tsx ElementosTab.tsx)"
     ],
     "deny": [],
     "ask": []

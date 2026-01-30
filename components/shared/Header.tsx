@@ -62,44 +62,54 @@ export default function Header({ tenantId, usuario, config }: HeaderProps) {
                   alt={tenantConfig.name}
                   width={32}
                   height={32}
-                  className="rounded-lg object-cover transition-transform group-hover:scale-105"
+                  className="rounded-lg object-cover"
                 />
               ) : (
                 <div
-                  className="w-8 h-8 rounded-lg flex items-center justify-center text-white transition-transform group-hover:scale-105"
+                  className="w-8 h-8 rounded-lg flex items-center justify-center text-white"
                   style={{ backgroundColor: tenantConfig.primaryColor }}
                 >
                   <Building2 className="w-4 h-4" />
                 </div>
               )}
-              <h1 className="text-base font-semibold text-gray-900 group-hover:text-gray-700 transition-colors">
+              <h1 className="text-base font-semibold text-gray-900">
                 {tenantConfig.name}
               </h1>
             </div>
 
             {/* Centro - Navegación minimalista */}
-            <nav className="hidden md:flex items-center gap-1">
+            <nav className="hidden md:flex items-center gap-2">
               <button
                 onClick={() => handleNavigation('/historial')}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${
+                className={`min-w-[120px] px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 ${
                   isActive('/historial')
-                    ? 'text-gray-900 bg-gray-100'
+                    ? 'text-white shadow-md'
                     : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                 }`}
+                style={
+                  isActive('/historial')
+                    ? { backgroundColor: tenantConfig.primaryColor }
+                    : undefined
+                }
               >
                 <History className="w-4 h-4" />
-                Historial
+                <span>Historial</span>
               </button>
               <button
                 onClick={() => handleNavigation('/participantes')}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${
+                className={`min-w-[140px] px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 ${
                   isActive('/participantes')
-                    ? 'text-gray-900 bg-gray-100'
+                    ? 'text-white shadow-md'
                     : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                 }`}
+                style={
+                  isActive('/participantes')
+                    ? { backgroundColor: tenantConfig.primaryColor }
+                    : undefined
+                }
               >
                 <Users className="w-4 h-4" />
-                Participantes
+                <span>Participantes</span>
               </button>
             </nav>
 
@@ -110,16 +120,16 @@ export default function Header({ tenantId, usuario, config }: HeaderProps) {
                 <div className="relative">
                   <button
                     onClick={() => setShowUserMenu(!showUserMenu)}
-                    className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 transition-all group"
+                    className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-50"
                   >
                     <div className="text-right">
-                      <p className="text-sm font-medium text-gray-900 group-hover:text-gray-700 transition-colors">
+                      <p className="text-sm font-medium text-gray-900">
                         {usuario.nombre}
                       </p>
                       <p className="text-xs text-gray-500">{usuario.role}</p>
                     </div>
                     <div
-                      className="w-9 h-9 rounded-lg flex items-center justify-center text-white text-sm font-semibold transition-transform group-hover:scale-105"
+                      className="w-9 h-9 rounded-lg flex items-center justify-center text-white text-sm font-semibold"
                       style={{ backgroundColor: tenantConfig.primaryColor }}
                     >
                       {usuario.nombre.charAt(0).toUpperCase()}
@@ -145,10 +155,10 @@ export default function Header({ tenantId, usuario, config }: HeaderProps) {
                         </div>
                         <button
                           onClick={handleLogout}
-                          className="w-full px-4 py-3 text-left text-sm text-red-600 hover:bg-red-50 transition-colors flex items-center gap-3 font-medium"
+                          className="w-full px-4 py-3 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-3 font-medium"
                         >
                           <LogOut className="w-4 h-4" />
-                          Cerrar sesión
+                          <span>Cerrar sesión</span>
                         </button>
                       </div>
                     </>
@@ -159,7 +169,7 @@ export default function Header({ tenantId, usuario, config }: HeaderProps) {
               {/* Mobile menu button */}
               <button
                 onClick={() => setShowMobileMenu(!showMobileMenu)}
-                className="md:hidden w-9 h-9 rounded-lg flex items-center justify-center text-gray-700 hover:bg-gray-50 transition-all"
+                className="md:hidden w-9 h-9 rounded-lg flex items-center justify-center text-gray-700 hover:bg-gray-50"
               >
                 {showMobileMenu ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
               </button>
@@ -170,9 +180,9 @@ export default function Header({ tenantId, usuario, config }: HeaderProps) {
 
       {/* Mobile menu */}
       {showMobileMenu && (
-        <div className="md:hidden fixed inset-0 z-40 bg-black/5 backdrop-blur-sm" onClick={() => setShowMobileMenu(false)}>
-          <div 
-            className="absolute top-16 left-0 right-0 bg-white border-b border-gray-200 shadow-lg animate-slide-down"
+        <div className="md:hidden fixed inset-0 z-40 bg-black/10 backdrop-blur-sm" onClick={() => setShowMobileMenu(false)}>
+          <div
+            className="absolute top-16 left-0 right-0 bg-white border-b border-gray-200 shadow-lg"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="max-w-7xl mx-auto px-6 py-6">
@@ -197,28 +207,38 @@ export default function Header({ tenantId, usuario, config }: HeaderProps) {
               </div>
 
               {/* Navigation */}
-              <div className="space-y-1">
+              <div className="space-y-2">
                 <button
                   onClick={() => handleNavigation('/historial')}
-                  className={`w-full px-4 py-3 rounded-lg text-left text-sm font-medium transition-colors flex items-center gap-3 ${
+                  className={`w-full px-4 py-3 rounded-lg text-left text-sm font-medium flex items-center gap-3 ${
                     isActive('/historial')
-                      ? 'text-gray-900 bg-gray-100'
+                      ? 'text-white shadow-md'
                       : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                   }`}
+                  style={
+                    isActive('/historial')
+                      ? { backgroundColor: tenantConfig.primaryColor }
+                      : undefined
+                  }
                 >
                   <History className="w-5 h-5" />
-                  Historial
+                  <span>Historial</span>
                 </button>
                 <button
                   onClick={() => handleNavigation('/participantes')}
-                  className={`w-full px-4 py-3 rounded-lg text-left text-sm font-medium transition-colors flex items-center gap-3 ${
+                  className={`w-full px-4 py-3 rounded-lg text-left text-sm font-medium flex items-center gap-3 ${
                     isActive('/participantes')
-                      ? 'text-gray-900 bg-gray-100'
+                      ? 'text-white shadow-md'
                       : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                   }`}
+                  style={
+                    isActive('/participantes')
+                      ? { backgroundColor: tenantConfig.primaryColor }
+                      : undefined
+                  }
                 >
                   <Users className="w-5 h-5" />
-                  Participantes
+                  <span>Participantes</span>
                 </button>
               </div>
 
@@ -226,10 +246,10 @@ export default function Header({ tenantId, usuario, config }: HeaderProps) {
               <div className="mt-4 pt-4 border-t border-gray-100">
                 <button
                   onClick={handleLogout}
-                  className="w-full px-4 py-3 rounded-lg text-left text-sm font-medium text-red-600 hover:bg-red-50 transition-colors flex items-center gap-3"
+                  className="w-full px-4 py-3 rounded-lg text-left text-sm font-medium text-red-600 hover:bg-red-50 flex items-center gap-3"
                 >
                   <LogOut className="w-5 h-5" />
-                  Cerrar sesión
+                  <span>Cerrar sesión</span>
                 </button>
               </div>
             </div>
@@ -237,38 +257,6 @@ export default function Header({ tenantId, usuario, config }: HeaderProps) {
         </div>
       )}
 
-      {/* Animations */}
-      <style jsx>{`
-        @keyframes fade-in {
-          from {
-            opacity: 0;
-            transform: translateY(-4px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-
-        @keyframes slide-down {
-          from {
-            opacity: 0;
-            transform: translateY(-8px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-
-        .animate-fade-in {
-          animation: fade-in 0.2s ease-out;
-        }
-
-        .animate-slide-down {
-          animation: slide-down 0.2s ease-out;
-        }
-      `}</style>
     </>
   );
 }

@@ -20,6 +20,8 @@ import {
 } from 'lucide-react';
 import { TENANT_CONFIG } from '../../shared/constants';
 import { Header } from '../../shared/components';
+import { getHeaderConfig } from '../../shared/utils/config';
+import PageTransition from '@/components/shared/PageTransition';
 
 interface CertificadosProps {
   tenantId: string;
@@ -285,10 +287,11 @@ export default function CertificadosLote({ tenantId, tenant, loteId }: Certifica
       </div>
 
       {/* HEADER NAVBAR */}
-      <Header tenantId={tenantId} usuario={usuario} />
+      <Header tenantId={tenantId} usuario={usuario} config={getHeaderConfig()} />
 
       {/* MAIN CONTENT */}
-      <main className="max-w-7xl mx-auto px-6 py-8">
+      <PageTransition>
+        <main className="max-w-7xl mx-auto px-6 py-8">
         {/* Header */}
         <div className="mb-8">
           <button
@@ -650,7 +653,8 @@ export default function CertificadosLote({ tenantId, tenant, loteId }: Certifica
             </div>
           </div>
         </div>
-      </main>
+        </main>
+      </PageTransition>
     </div>
   );
 }

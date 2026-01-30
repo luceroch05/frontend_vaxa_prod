@@ -59,7 +59,25 @@ import {
   
   Image as ImageIcon,
  
-  
+    CreditCard,
+
+ 
+  Zap,
+   FileImage,
+
+  Unlock,
+  Check,
+
+ 
+  FileSignature,
+
+  BarChart3,
+ 
+  LayoutDashboard,
+ 
+ Phone, MapPin, Globe,
+ DollarSign,
+   Info,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -145,6 +163,16 @@ export {
   ChevronRight,
 
   ImageIcon,
- 
+   CreditCard,
+  Check,
+  Zap,
+  FileImage,
+  Unlock,
+  FileSignature,
+  BarChart3,
+  LayoutDashboard,
+   Phone, MapPin, Globe,
+   DollarSign,
+     Info,
 };
   export type { LucideIcon };

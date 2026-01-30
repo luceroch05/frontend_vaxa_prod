@@ -22,6 +22,7 @@ import {
   getCertificadoByCodigo,
   type Certificado,
 } from '../../shared/data/mockData';
+import PageTransition from '@/components/shared/PageTransition';
 
 const VAXA_CONFIG = {
   NAME: 'VAXA',
@@ -81,7 +82,8 @@ export default function Validacion({ tenantId, tenant }: ValidacionProps) {
   };
 
   return (
-    <div className="min-h-screen bg-white relative overflow-hidden">
+    <PageTransition>
+      <div className="min-h-screen bg-white relative overflow-hidden">
       {/* ========== FONDO ANIMADO PROFESIONAL ========== */}
       <div className="fixed inset-0 -z-10">
         {/* Base gradient */}
@@ -528,6 +530,7 @@ export default function Validacion({ tenantId, tenant }: ValidacionProps) {
           background: radial-gradient(circle, var(--tw-gradient-stops));
         }
       `}</style>
-    </div>
+      </div>
+    </PageTransition>
   );
 }

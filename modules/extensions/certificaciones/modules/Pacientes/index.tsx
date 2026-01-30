@@ -4,6 +4,7 @@
 import { TenantConfig } from '@/lib/tenants';
 import { formatDate } from '../../shared/utils';
 import { TENANT_CONFIG } from '../../shared/constants';
+import PageTransition from '@/components/shared/PageTransition';
 // Si necesitas servicios específicos de pacientes:
 // import { pacientesService } from '../../shared/services';
 
@@ -14,7 +15,8 @@ interface PacientesProps {
 
 export default function Pacientes({ tenantId, tenant }: PacientesProps) {
   return (
-    <div className="max-w-7xl mx-auto">
+    <PageTransition>
+      <div className="max-w-7xl mx-auto">
       <div className="mb-8">
         <h2 className="text-4xl font-bold text-gray-900 mb-2">
           Pacientes - {TENANT_CONFIG.NAME}
@@ -33,6 +35,7 @@ export default function Pacientes({ tenantId, tenant }: PacientesProps) {
           Puede usar: shared/constants, shared/types, shared/services, shared/hooks, shared/utils, shared/components
         </p>
       </div>
-    </div>
+      </div>
+    </PageTransition>
   );
 }

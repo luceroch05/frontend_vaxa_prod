@@ -15,6 +15,8 @@ import {
 } from '@/components/ui/icon';
 import { TENANT_CONFIG } from '../../shared/constants';
 import { Header } from '../../shared/components';
+import { getHeaderConfig } from '../../shared/utils/config';
+import PageTransition from '@/components/shared/PageTransition';
 
 interface HistorialLotesProps {
   tenantId: string;
@@ -162,9 +164,10 @@ export default function HistorialLotes({ tenantId, tenant }: HistorialLotesProps
       </div>
 
       {/* HEADER NAVBAR */}
-      <Header tenantId={tenantId} usuario={usuario} />
+      <Header tenantId={tenantId} usuario={usuario} config={getHeaderConfig()} />
 
-      <div className="max-w-7xl mx-auto py-8 px-6">
+      <PageTransition>
+        <div className="max-w-7xl mx-auto py-8 px-6">
         {/* Header */}
         <div className="mb-8">
           <button
@@ -319,7 +322,8 @@ export default function HistorialLotes({ tenantId, tenant }: HistorialLotesProps
             </button>
           </div>
         )}
-      </div>
+        </div>
+      </PageTransition>
     </div>
   );
 }

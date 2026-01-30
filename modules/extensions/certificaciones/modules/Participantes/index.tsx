@@ -24,6 +24,7 @@ import {
   ArrowLeft
 } from '@/components/ui/icon';
 import Header from '@/components/shared/Header';
+import PageTransition from '@/components/shared/PageTransition';
 import { TENANT_CONFIG } from '../../shared/constants';
 import { getHeaderConfig } from '../../shared/utils/config';
 
@@ -332,7 +333,8 @@ export default function Participantes({ tenantId, tenant }: ParticipantesProps) 
       <Header tenantId={tenantId} usuario={usuario} config={getHeaderConfig()} />
 
       {/* MAIN CONTENT */}
-      <main className="max-w-7xl mx-auto px-6 py-8">
+      <PageTransition>
+        <main className="max-w-7xl mx-auto px-6 py-8">
         {/* Header */}
         <div className="mb-8">
           <button
@@ -820,7 +822,8 @@ export default function Participantes({ tenantId, tenant }: ParticipantesProps) 
             })}
           </div>
         )}
-      </main>
+        </main>
+      </PageTransition>
     </div>
   );
 }

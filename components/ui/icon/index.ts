@@ -51,7 +51,18 @@ export {
   FileSpreadsheet,
   Type,
   PenTool,
-  ChevronRight
-
+  ChevronRight,
+    CreditCard,
+  Check,
+ 
+  Zap,
+  FileImage,
+  Unlock,
+  FileSignature,
+  BarChart3,
+  LayoutDashboard,
+   Phone, MapPin, Globe,
+   DollarSign,
+     Info,
 } from './lucide';
 export type { LucideIcon } from './lucide';

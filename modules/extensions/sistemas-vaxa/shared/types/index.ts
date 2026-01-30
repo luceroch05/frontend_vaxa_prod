@@ -1,34 +1,64 @@
 // Tipos para sistemas-vaxa
 
-export interface Sistema {
+export interface Empresa {
   id: string;
   nombre: string;
+  ruc: string; // RUC o NIF
+  email: string;
+  telefono: string;
+  direccion: string;
+  pais: string;
+  slug: string; // slug único para la empresa
   tipo: 'certificados' | 'medico' | 'inventario';
-  slug: string; // tenant ID (ej: 'empresa-techpro')
   estado: 'activo' | 'inactivo' | 'suspendido';
   planId: string;
   logoUrl?: string;
-  logoEditableHasta?: string; // Fecha límite para editar logo
-  firmasUrls?: string[];
-  firmasEditablesHasta?: string;
+  logoSubidoPor?: string; // email del usuario que subió
+  logoFechaSubida?: string;
+  logoBloqueado: boolean;
+  firmas: Firma[];
   usuariosActivos: number;
-  usuariosMax: number;
-  certificadosGenerados?: number; // para sistemas de certificados
-  certificadosMax?: number;
+  certificadosGenerados: number;
   fechaCreacion: string;
   fechaUltimaActividad: string;
+  contactoPrincipal: {
+    nombre: string;
+    email: string;
+    cargo: string;
+  };
 }
 
-export interface UsuarioSistema {
+export interface Firma {
   id: string;
-  sistemaId: string;
+  nombre: string;
+  cargo: string;
+  url: string;
+  subidoPor?: string;
+  fechaSubida?: string;
+  bloqueado: boolean;
+}
+
+// Mantener Sistema para compatibilidad (deprecado)
+export interface Sistema extends Empresa {}
+
+
+export interface UsuarioEmpresa {
+  id: string;
+  empresaId: string;
   nombre: string;
   apellido: string;
   email: string;
+  password?: string;
   rol: 'admin' | 'operador' | 'usuario';
   estado: 'activo' | 'inactivo';
   fechaCreacion: string;
   ultimoAcceso?: string;
+  creadoPor?: string; // email del admin de vaxa que lo creó
+}
+
+// Alias para compatibilidad
+export interface UsuarioSistema extends UsuarioEmpresa {
+  sistemaId: string;
 }
 
 export interface ConfiguracionSistema {

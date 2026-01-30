@@ -14,6 +14,8 @@ import {
 } from '@/components/ui/icon';
 import { TENANT_CONFIG } from '../../shared/constants';
 import { Header } from '../../shared/components';
+import { getHeaderConfig } from '../../shared/utils/config';
+import PageTransition from '@/components/shared/PageTransition';
 import GeneradorCertificados from './GeneradorCertificados';
 
 interface DashboardProps {
@@ -96,10 +98,11 @@ export default function TechProDashboard({
       </div>
 
       {/* HEADER */}
-      <Header tenantId={tenantId} usuario={usuario} />
+      <Header tenantId={tenantId} usuario={usuario} config={getHeaderConfig()} />
 
       {/* CONTENIDO PRINCIPAL */}
-      <main className="max-w-7xl mx-auto px-6 lg:px-8 py-8 md:py-12">
+      <PageTransition>
+        <main className="max-w-7xl mx-auto px-6 lg:px-8 py-8 md:py-12">
         {/* Welcome Section */}
         <div className="mb-12 animate-fade-in">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-gray-100 text-gray-700 text-xs font-medium mb-4">
@@ -297,41 +300,42 @@ export default function TechProDashboard({
             Powered by <strong className="text-gray-900">VAXA</strong> · Sistema de Gestión Empresarial
           </p>
         </div>
+
+        {/* Animations */}
+        <style jsx>{`
+          @keyframes fade-in {
+            from {
+              opacity: 0;
+              transform: translateY(10px);
+            }
+            to {
+              opacity: 1;
+              transform: translateY(0);
+            }
+          }
+
+          .animate-fade-in {
+            animation: fade-in 0.5s ease-out;
+          }
+
+          .animate-fade-in-delay-1 {
+            animation: fade-in 0.5s ease-out 0.1s both;
+          }
+
+          .animate-fade-in-delay-2 {
+            animation: fade-in 0.5s ease-out 0.2s both;
+          }
+
+          .animate-fade-in-delay-3 {
+            animation: fade-in 0.5s ease-out 0.3s both;
+          }
+
+          .animate-fade-in-delay-4 {
+            animation: fade-in 0.5s ease-out 0.4s both;
+          }
+        `}</style>
       </main>
-
-      {/* Animations */}
-      <style jsx>{`
-        @keyframes fade-in {
-          from {
-            opacity: 0;
-            transform: translateY(10px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-
-        .animate-fade-in {
-          animation: fade-in 0.5s ease-out;
-        }
-
-        .animate-fade-in-delay-1 {
-          animation: fade-in 0.5s ease-out 0.1s both;
-        }
-
-        .animate-fade-in-delay-2 {
-          animation: fade-in 0.5s ease-out 0.2s both;
-        }
-
-        .animate-fade-in-delay-3 {
-          animation: fade-in 0.5s ease-out 0.3s both;
-        }
-
-        .animate-fade-in-delay-4 {
-          animation: fade-in 0.5s ease-out 0.4s both;
-        }
-      `}</style>
+      </PageTransition>
     </div>
   );
 }

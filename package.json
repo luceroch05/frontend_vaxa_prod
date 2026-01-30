@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "geist": "^1.5.1",
     "lucide-react": "^0.563.0",
     "next": "16.0.8",
     "next-auth": "^4.24.13",
@@ -24,6 +25,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.0.8",
     "tailwindcss": "^4",
+    "tailwindcss-animate": "^1.0.7",
     "typescript": "^5"
   }
 }

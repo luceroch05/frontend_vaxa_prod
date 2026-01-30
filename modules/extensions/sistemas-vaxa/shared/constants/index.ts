@@ -2,8 +2,8 @@
 
 export const VAXA_CONFIG = {
   NAME: 'Sistemas Vaxa',
-  PRIMARY_COLOR: '#6366f1', // Indigo
-  SECONDARY_COLOR: '#4f46e5',
+  PRIMARY_COLOR: '#059669', // Emerald
+  SECONDARY_COLOR: '#047857',
   LOGO: '/vaxa-logo.png', // Logo del panel admin
 };
 
@@ -29,30 +29,27 @@ export const ROLES_USUARIO = {
   USUARIO: 'usuario',
 } as const;
 
-// Planes disponibles
+// Planes disponibles (se cobra por usuario, plan define límite de certificados)
 export const PLANES = {
   BASICO: {
     id: 'basico',
     nombre: 'Básico',
-    precio: 29.99,
-    usuarios: 5,
-    certificados: 100, // por mes
-    features: ['5 usuarios', '100 certificados/mes', 'Soporte email'],
+    precioPorUsuario: 15, // USD por usuario/mes
+    certificadosMax: 100, // límite de certificados totales
+    features: ['100 certificados totales', 'Soporte por email', '2 firmas digitales', 'Logo personalizado'],
   },
-  PROFESIONAL: {
-    id: 'profesional',
-    nombre: 'Profesional',
-    precio: 79.99,
-    usuarios: 20,
-    certificados: 500,
-    features: ['20 usuarios', '500 certificados/mes', 'Soporte prioritario', 'API access'],
+  INTERMEDIO: {
+    id: 'intermedio',
+    nombre: 'Intermedio',
+    precioPorUsuario: 25, // USD por usuario/mes
+    certificadosMax: 300,
+    features: ['300 certificados totales', 'Soporte prioritario', '5 firmas digitales', 'Logo personalizado', 'API access'],
   },
-  EMPRESARIAL: {
-    id: 'empresarial',
-    nombre: 'Empresarial',
-    precio: 199.99,
-    usuarios: -1, // ilimitado
-    certificados: -1, // ilimitado
-    features: ['Usuarios ilimitados', 'Certificados ilimitados', 'Soporte 24/7', 'API ilimitado', 'Personalización avanzada'],
+  AVANZADO: {
+    id: 'avanzado',
+    nombre: 'Avanzado',
+    precioPorUsuario: 40, // USD por usuario/mes
+    certificadosMax: -1, // ilimitado
+    features: ['Certificados ilimitados', 'Soporte 24/7', 'Firmas ilimitadas', 'Logo personalizado', 'API ilimitado', 'Personalización avanzada', 'Servidor dedicado'],
   },
 } as const;

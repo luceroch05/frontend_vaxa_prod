@@ -27,7 +27,7 @@ export default async function SistemasPage({ params }: PageProps) {
 
   return (
     <AuthGuard tenantId={tenantId}>
-      <SistemasModule tenantId={tenantId} tenant={tenant} />
+      <SistemasModule tenantId={tenantId} tenant={tenant} sistemaslug />
     </AuthGuard>
   );
 }

@@ -105,14 +105,14 @@ export default function TechProLogin({ params }: LoginProps) {
 
   return (
     <div
-      className="fixed inset-0 flex items-center justify-center lg:p-8"
+      className="min-h-screen flex items-center justify-center p-4 lg:p-8"
       style={{
         background: `linear-gradient(135deg, ${TENANT_CONFIG.PRIMARY_COLOR}15, ${TENANT_CONFIG.SECONDARY_COLOR}15)`
       }}
     >
-      <div className="w-full h-full lg:h-auto lg:max-w-4xl">
-        <div className="bg-white lg:rounded-2xl shadow-2xl overflow-hidden h-full lg:h-auto animate-[scaleIn_0.5s_ease-out]">
-          <div className="grid lg:grid-cols-2 gap-0 h-full lg:h-auto">
+      <div className="w-full max-w-4xl">
+        <div className="bg-white rounded-2xl shadow-2xl overflow-hidden">
+          <div className="grid lg:grid-cols-2 gap-0">
             {/* Panel izquierdo - Logo y marca */}
             <div
               className="hidden lg:flex flex-col items-center justify-center p-8 animate-[slideLeft_0.6s_ease-out_0.2s_both]"
@@ -144,9 +144,9 @@ export default function TechProLogin({ params }: LoginProps) {
             </div>
 
             {/* Panel derecho - Formulario */}
-            <div className="p-6 lg:p-8 flex flex-col justify-center overflow-y-auto animate-[fadeIn_0.8s_ease-out_0.3s_both]">
+            <div className="p-8 lg:p-12 flex flex-col justify-center">
               {/* Logo móvil */}
-              <div className="lg:hidden text-center mb-6">
+              <div className="lg:hidden text-center mb-8">
                 {TENANT_CONFIG.LOGO ? (
                   <Image
                     src={TENANT_CONFIG.LOGO}

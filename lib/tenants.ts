@@ -1,5 +1,7 @@
 // Utilidades para manejar tenants (empresas/centros)
 
+import GestionSistema from "@/modules/extensions/sistemas-vaxa/modules/GestionSistema";
+
 export interface TenantConfig {
   id: string;
   name: string;
@@ -51,8 +53,12 @@ const tenants: Record<string, TenantConfig> = {
       citas: false,
       terapeutas: false,
       facturacion: false,
+      participantes: true ,
+      
+      
+
     },
-    customModules: ['Dashboard', 'Login', 'Sistemas', 'Usuarios', 'Configuracion', 'Planes'],
+    customModules: ['Dashboard', 'Login', 'Sistemas', 'Usuarios', 'Configuracion', 'Planes','GestionSistema'],
   }
 };
 

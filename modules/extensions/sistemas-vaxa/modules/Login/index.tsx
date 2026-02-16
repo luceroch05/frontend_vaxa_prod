@@ -138,12 +138,7 @@ export default function LoginSistemasVaxa({ tenantId, tenant }: LoginProps) {
             </button>
           </form>
 
-          {/* Credentials hint */}
-          <div className="mt-6 p-4 bg-emerald-50 border border-emerald-200 rounded-xl">
-            <p className="text-xs text-emerald-800 font-semibold mb-2">Credenciales de prueba:</p>
-            <p className="text-xs text-emerald-700">Email: admin@vaxa.com</p>
-            <p className="text-xs text-emerald-700">Contraseña: admin123</p>
-          </div>
+         
         </div>
 
         {/* Footer */}

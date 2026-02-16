@@ -33,7 +33,7 @@ export default async function TenantPage({ params }: TenantPageProps) {
     redirect(`/${tenantId}/dashboard`);
   }
 
-  // Cargar módulo Home dinámicamente
+  // Cargar módulo Home dinámicamente 
   const HomeModule = await loadModule('Home', tenantId);
 
   return (

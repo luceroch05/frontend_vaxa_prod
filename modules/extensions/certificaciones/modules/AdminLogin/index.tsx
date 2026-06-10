@@ -1,10 +1,11 @@
-import { useState, FormEvent } from 'react';
+import { useState, useEffect, FormEvent } from 'react';
 import { useParams } from 'react-router-dom';
 import {
   GraduationCap, Mail, Lock, Loader2, AlertCircle, Eye, EyeOff,
   FileBadge, Shield, Zap,
 } from '@/components/ui/icon';
 import { useAuth } from '../../shared/hooks/useAuth';
+import { publicApi } from '../../shared/api/public.api';
 
 export default function AdminLogin() {
   const { empresa }  = useParams<{ empresa: string }>();
@@ -12,6 +13,20 @@ export default function AdminLogin() {
   const [correo,     setCorreo]    = useState('');
   const [contrasena, setContrasena] = useState('');
   const [showPass,   setShowPass]   = useState(false);
+
+  // Branding de la empresa (logo + razón social) subido al registrarla.
+  const [logo,   setLogo]   = useState<string | null>(null);
+  const [nombre, setNombre] = useState<string | null>(null);
+
+  useEffect(() => {
+    let activo = true;
+    publicApi.existeEmpresa(empresa!)
+      .then((r) => { if (activo) { setLogo(r.logo_url ?? null); setNombre(r.razon_social ?? null); } })
+      .catch(() => { /* sin branding, se usa el default */ });
+    return () => { activo = false; };
+  }, [empresa]);
+
+  const marca = nombre ?? empresa;
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -28,15 +43,16 @@ export default function AdminLogin() {
       >
         {/* Logo */}
         <div className="flex items-center gap-2.5">
-          <div
-            className="w-8 h-8 rounded-[10px] flex items-center justify-center"
-            style={{ background: '#FEF3C7', border: '1px solid #FDE68A' }}
-          >
-            <GraduationCap size={15} style={{ color: '#D97706' }} />
-          </div>
+          {logo ? (
+            <img src={logo} alt={marca ?? 'Logo'} className="w-9 h-9 rounded-[10px] object-contain bg-white p-0.5" />
+          ) : (
+            <div className="w-8 h-8 rounded-[10px] flex items-center justify-center" style={{ background: '#FEF3C7', border: '1px solid #FDE68A' }}>
+              <GraduationCap size={15} style={{ color: '#D97706' }} />
+            </div>
+          )}
           <div>
-            <p className="text-[13px] font-bold" style={{ color: '#F1F5F9' }}>Vaxa Certificados</p>
-            <p className="text-[10px] capitalize" style={{ color: '#334155', letterSpacing: '0.04em' }}>{empresa}</p>
+            <p className="text-[13px] font-bold" style={{ color: '#F1F5F9' }}>{marca}</p>
+            <p className="text-[10px]" style={{ color: '#64748B', letterSpacing: '0.04em' }}>Certificados</p>
           </div>
         </div>
 

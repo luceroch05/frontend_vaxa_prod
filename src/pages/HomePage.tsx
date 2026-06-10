@@ -35,7 +35,7 @@ export default function HomePage() {
         <nav className="max-w-[1200px] mx-auto px-6 sm:px-10 h-16 flex items-center justify-between">
           <a href="#top" className="flex items-center gap-2.5">
             <Logo />
-            <span style={{ fontFamily: DISPLAY }} className="text-[19px] font-bold tracking-tight">Vaxa</span>
+            
           </a>
           <div className="hidden md:flex items-center gap-9">
             {NAV.map((n) => (
@@ -261,7 +261,7 @@ export default function HomePage() {
         <div className="max-w-[1200px] mx-auto px-6 sm:px-10 py-10 flex flex-col sm:flex-row items-center justify-between gap-5">
           <div className="flex items-center gap-2.5">
             <Logo />
-            <span style={{ fontFamily: DISPLAY }} className="text-[16px] font-bold">Vaxa</span>
+            
           </div>
           <p className="text-[12px]" style={{ fontFamily: MONO, color: '#4F5B57' }}>© {new Date().getFullYear()} Vaxa — software para instituciones</p>
           <Link to="/sistemas-vaxa/login" className="text-[12px] transition-colors hover:text-white" style={{ color: MUTED }}>Acceso administrativo →</Link>

@@ -46,7 +46,17 @@
       "Bash(rm -f _inspect.js)",
       "Bash(echo \"=== EXIT $? ===\")",
       "Bash(echo \"=== FRONT EXIT $? ===\")",
-      "Bash(echo \"=== BACK EXIT $? ===\")"
+      "Bash(echo \"=== BACK EXIT $? ===\")",
+      "Bash(grep -v \"PASSWORD\\\\|SECRET\\\\|PASS\" .env)",
+      "Bash(grep -o \"^[A-Z_]*=\" .env)",
+      "Bash(node -e \"const p=require\\('./package.json'\\); console.log\\(JSON.stringify\\(p.scripts,null,2\\)\\)\")",
+      "Bash(node *)",
+      "Bash(grep -rl \"localhost:4000\" dist/assets)",
+      "Bash(grep -rl \"vaxasys.com\" dist/assets)",
+      "Bash(tar -czf dist.tar.gz -C dist .)",
+      "Bash(echo \"=== EXIT: $? ===\")",
+      "Bash(tar -czf frontend.tar.gz -C dist .)",
+      "Bash(tar -tzf frontend.tar.gz)"
     ],
     "deny": [],
     "ask": []

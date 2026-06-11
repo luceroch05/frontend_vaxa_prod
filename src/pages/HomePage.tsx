@@ -69,7 +69,7 @@ export default function HomePage() {
             <h1 style={{ fontFamily: DISPLAY }} className="text-[40px] sm:text-[62px] font-bold leading-[1.04] tracking-[-0.03em]">
               Infraestructura<br />
               de software para<br />
-              <span style={{ background: `linear-gradient(100deg, ${GREEN_BRIGHT}, ${GREEN})`, WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' }}>instituciones serias</span>.
+              <span style={{ background: `linear-gradient(100deg, ${GREEN_BRIGHT}, ${GREEN})`, WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' }}>instituciones modernas</span>.
             </h1>
 
             <p className="text-[16px] sm:text-[17.5px] leading-relaxed mt-7 max-w-lg" style={{ color: MUTED }}>

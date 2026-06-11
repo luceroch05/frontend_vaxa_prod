@@ -9,6 +9,7 @@ import { useInscripciones } from '../../shared/hooks/useInscripciones';
 import { useGrupos }        from '../../shared/hooks/useGrupos';
 import { usePagination }    from '../../shared/hooks/usePagination';
 import { useConfirm }        from '../../shared/hooks/useConfirm';
+import { useCreditos }       from '../../shared/hooks/useCreditos';
 import Pagination from '../../shared/components/Pagination';
 import { configApi } from '../../shared/api/config.api';
 import { certificadosApi } from '../../shared/api/certificados.api';
@@ -73,6 +74,7 @@ export default function AdminCertificados() {
   const confirm = useConfirm();
   const navigate = useNavigate();
   const { certificados, loading, error, generar, anular, eliminar } = useCertificados(empresa!);
+  const { refetch: refrescarCreditos } = useCreditos();
 
   const SIN_CREDITOS_MSG = 'Te quedaste sin créditos. Contacta a Vaxa para renovar tu plan y seguir emitiendo certificados.';
 
@@ -159,6 +161,7 @@ export default function AdminCertificados() {
     setErrorMsg(null); setOkMsg(null);
     try {
       await generar(inscripcionId);
+      refrescarCreditos();
       setOkMsg('Certificado emitido correctamente');
       setTimeout(() => setOkMsg(null), 2500);
     } catch (e: unknown) {
@@ -181,6 +184,7 @@ export default function AdminCertificados() {
     setErrorMsg(null); setOkMsg(null);
     try {
       await eliminar(id);
+      refrescarCreditos();
       setOkMsg('Certificado eliminado · 1 crédito devuelto');
       setTimeout(() => setOkMsg(null), 2500);
     } catch (e: unknown) { setErrorMsg((e as Error).message); }
@@ -235,6 +239,7 @@ export default function AdminCertificados() {
 
     setBatchRunning(false);
     clearSelection();
+    refrescarCreditos();
 
     // Si el programa no tiene diseño, el motivo principal es ése → modal de advertencia.
     if (configMsg) { await avisarFaltaConfig(configMsg); return; }

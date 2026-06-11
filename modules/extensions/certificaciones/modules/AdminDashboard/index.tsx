@@ -155,7 +155,7 @@ export default function AdminDashboard() {
   const { grupos }        = useGrupos(empresa!);
   const { inscripciones } = useInscripciones(empresa!);
   const { certificados }  = useCertificados(empresa!);
-  const { estado: creditos } = useCreditos(empresa!);
+  const { estado: creditos } = useCreditos();
 
   const sinCreditos = !!creditos && creditos.saldo <= 0;
   const creditosBajos = !!creditos && creditos.saldo > 0 && creditos.saldo <= 10;

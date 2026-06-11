@@ -56,7 +56,16 @@
       "Bash(tar -czf dist.tar.gz -C dist .)",
       "Bash(echo \"=== EXIT: $? ===\")",
       "Bash(tar -czf frontend.tar.gz -C dist .)",
-      "Bash(tar -tzf frontend.tar.gz)"
+      "Bash(tar -tzf frontend.tar.gz)",
+      "Read(//c/Users/Lucero/Downloads/**)",
+      "Bash(cat)",
+      "Bash(python /tmp/clean_sql.py)",
+      "Bash(grep -c \"GTID_PURGED\\\\|MYSQLDUMP_TEMP\\\\|@OLD_\\\\|/\\\\*!4\\\\|/\\\\*!5\\\\|LOCK TABLES\" \"/c/Users/Lucero/Downloads/vaxa-prod-limpio.sql\")",
+      "Bash(pandoc --version)",
+      "Bash(python -c \"import docx; print\\('docx ok'\\)\")",
+      "Bash(npm ls *)",
+      "PowerShell(try { $w = New-Object -ComObject Word.Application; Write-Output \"WORD_OK $\\($w.Version\\)\"; $w.Quit\\(\\) } catch { Write-Output \"NO_WORD\" })",
+      "Bash(grep -iE '\\\\$\\\\{|\\\\+ *req|\\\\+ *`')"
     ],
     "deny": [],
     "ask": []

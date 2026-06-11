@@ -6,11 +6,11 @@ import {
 } from '@/components/ui/icon';
 import { authStorage } from '@/lib/auth';
 import { ConfirmProvider } from '../hooks/useConfirm';
-import { useCreditos } from '../hooks/useCreditos';
+import { CreditosProvider, useCreditos } from '../hooks/useCreditos';
 
 /** Pastilla con el saldo de créditos de certificados de la empresa. */
-function CreditosBadge({ empresa }: { empresa: string }) {
-  const { estado, loading } = useCreditos(empresa);
+function CreditosBadge() {
+  const { estado, loading } = useCreditos();
   if (loading || !estado) return null;
 
   const saldo = estado.saldo;
@@ -207,6 +207,7 @@ export default function AdminLayout() {
   );
 
   return (
+    <CreditosProvider empresa={empresa!}>
     <div className="flex h-screen overflow-hidden" style={{ background: '#F5F4F0' }}>
       {/* Overlay móvil */}
       {open && (
@@ -234,7 +235,7 @@ export default function AdminLayout() {
             </h1>
           </div>
           <div className="flex items-center gap-3">
-            <CreditosBadge empresa={empresa!} />
+            <CreditosBadge />
             <div
               className="w-8 h-8 rounded-full flex items-center justify-center text-[12px] font-bold flex-shrink-0"
               style={{ background: '#FEF3C7', color: '#D97706', border: '1px solid #FDE68A' }}
@@ -283,5 +284,6 @@ export default function AdminLayout() {
         </main>
       </div>
     </div>
+    </CreditosProvider>
   );
 }

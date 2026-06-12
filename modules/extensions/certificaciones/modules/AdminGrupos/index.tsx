@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Plus, Layers, Loader2, X, AlertCircle, Users, Calendar, ChevronRight } from '@/components/ui/icon';
+import { Plus, Layers, Loader2, X, AlertCircle, Users, Calendar, Clock, ChevronRight } from '@/components/ui/icon';
 import { useGrupos }   from '../../shared/hooks/useGrupos';
 import { useProgramas } from '../../shared/hooks/useProgramas';
 import { useCatalogos } from '../../shared/hooks/useCatalogos';
@@ -14,6 +14,22 @@ const fmt = (d: string | Date) => {
   return new Date(s + 'T12:00:00').toLocaleDateString('es-PE', { day: '2-digit', month: 'short', year: 'numeric' });
 };
 
+// Días de la semana en ISO: 1=Lunes .. 7=Domingo
+const DIAS = [
+  { n: 1, label: 'L' }, { n: 2, label: 'M' }, { n: 3, label: 'X' },
+  { n: 4, label: 'J' }, { n: 5, label: 'V' }, { n: 6, label: 'S' }, { n: 7, label: 'D' },
+];
+const DIAS_CORTO: Record<number, string> = { 1: 'Lun', 2: 'Mar', 3: 'Mié', 4: 'Jue', 5: 'Vie', 6: 'Sáb', 7: 'Dom' };
+const fmtHora = (h?: string | null) => (h ? h.slice(0, 5) : '');  // "HH:MM:SS" → "HH:MM"
+
+/** Texto legible del horario del grupo. Ej: "Lun, Mié, Vie · 19:00–22:00" */
+function fmtHorario(g: { dias_semana?: string | null; hora_inicio?: string | null; hora_fin?: string | null }): string | null {
+  if (!g.dias_semana) return null;
+  const dias = g.dias_semana.split(',').map(Number).filter(Boolean).map(n => DIAS_CORTO[n]).join(', ');
+  const horas = g.hora_inicio && g.hora_fin ? ` · ${fmtHora(g.hora_inicio)}–${fmtHora(g.hora_fin)}` : '';
+  return `${dias}${horas}`;
+}
+
 /* ── Form ───────────────────────────────────────────────────── */
 function GrupoForm({ onSubmit, onCancel, loading }: {
   onSubmit: (d: CreateGrupoDto) => void;
@@ -25,12 +41,25 @@ function GrupoForm({ onSubmit, onCancel, loading }: {
   const { catalogos } = useCatalogos(empresa!);
   const [form, setForm] = useState<CreateGrupoDto>({
     programa_id: 0, nombre_grupo: '', fecha_inicio: '', fecha_fin: '', modalidad_id: 0,
+    dias_semana: '', hora_inicio: '', hora_fin: '',
   });
+  const [dias, setDias] = useState<number[]>([]);
+  const [formError, setFormError] = useState<string | null>(null);
   const set = (k: keyof CreateGrupoDto, v: string | number) => setForm(f => ({ ...f, [k]: v }));
+  const toggleDia = (n: number) => setDias(d => (d.includes(n) ? d.filter(x => x !== n) : [...d, n].sort((a, b) => a - b)));
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!dias.length) { setFormError('Selecciona al menos un día de clase.'); return; }
+    if (!form.hora_inicio || !form.hora_fin) { setFormError('Indica la hora de inicio y de fin.'); return; }
+    if (form.hora_fin <= form.hora_inicio) { setFormError('La hora de fin debe ser posterior a la de inicio.'); return; }
+    setFormError(null);
+    onSubmit({ ...form, dias_semana: dias.join(',') });
+  };
 
   return (
     <form
-      onSubmit={e => { e.preventDefault(); onSubmit(form); }}
+      onSubmit={handleSubmit}
       className="bg-white rounded-2xl p-6 page-fade"
       style={{ border: '1px solid #EEECE6', boxShadow: '0 4px 20px rgba(0,0,0,0.06)' }}
     >
@@ -80,6 +109,50 @@ function GrupoForm({ onSubmit, onCancel, loading }: {
           </div>
         </div>
 
+        {/* Horario: días de la semana */}
+        <div>
+          <label className="block text-[11px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: '#374151' }}>Días de clase</label>
+          <div className="flex gap-1.5">
+            {DIAS.map(d => {
+              const on = dias.includes(d.n);
+              return (
+                <button
+                  key={d.n}
+                  type="button"
+                  onClick={() => toggleDia(d.n)}
+                  title={DIAS_CORTO[d.n]}
+                  className="w-9 h-9 rounded-xl text-[13px] font-bold transition-all"
+                  style={on
+                    ? { background: '#0D0E12', color: '#FFFFFF', border: '1.5px solid #0D0E12' }
+                    : { background: '#FAFAF8', color: '#9CA3AF', border: '1.5px solid #E9E6DF' }
+                  }
+                >
+                  {d.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Horario: horas */}
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-[11px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: '#374151' }}>Hora inicio</label>
+            <input type="time" value={form.hora_inicio ?? ''} onChange={e => set('hora_inicio', e.target.value)} className="vx-input" />
+          </div>
+          <div>
+            <label className="block text-[11px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: '#374151' }}>Hora fin</label>
+            <input type="time" value={form.hora_fin ?? ''} onChange={e => set('hora_fin', e.target.value)} className="vx-input" />
+          </div>
+        </div>
+
+        {formError && (
+          <div className="flex items-center gap-2 text-[12px] px-3.5 py-2.5 rounded-xl"
+            style={{ background: '#FEF2F2', border: '1px solid #FECACA', color: '#B91C1C' }}>
+            <AlertCircle size={13} className="flex-shrink-0" /> {formError}
+          </div>
+        )}
+
         <div className="flex gap-2 justify-end pt-1">
           <button type="button" onClick={onCancel} className="vx-btn vx-btn-ghost px-4 py-2">Cancelar</button>
           <button type="submit" disabled={loading} className="vx-btn vx-btn-primary px-5 py-2">
@@ -116,6 +189,12 @@ function GrupoRow({ grupo, onVerInscritos, isLast }: { grupo: Grupo; onVerInscri
             </span>
             <span className="text-[11px]" style={{ color: '#9CA3AF' }}>{grupo.modalidad_nombre}</span>
           </div>
+          {fmtHorario(grupo) && (
+            <div className="flex items-center gap-1.5 mt-1 text-[11px]" style={{ color: '#C9962C' }}>
+              <Clock size={11} className="flex-shrink-0" />
+              <span className="font-medium">{fmtHorario(grupo)}</span>
+            </div>
+          )}
         </div>
       </div>
 

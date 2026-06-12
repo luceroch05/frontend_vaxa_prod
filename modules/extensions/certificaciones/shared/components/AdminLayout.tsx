@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { NavLink, Outlet, useNavigate, useParams, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, BookOpen, Layers, ClipboardList, FileBadge,
   Settings, LogOut, Menu, X, GraduationCap, Globe, Users, CreditCard,
 } from '@/components/ui/icon';
 import { authStorage } from '@/lib/auth';
+import { publicApi } from '../api/public.api';
 import { ConfirmProvider } from '../hooks/useConfirm';
 import { CreditosProvider, useCreditos } from '../hooks/useCreditos';
 
@@ -59,6 +60,17 @@ export default function AdminLayout() {
   const [open, setOpen] = useState(false);
   const user = authStorage.getUser(empresa!);
 
+  // Branding de la institución (logo + razón social) para personalizar el panel.
+  const [brand, setBrand] = useState<{ logo: string | null; nombre: string | null }>({ logo: null, nombre: null });
+  useEffect(() => {
+    let activo = true;
+    publicApi.existeEmpresa(empresa!)
+      .then(r => { if (activo) setBrand({ logo: r.logo_url ?? null, nombre: r.razon_social ?? null }); })
+      .catch(() => { /* sin branding → se usa el slug */ });
+    return () => { activo = false; };
+  }, [empresa]);
+  const marca = brand.nombre ?? empresa;
+
   const base = `/${empresa}/certificados/panel`;
 
   const handleLogout = () => {
@@ -93,19 +105,31 @@ export default function AdminLayout() {
     >
       {/* Logo */}
       <div className="flex items-center justify-between px-5 pt-6 pb-5">
-        <div className="flex items-center gap-2.5">
-          <div
-            className="w-8 h-8 rounded-[10px] flex items-center justify-center flex-shrink-0"
-            style={{ background: '#FEF3C7', border: '1px solid #FDE68A' }}
-          >
-            <GraduationCap size={15} style={{ color: '#D97706' }} />
-          </div>
-          <div>
-            <p className="text-[13px] font-bold leading-tight" style={{ color: '#0D0E12' }}>
-              Certificados
+        <div className="flex items-center gap-2.5 min-w-0">
+          {brand.logo ? (
+            <img
+              src={brand.logo}
+              alt={marca ?? 'Logo'}
+              className="w-8 h-8 rounded-[10px] object-contain bg-white flex-shrink-0"
+              style={{ border: '1px solid #EEECE6' }}
+            />
+          ) : (
+            <div
+              className="w-8 h-8 rounded-[10px] flex items-center justify-center flex-shrink-0"
+              style={{ background: '#FEF3C7', border: '1px solid #FDE68A' }}
+            >
+              <GraduationCap size={15} style={{ color: '#D97706' }} />
+            </div>
+          )}
+          <div className="min-w-0">
+            <p
+              className={`text-[13px] font-bold leading-tight truncate ${brand.nombre ? '' : 'capitalize'}`}
+              style={{ color: '#0D0E12' }}
+            >
+              {marca}
             </p>
-            <p className="text-[10px] capitalize leading-tight" style={{ color: '#B0A898', letterSpacing: '0.03em' }}>
-              {empresa}
+            <p className="text-[10px] leading-tight" style={{ color: '#B0A898', letterSpacing: '0.03em' }}>
+              Certificados
             </p>
           </div>
         </div>
@@ -227,8 +251,8 @@ export default function AdminLayout() {
           style={{ background: '#FFFFFF', borderBottom: '1px solid #EEECE6' }}
         >
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-widest mb-0.5" style={{ color: '#C8C3BB' }}>
-              Panel · {empresa}
+            <p className={`text-[11px] font-semibold uppercase tracking-widest mb-0.5 ${brand.nombre ? '' : 'capitalize'}`} style={{ color: '#C8C3BB' }}>
+              Panel · {marca}
             </p>
             <h1 className="text-[20px] font-bold tracking-tight" style={{ color: '#0D0E12' }}>
               {pageLabel}

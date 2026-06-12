@@ -1,10 +1,20 @@
 import { useEffect, useState } from 'react';
-import { Outlet, useParams } from 'react-router-dom';
+import { Outlet, useOutletContext, useParams } from 'react-router-dom';
 import { Loader2 } from '@/components/ui/icon';
 import { publicApi } from '../api/public.api';
 import EmpresaNotFound from './EmpresaNotFound';
 
 type Estado = 'verificando' | 'existe' | 'no-existe';
+
+/** Branding de la institución, disponible para las páginas públicas vía Outlet. */
+export interface Branding {
+  slug: string;
+  razonSocial: string | null;
+  logoUrl: string | null;
+}
+
+/** Hook para que las páginas públicas lean el branding de la institución. */
+export const useBranding = () => useOutletContext<Branding>();
 
 /**
  * Envuelve todo /:empresa/certificados (público + admin). Valida contra la BD
@@ -15,13 +25,19 @@ export default function CertificadosLayout() {
   const { empresa } = useParams<{ empresa: string }>();
   const slug = empresa!;
   const [estado, setEstado] = useState<Estado>('verificando');
+  const [branding, setBranding] = useState<Branding>({ slug, razonSocial: null, logoUrl: null });
 
   useEffect(() => {
     let activo = true;
     setEstado('verificando');
+    setBranding({ slug, razonSocial: null, logoUrl: null });
     publicApi
       .existeEmpresa(slug)
-      .then(r => { if (activo) setEstado(r.exists ? 'existe' : 'no-existe'); })
+      .then(r => {
+        if (!activo) return;
+        setEstado(r.exists ? 'existe' : 'no-existe');
+        setBranding({ slug, razonSocial: r.razon_social ?? null, logoUrl: r.logo_url ?? null });
+      })
       // Falla ABIERTO: si no se pudo verificar (red caída, CORS, 500), dejamos
       // pasar y que el backend imponga la seguridad. Solo bloqueamos cuando la
       // API dice explícitamente que la empresa no existe.
@@ -41,5 +57,5 @@ export default function CertificadosLayout() {
     return <EmpresaNotFound empresa={slug} />;
   }
 
-  return <Outlet />;
+  return <Outlet context={branding} />;
 }

@@ -65,7 +65,9 @@
       "Bash(python -c \"import docx; print\\('docx ok'\\)\")",
       "Bash(npm ls *)",
       "PowerShell(try { $w = New-Object -ComObject Word.Application; Write-Output \"WORD_OK $\\($w.Version\\)\"; $w.Quit\\(\\) } catch { Write-Output \"NO_WORD\" })",
-      "Bash(grep -iE '\\\\$\\\\{|\\\\+ *req|\\\\+ *`')"
+      "Bash(grep -iE '\\\\$\\\\{|\\\\+ *req|\\\\+ *`')",
+      "Bash(echo \"FRONT:$?\")",
+      "Bash(echo \"BACK:$?\")"
     ],
     "deny": [],
     "ask": []

@@ -110,6 +110,9 @@ export interface Grupo {
   nombre_grupo: string;
   fecha_inicio: string;
   fecha_fin: string;
+  dias_semana?: string | null;   // ISO 1=Lun..7=Dom, separados por coma. Ej: "1,3,5"
+  hora_inicio?: string | null;   // "HH:MM"
+  hora_fin?: string | null;      // "HH:MM"
   modalidad_id: number;
   modalidad_nombre: string;
   activo: number;
@@ -120,6 +123,9 @@ export interface CreateGrupoDto {
   nombre_grupo: string;
   fecha_inicio: string;
   fecha_fin: string;
+  dias_semana?: string | null;
+  hora_inicio?: string | null;
+  hora_fin?: string | null;
   modalidad_id: number;
 }
 
@@ -171,6 +177,7 @@ export interface RegistroPublicoDto {
   apellidos: string;
   email?: string;
   telefono?: string;
+  telefono_pais?: string | null;  // ISO-2 del país del teléfono (ej. 'PE') para reportes
   grupo_id: number;
 }
 

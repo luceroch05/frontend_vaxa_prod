@@ -67,7 +67,8 @@
       "PowerShell(try { $w = New-Object -ComObject Word.Application; Write-Output \"WORD_OK $\\($w.Version\\)\"; $w.Quit\\(\\) } catch { Write-Output \"NO_WORD\" })",
       "Bash(grep -iE '\\\\$\\\\{|\\\\+ *req|\\\\+ *`')",
       "Bash(echo \"FRONT:$?\")",
-      "Bash(echo \"BACK:$?\")"
+      "Bash(echo \"BACK:$?\")",
+      "WebFetch(domain:vaxasys.com)"
     ],
     "deny": [],
     "ask": []

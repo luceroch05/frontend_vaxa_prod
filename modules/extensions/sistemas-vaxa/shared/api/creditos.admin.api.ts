@@ -68,6 +68,16 @@ export interface CrearUsuarioDto {
   correo: string;
   contrasena: string;
   rol_id: number;
+  producto?: string;   // a qué producto se le da acceso (certificaciones, sistemas-vaxa…)
+}
+
+export interface EditarUsuarioDto {
+  nombres?: string;
+  apellidos?: string;
+  correo?: string;
+  contrasena?: string;   // opcional: solo si se quiere cambiar
+  rol_id?: number;
+  activo?: boolean;
 }
 
 export const creditosAdminApi = {
@@ -93,11 +103,23 @@ export const creditosAdminApi = {
       opts(),
     ),
 
-  listUsuarios: (empresaId: number) =>
-    api.get<UsuarioEmpresa[]>(`/api/admin/empresas/${empresaId}/usuarios`, opts()),
+  listUsuarios: (empresaId: number, producto?: string) =>
+    api.get<UsuarioEmpresa[]>(
+      `/api/admin/empresas/${empresaId}/usuarios${producto ? `?producto=${encodeURIComponent(producto)}` : ''}`,
+      opts(),
+    ),
 
   crearUsuario: (empresaId: number, dto: CrearUsuarioDto) =>
     api.post<UsuarioEmpresa>(`/api/admin/empresas/${empresaId}/usuarios`, dto, opts()),
+
+  editarUsuario: (empresaId: number, usuarioId: number, dto: EditarUsuarioDto) =>
+    api.patch<UsuarioEmpresa>(`/api/admin/empresas/${empresaId}/usuarios/${usuarioId}`, dto, opts()),
+
+  eliminarUsuario: (empresaId: number, usuarioId: number, producto?: string) =>
+    api.delete<{ ok: boolean }>(
+      `/api/admin/empresas/${empresaId}/usuarios/${usuarioId}${producto ? `?producto=${encodeURIComponent(producto)}` : ''}`,
+      opts(),
+    ),
 
   listRoles: () =>
     api.get<Rol[]>('/api/admin/roles', opts()),

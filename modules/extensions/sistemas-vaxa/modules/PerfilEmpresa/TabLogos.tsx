@@ -214,13 +214,13 @@ export default function TabLogos({ empresa, tenantId }: TabLogosProps) {
 
       {/* Modal de Agregar Firma */}
       {showAddFirma && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-md w-full p-6">
-            <h3 className="text-xl font-bold text-gray-900 mb-4">Agregar Nueva Firma</h3>
+        <div className="fixed inset-0 flex items-center justify-center z-50 p-4" style={{ background: 'rgba(13,14,18,0.45)', backdropFilter: 'blur(4px)' }}>
+          <div className="bg-white rounded-2xl max-w-md w-full p-6" style={{ boxShadow: '0 24px 70px -12px rgba(13,14,18,0.4)' }}>
+            <h3 className="text-[18px] font-bold mb-5" style={{ color: '#0D0E12' }}>Agregar nueva firma</h3>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                <label className="block text-[11px] font-semibold uppercase tracking-wider text-gray-600 mb-1.5">
                   Nombre Completo
                 </label>
                 <input
@@ -228,23 +228,23 @@ export default function TabLogos({ empresa, tenantId }: TabLogosProps) {
                   value={newFirma.nombre}
                   onChange={(e) => setNewFirma({ ...newFirma, nombre: e.target.value })}
                   placeholder="Dr. Carlos Ruiz Méndez"
-                  className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                  className="sv-input"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Cargo</label>
+                <label className="block text-[11px] font-semibold uppercase tracking-wider text-gray-600 mb-1.5">Cargo</label>
                 <input
                   type="text"
                   value={newFirma.cargo}
                   onChange={(e) => setNewFirma({ ...newFirma, cargo: e.target.value })}
                   placeholder="Director General"
-                  className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                  className="sv-input"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                <label className="block text-[11px] font-semibold uppercase tracking-wider text-gray-600 mb-1.5">
                   Imagen de la Firma
                 </label>
                 {newFirma.preview ? (
@@ -282,22 +282,14 @@ export default function TabLogos({ empresa, tenantId }: TabLogosProps) {
               </div>
             </div>
 
-            <div className="flex items-center gap-3 mt-6">
+            <div className="flex items-center gap-2.5 mt-6">
               <button
-                onClick={() => {
-                  setShowAddFirma(false);
-                  setNewFirma({ nombre: '', cargo: '', file: null, preview: null });
-                }}
-                className="flex-1 px-4 py-2 border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-semibold"
+                onClick={() => { setShowAddFirma(false); setNewFirma({ nombre: '', cargo: '', file: null, preview: null }); }}
+                className="sv-btn sv-btn-ghost flex-1"
               >
                 Cancelar
               </button>
-              <button
-                onClick={handleAddFirma}
-                className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-semibold"
-              >
-                Agregar Firma
-              </button>
+              <button onClick={handleAddFirma} className="sv-btn sv-btn-primary flex-1">Agregar firma</button>
             </div>
           </div>
         </div>

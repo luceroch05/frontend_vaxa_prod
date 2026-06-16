@@ -154,45 +154,44 @@ export default function RegistrarEmpresaCertificaciones({
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen" style={{ background: '#F5F4F0' }}>
       <HeaderSistemasVaxa
         tenantId={tenantId}
         usuario={usuario}
         config={{
-          name: CERTIFICACIONES_CONFIG.NAME,
+          name: 'Sistemas Vaxa',
           primaryColor: CERTIFICACIONES_CONFIG.PRIMARY_COLOR,
           secondaryColor: CERTIFICACIONES_CONFIG.SECONDARY_COLOR,
         }}
       />
 
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-4xl mx-auto px-5 sm:px-6 lg:px-8 py-7">
         {/* Back button */}
         <button
           onClick={() => navigate(`/${tenantId}/certificaciones`)}
-          className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-8 transition-colors group"
+          className="flex items-center gap-1.5 mb-5 text-[13px] font-medium transition-colors group"
+          style={{ color: '#64748B' }}
         >
-          <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
-          <span className="font-medium">Volver al Dashboard</span>
+          <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
+          Volver al panel
         </button>
 
         {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center gap-4 mb-2">
-            <div className="w-16 h-16 bg-emerald-50 rounded-xl flex items-center justify-center border border-emerald-200">
-              <Building2 className="w-8 h-8 text-emerald-600" />
-            </div>
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Registrar Nueva Empresa</h1>
-              <p className="text-gray-500 text-sm">Sistema de Certificaciones</p>
-            </div>
+        <div className="mb-6 flex items-center gap-3.5 page-enter">
+          <div className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0" style={{ background: '#ECFDF5', border: '1px solid #A7F3D0' }}>
+            <Building2 className="w-6 h-6" style={{ color: '#059669' }} />
+          </div>
+          <div>
+            <h1 className="text-[24px] font-bold tracking-tight" style={{ color: '#0D0E12' }}>Registrar nueva empresa</h1>
+            <p className="text-[13px]" style={{ color: '#9CA3AF' }}>Sistema de Certificaciones</p>
           </div>
         </div>
 
         {/* Formulario */}
-        <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-gray-200 p-8">
+        <form onSubmit={handleSubmit} className="sv-card p-6 sm:p-8 page-enter stagger-1">
           {/* Logo */}
           <div className="mb-8">
-            <h2 className="text-xl font-bold text-gray-900 mb-6">Logo de la Empresa</h2>
+            <h2 className="text-[15px] font-bold text-gray-900 mb-6">Logo de la Empresa</h2>
             <div className="flex items-start gap-6">
               <div className="flex-shrink-0">
                 {logoPreview ? (
@@ -241,13 +240,13 @@ export default function RegistrarEmpresaCertificaciones({
 
           {/* Información de la Empresa */}
           <div className="mb-8">
-            <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+            <h2 className="text-[15px] font-bold text-gray-900 mb-6 flex items-center gap-2">
               <Building2 className="w-5 h-5 text-emerald-600" />
               Información de la Empresa
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="md:col-span-2">
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                <label className="block text-[11px] font-semibold uppercase tracking-wider text-gray-600 mb-1.5">
                   Nombre de la Empresa *
                 </label>
                 <input
@@ -257,12 +256,12 @@ export default function RegistrarEmpresaCertificaciones({
                   onChange={handleChange}
                   required
                   placeholder="Instituto TechPro Capacitaciones"
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+                  className="sv-input"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                <label className="block text-[11px] font-semibold uppercase tracking-wider text-gray-600 mb-1.5">
                   Identificador / Slug (URL)
                 </label>
                 <input
@@ -271,7 +270,7 @@ export default function RegistrarEmpresaCertificaciones({
                   value={formData.slug}
                   onChange={handleChange}
                   placeholder="techpro"
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+                  className="sv-input"
                 />
                 <p className="text-xs text-gray-500 mt-1.5">
                   Portal: <code className="text-emerald-600">/{formData.slug || '<se-genera-del-nombre>'}/certificados</code>
@@ -279,7 +278,7 @@ export default function RegistrarEmpresaCertificaciones({
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                <label className="block text-[11px] font-semibold uppercase tracking-wider text-gray-600 mb-1.5 flex items-center gap-2">
                   <Globe className="w-4 h-4 text-gray-500" />
                   Dominio (opcional)
                 </label>
@@ -289,12 +288,12 @@ export default function RegistrarEmpresaCertificaciones({
                   value={formData.dominio}
                   onChange={handleChange}
                   placeholder="techpro.edu.pe"
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+                  className="sv-input"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                <label className="block text-[11px] font-semibold uppercase tracking-wider text-gray-600 mb-1.5">
                   RUC / NIF *
                 </label>
                 <input
@@ -304,18 +303,18 @@ export default function RegistrarEmpresaCertificaciones({
                   onChange={handleChange}
                   required
                   placeholder="20123456789"
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+                  className="sv-input"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">País *</label>
+                <label className="block text-[11px] font-semibold uppercase tracking-wider text-gray-600 mb-1.5">País *</label>
                 <select
                   name="pais"
                   value={formData.pais}
                   onChange={handleChange}
                   required
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+                  className="sv-input"
                 >
                   <option value="Perú">Perú</option>
                   <option value="Colombia">Colombia</option>
@@ -327,7 +326,7 @@ export default function RegistrarEmpresaCertificaciones({
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                <label className="block text-[11px] font-semibold uppercase tracking-wider text-gray-600 mb-1.5 flex items-center gap-2">
                   <Mail className="w-4 h-4 text-gray-500" />
                   Email de la Empresa *
                 </label>
@@ -338,12 +337,12 @@ export default function RegistrarEmpresaCertificaciones({
                   onChange={handleChange}
                   required
                   placeholder="contacto@techpro.edu.pe"
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+                  className="sv-input"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                <label className="block text-[11px] font-semibold uppercase tracking-wider text-gray-600 mb-1.5 flex items-center gap-2">
                   <Phone className="w-4 h-4 text-gray-500" />
                   Teléfono *
                 </label>
@@ -354,12 +353,12 @@ export default function RegistrarEmpresaCertificaciones({
                   onChange={handleChange}
                   required
                   placeholder="+51 999 888 777"
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+                  className="sv-input"
                 />
               </div>
 
               <div className="md:col-span-2">
-                <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                <label className="block text-[11px] font-semibold uppercase tracking-wider text-gray-600 mb-1.5 flex items-center gap-2">
                   <MapPin className="w-4 h-4 text-gray-500" />
                   Dirección *
                 </label>
@@ -370,7 +369,7 @@ export default function RegistrarEmpresaCertificaciones({
                   onChange={handleChange}
                   required
                   placeholder="Av. Javier Prado 1234, San Isidro"
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+                  className="sv-input"
                 />
               </div>
             </div>
@@ -378,13 +377,13 @@ export default function RegistrarEmpresaCertificaciones({
 
           {/* Contacto Principal */}
           <div className="mb-8">
-            <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+            <h2 className="text-[15px] font-bold text-gray-900 mb-6 flex items-center gap-2">
               <Mail className="w-5 h-5 text-emerald-600" />
               Contacto Principal
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                <label className="block text-[11px] font-semibold uppercase tracking-wider text-gray-600 mb-1.5">
                   Nombre Completo *
                 </label>
                 <input
@@ -394,12 +393,12 @@ export default function RegistrarEmpresaCertificaciones({
                   onChange={handleChange}
                   required
                   placeholder="María González"
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+                  className="sv-input"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Email *</label>
+                <label className="block text-[11px] font-semibold uppercase tracking-wider text-gray-600 mb-1.5">Email *</label>
                 <input
                   type="email"
                   name="contactoEmail"
@@ -407,12 +406,12 @@ export default function RegistrarEmpresaCertificaciones({
                   onChange={handleChange}
                   required
                   placeholder="maria.gonzalez@techpro.edu.pe"
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+                  className="sv-input"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Cargo *</label>
+                <label className="block text-[11px] font-semibold uppercase tracking-wider text-gray-600 mb-1.5">Cargo *</label>
                 <input
                   type="text"
                   name="contactoCargo"
@@ -420,7 +419,7 @@ export default function RegistrarEmpresaCertificaciones({
                   onChange={handleChange}
                   required
                   placeholder="Gerente de Operaciones"
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+                  className="sv-input"
                 />
               </div>
             </div>
@@ -428,7 +427,7 @@ export default function RegistrarEmpresaCertificaciones({
 
           {/* Plan */}
           <div className="mb-8">
-            <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+            <h2 className="text-[15px] font-bold text-gray-900 mb-4 flex items-center gap-2">
               <Globe className="w-5 h-5 text-emerald-600" />
               Plan de Suscripción
             </h2>
@@ -440,32 +439,22 @@ export default function RegistrarEmpresaCertificaciones({
               {Object.values(PLANES).map((plan) => (
                 <label
                   key={plan.id}
-                  className={`relative cursor-pointer rounded-xl border-2 p-6 transition-all ${
-                    formData.planId === plan.id
-                      ? 'border-emerald-500 bg-emerald-50'
-                      : 'border-gray-200 bg-white hover:border-gray-300'
-                  }`}
+                  className="relative cursor-pointer rounded-2xl p-5 transition-all"
+                  style={formData.planId === plan.id
+                    ? { border: '1.5px solid #059669', background: '#F0FDF9', boxShadow: '0 4px 16px rgba(5,150,105,0.12)' }
+                    : { border: '1.5px solid #EEECE6', background: '#fff' }}
                 >
-                  <input
-                    type="radio"
-                    name="planId"
-                    value={plan.id}
-                    checked={formData.planId === plan.id}
-                    onChange={handleChange}
-                    className="sr-only"
-                  />
+                  <input type="radio" name="planId" value={plan.id} checked={formData.planId === plan.id} onChange={handleChange} className="sr-only" />
                   <div className="text-center">
-                    <h3 className="text-lg font-bold text-gray-900 mb-2">{plan.nombre}</h3>
+                    <h3 className="text-[14px] font-bold mb-2" style={{ color: '#0D0E12' }}>{plan.nombre}</h3>
                     <div className="mb-4">
-                      <span className="text-3xl font-bold text-gray-900">
-                        ${plan.precioPorUsuario}
-                      </span>
-                      <span className="text-sm text-gray-600">/usuario/mes</span>
+                      <span className="text-[26px] font-bold" style={{ color: '#0D0E12' }}>${plan.precioPorUsuario}</span>
+                      <span className="text-[12px]" style={{ color: '#9CA3AF' }}>/usuario/mes</span>
                     </div>
-                    <div className="space-y-2 text-left">
+                    <div className="space-y-1.5 text-left">
                       {plan.features.map((feature, idx) => (
-                        <div key={idx} className="flex items-start gap-2 text-sm text-gray-600">
-                          <span className="text-emerald-600 mt-0.5">✓</span>
+                        <div key={idx} className="flex items-start gap-2 text-[12.5px]" style={{ color: '#64748B' }}>
+                          <span className="mt-0.5" style={{ color: '#059669' }}>✓</span>
                           <span>{feature}</span>
                         </div>
                       ))}
@@ -477,28 +466,19 @@ export default function RegistrarEmpresaCertificaciones({
           </div>
 
           {error && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-center gap-3">
-              <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
-              <p className="text-sm text-red-800">{error}</p>
+            <div className="mb-5 px-4 py-3 rounded-xl flex items-center gap-2.5 text-[13px]" style={{ background: '#FEF2F2', border: '1px solid #FECACA', color: '#B91C1C' }}>
+              <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" /> {error}
             </div>
           )}
 
           {/* Botones */}
-          <div className="flex items-center justify-end gap-4 pt-6 border-t border-gray-200">
-            <button
-              type="button"
-              onClick={() => navigate(`/${tenantId}/certificaciones`)}
-              className="px-6 py-3 rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-50 transition-colors font-semibold"
-            >
+          <div className="flex items-center justify-end gap-2.5 pt-6" style={{ borderTop: '1px solid #F2F0EA' }}>
+            <button type="button" onClick={() => navigate(`/${tenantId}/certificaciones`)} className="sv-btn sv-btn-ghost px-5">
               Cancelar
             </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className="px-6 py-3 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-colors font-semibold shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-            >
-              <Save className="w-5 h-5" />
-              {loading ? 'Registrando...' : 'Registrar Empresa'}
+            <button type="submit" disabled={loading} className="sv-btn sv-btn-primary px-5">
+              <Save className="w-4 h-4" />
+              {loading ? 'Registrando…' : 'Registrar empresa'}
             </button>
           </div>
         </form>

@@ -1,334 +1,259 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { TenantConfig } from '@/lib/tenants';
-import {
-  ArrowLeft,
-  Plus,
-  User,
-  Mail,
-  Trash2,
-  Edit,
-  Search,
-} from '@/components/ui/icon';
+import { ArrowLeft, Plus, User, Mail, Edit, Trash2, Search, Loader2, AlertCircle, X } from '@/components/ui/icon';
 import HeaderSistemasVaxa from '../../shared/components/HeaderSistemasVaxa';
 import { VAXA_CONFIG } from '../../shared/constants';
+import { authStorage } from '@/lib/auth';
+import { ApiError } from '@/lib/api/client';
+import { creditosAdminApi, type UsuarioEmpresa, type Rol } from '../../shared/api/creditos.admin.api';
 
-interface UsuariosSistemasVaxaProps {
-  tenantId: string;
-  tenant: TenantConfig;
-}
+interface UsuariosSistemasVaxaProps { tenantId: string; tenant: TenantConfig; }
+interface Usuario { email: string; nombre: string; role: string; }
 
-interface Usuario {
-  email: string;
-  nombre: string;
-  role: string;
-}
+const ROOT_SLUG = 'vaxa';
+const VACIO = { nombres: '', apellidos: '', correo: '', contrasena: '', rol_id: '' as number | '', activo: true };
 
-interface UsuarioVaxa {
-  id: string;
-  nombre: string;
-  apellido: string;
-  email: string;
-  rol: 'superadmin' | 'admin';
-  estado: 'activo' | 'inactivo';
-  fechaCreacion: string;
-  ultimoAcceso?: string;
-}
-
-// Mock data - usuarios que pueden acceder a sistemas-vaxa
-const USUARIOS_VAXA_MOCK: UsuarioVaxa[] = [
-  {
-    id: '1',
-    nombre: 'Admin',
-    apellido: 'Vaxa',
-    email: 'admin@vaxa.com',
-    rol: 'superadmin',
-    estado: 'activo',
-    fechaCreacion: '2024-01-01',
-    ultimoAcceso: '2026-01-30',
-  },
-];
-
-export default function UsuariosSistemasVaxa({ tenantId, tenant }: UsuariosSistemasVaxaProps) {
+export default function UsuariosSistemasVaxa({ tenantId }: UsuariosSistemasVaxaProps) {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
   const [usuario, setUsuario] = useState<Usuario | null>(null);
-  const [usuarios, setUsuarios] = useState<UsuarioVaxa[]>(USUARIOS_VAXA_MOCK);
+  const [empresaVaxaId, setEmpresaVaxaId] = useState<number | null>(null);
+  const [usuarios, setUsuarios] = useState<UsuarioEmpresa[] | null>(null);
+  const [roles, setRoles] = useState<Rol[]>([]);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [showModal, setShowModal] = useState(false);
-  const [newUser, setNewUser] = useState({
-    nombre: '',
-    apellido: '',
-    email: '',
-    rol: 'admin' as 'superadmin' | 'admin',
-  });
 
-  useEffect(() => {
-    const authData = localStorage.getItem(`auth_${tenantId}`);
-    const userData = localStorage.getItem(`auth_user_${tenantId}`);
+  const [modal, setModal] = useState<'nuevo' | number | null>(null);
+  const [form, setForm] = useState(VACIO);
+  const [saving, setSaving] = useState(false);
+  const [confirmDel, setConfirmDel] = useState<UsuarioEmpresa | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const editando = typeof modal === 'number';
 
-    if (!authData || authData !== 'true') {
-      navigate(`/${tenantId}/login`);
-      return;
-    }
-
-    if (userData) {
-      try {
-        const user = JSON.parse(userData);
-        setUsuario(user);
-      } catch (error) {
+  const cargar = useCallback(async () => {
+    setError(null);
+    try {
+      const [empresas, rs] = await Promise.all([
+        creditosAdminApi.listEmpresas(),
+        creditosAdminApi.listRoles(),
+      ]);
+      setRoles(rs);
+      const vaxa = empresas.find((e) => e.tenant_slug === ROOT_SLUG);
+      if (!vaxa) { setError('No se encontró la empresa raíz Vaxa.'); setUsuarios([]); return; }
+      setEmpresaVaxaId(vaxa.id);
+      setUsuarios(await creditosAdminApi.listUsuarios(vaxa.id, 'sistemas-vaxa'));
+    } catch (e) {
+      if (e instanceof ApiError && (e.status === 401 || e.status === 403)) {
+        authStorage.clearAllSessions();
         navigate(`/${tenantId}/login`);
         return;
       }
+      setError((e as Error).message);
     }
-
-    setLoading(false);
   }, [tenantId, navigate]);
 
-  if (loading || !usuario) {
-    return null;
-  }
+  useEffect(() => {
+    if (localStorage.getItem(`auth_${tenantId}`) !== 'true' || !authStorage.getToken('vaxa')) {
+      navigate(`/${tenantId}/login`);
+      return;
+    }
+    try { setUsuario(JSON.parse(localStorage.getItem(`auth_user_${tenantId}`) ?? 'null')); } catch { /* noop */ }
+    cargar();
+  }, [tenantId, navigate, cargar]);
 
-  const usuariosFiltrados = usuarios.filter((u) => {
-    const matchSearch =
-      u.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      u.apellido.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      u.email.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchSearch;
-  });
+  if (!usuario) return null;
 
-  const handleAddUser = () => {
-    // Aquí iría la lógica para crear el usuario
-    console.log('Nuevo usuario:', newUser);
-    setShowModal(false);
-    setNewUser({ nombre: '', apellido: '', email: '', rol: 'admin' });
+  const q = searchTerm.toLowerCase().trim();
+  const filtrados = (usuarios ?? []).filter((u) =>
+    `${u.nombres} ${u.apellidos}`.toLowerCase().includes(q) || u.correo.toLowerCase().includes(q),
+  );
+
+  const abrirNuevo = () => { setError(null); setForm({ ...VACIO, rol_id: roles[0]?.id ?? '' }); setModal('nuevo'); };
+  const abrirEditar = (u: UsuarioEmpresa) => {
+    setError(null);
+    setForm({ nombres: u.nombres, apellidos: u.apellidos, correo: u.correo, contrasena: '', rol_id: u.rol_id, activo: u.activo === 1 });
+    setModal(u.id);
+  };
+  const cerrar = () => setModal(null);
+  const set = (k: keyof typeof VACIO, v: any) => setForm((f) => ({ ...f, [k]: v }));
+
+  const eliminar = async () => {
+    if (!confirmDel || !empresaVaxaId) return;
+    setDeleting(true); setError(null);
+    try {
+      await creditosAdminApi.eliminarUsuario(empresaVaxaId, confirmDel.id, 'sistemas-vaxa');
+      setUsuarios((prev) => (prev ?? []).filter((u) => u.id !== confirmDel.id));
+      setConfirmDel(null);
+    } catch (e) { setError((e as Error).message); }
+    finally { setDeleting(false); }
+  };
+
+  const guardar = async (ev: React.FormEvent) => {
+    ev.preventDefault();
+    if (!empresaVaxaId) return;
+    if (!form.rol_id) { setError('Selecciona un rol'); return; }
+    setSaving(true); setError(null);
+    try {
+      if (editando) {
+        const upd = await creditosAdminApi.editarUsuario(empresaVaxaId, modal as number, {
+          nombres: form.nombres, apellidos: form.apellidos, correo: form.correo,
+          rol_id: Number(form.rol_id), activo: form.activo,
+          ...(form.contrasena ? { contrasena: form.contrasena } : {}),
+        });
+        setUsuarios((prev) => (prev ?? []).map((u) => (u.id === upd.id ? upd : u)));
+      } else {
+        const nuevo = await creditosAdminApi.crearUsuario(empresaVaxaId, {
+          nombres: form.nombres, apellidos: form.apellidos, correo: form.correo,
+          contrasena: form.contrasena, rol_id: Number(form.rol_id), producto: 'sistemas-vaxa',
+        });
+        setUsuarios((prev) => [...(prev ?? []), nuevo]);
+      }
+      cerrar();
+    } catch (e) { setError((e as Error).message); }
+    finally { setSaving(false); }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen" style={{ background: '#F5F4F0' }}>
       <HeaderSistemasVaxa
         tenantId={tenantId}
         usuario={usuario}
-        config={{
-          name: VAXA_CONFIG.NAME,
-          primaryColor: VAXA_CONFIG.PRIMARY_COLOR,
-          secondaryColor: VAXA_CONFIG.SECONDARY_COLOR,
-        }}
+        config={{ name: VAXA_CONFIG.NAME, primaryColor: VAXA_CONFIG.PRIMARY_COLOR, secondaryColor: VAXA_CONFIG.SECONDARY_COLOR }}
       />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Back button */}
-        <button
-          onClick={() => navigate(`/${tenantId}/sistemas`)}
-          className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-8 transition-colors group"
-        >
-          <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
-          <span className="font-medium">Volver al Panel</span>
+      <main className="max-w-5xl mx-auto px-5 sm:px-6 lg:px-8 py-7">
+        <button onClick={() => navigate(`/${tenantId}/sistemas`)}
+          className="flex items-center gap-1.5 mb-5 text-[13px] font-medium transition-colors group" style={{ color: '#64748B' }}>
+          <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" /> Volver al panel
         </button>
 
-        {/* Header */}
-        <div className="mb-8 flex items-center justify-between">
+        <div className="mb-5 flex items-end justify-between gap-4 page-enter">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Gestión de Usuarios</h1>
-            <p className="text-gray-600">
-              Administra los usuarios que pueden acceder a sistemas-vaxa
-            </p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] mb-1" style={{ color: '#059669' }}>Sistemas Vaxa</p>
+            <h1 className="text-[24px] font-bold tracking-tight" style={{ color: '#0D0E12' }}>Gestión de usuarios</h1>
+            <p className="text-[13px] mt-1" style={{ color: '#9CA3AF' }}>Usuarios que pueden acceder a sistemas-vaxa.</p>
           </div>
-          <button
-            onClick={() => setShowModal(true)}
-            className="flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-all shadow-lg hover:shadow-xl font-semibold"
-          >
-            <Plus className="w-5 h-5" />
-            Agregar Usuario
+          <button onClick={abrirNuevo} disabled={!usuarios} className="sv-btn sv-btn-primary flex-shrink-0">
+            <Plus className="w-4 h-4" /> Agregar usuario
           </button>
         </div>
 
-        {/* Filtros */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Buscar por nombre o email..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-            />
-          </div>
+        <div className="relative mb-4 page-enter stagger-1">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-[15px] h-[15px]" style={{ color: '#B0A898' }} />
+          <input type="text" placeholder="Buscar por nombre o email…" value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)} className="sv-input" style={{ paddingLeft: '2.5rem' }} />
         </div>
 
-        {/* Tabla de Usuarios */}
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
-                  Usuario
-                </th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Rol</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Estado</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
-                  Último Acceso
-                </th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
-                  Fecha de Creación
-                </th>
-                <th className="px-6 py-4 text-right text-sm font-semibold text-gray-900">
-                  Acciones
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {usuariosFiltrados.map((user) => (
-                <tr key={user.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center">
-                        <User className="w-5 h-5 text-emerald-600" />
-                      </div>
-                      <div>
-                        <p className="font-semibold text-gray-900">
-                          {user.nombre} {user.apellido}
-                        </p>
-                        <p className="text-sm text-gray-500 flex items-center gap-1">
-                          <Mail className="w-3 h-3" />
-                          {user.email}
-                        </p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span
-                      className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${
-                        user.rol === 'superadmin'
-                          ? 'bg-purple-50 text-purple-700'
-                          : 'bg-blue-50 text-blue-700'
-                      }`}
-                    >
-                      {user.rol === 'superadmin' ? 'Super Admin' : 'Admin'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span
-                      className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${
-                        user.estado === 'activo'
-                          ? 'bg-green-50 text-green-700'
-                          : 'bg-gray-50 text-gray-700'
-                      }`}
-                    >
-                      {user.estado.charAt(0).toUpperCase() + user.estado.slice(1)}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <p className="text-sm text-gray-900">{user.ultimoAcceso || 'Nunca'}</p>
-                  </td>
-                  <td className="px-6 py-4">
-                    <p className="text-sm text-gray-900">{user.fechaCreacion}</p>
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <button className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
-                        <Edit className="w-4 h-4" />
-                      </button>
-                      {user.rol !== 'superadmin' && (
-                        <button className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        {error && modal === null && (
+          <div className="mb-4 px-4 py-3 rounded-xl flex items-center gap-2.5 text-[13px]" style={{ background: '#FEF2F2', border: '1px solid #FECACA', color: '#B91C1C' }}>
+            <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" /> {error}
+          </div>
+        )}
 
-          {usuariosFiltrados.length === 0 && (
-            <div className="text-center py-16">
-              <User className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <p className="text-xl font-semibold text-gray-900 mb-2">No se encontraron usuarios</p>
-              <p className="text-gray-500">Intenta ajustar los filtros de búsqueda</p>
+        <div className="sv-card overflow-hidden page-enter stagger-2">
+          {!usuarios ? (
+            <div className="flex justify-center py-14" style={{ color: '#D1D5DB' }}><Loader2 className="w-6 h-6 animate-spin" /></div>
+          ) : filtrados.length === 0 ? (
+            <div className="text-center py-14">
+              <User className="w-12 h-12 mx-auto mb-3" style={{ color: '#E5E1D8' }} />
+              <p className="text-[14px] font-semibold mb-1" style={{ color: '#0D0E12' }}>Sin usuarios</p>
+              <p className="text-[12.5px]" style={{ color: '#9CA3AF' }}>{searchTerm ? 'Ajusta la búsqueda.' : 'Agrega el primer usuario.'}</p>
             </div>
+          ) : (
+            filtrados.map((u, idx) => (
+              <div key={u.id} className="flex items-center justify-between px-5 py-3.5 transition-colors"
+                style={{ borderBottom: idx < filtrados.length - 1 ? '1px solid #F5F4F0' : undefined }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = '#FAFAF8'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: '#ECFDF5', border: '1px solid #A7F3D0' }}>
+                    <User className="w-5 h-5" style={{ color: '#059669' }} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[13.5px] font-semibold truncate" style={{ color: '#0D0E12' }}>{u.nombres} {u.apellidos}</p>
+                    <p className="text-[11.5px] flex items-center gap-1 truncate" style={{ color: '#9CA3AF' }}><Mail className="w-3 h-3 flex-shrink-0" />{u.correo}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <span className="inline-flex px-2.5 py-1 rounded-lg text-[10.5px] font-semibold" style={{ background: '#F5F3FF', color: '#6D28D9' }}>{u.rol}</span>
+                  <span className="inline-flex px-2.5 py-1 rounded-lg text-[10.5px] font-semibold"
+                    style={u.activo ? { background: '#ECFDF5', color: '#059669' } : { background: '#F3F4F6', color: '#6B7280' }}>
+                    {u.activo ? 'Activo' : 'Inactivo'}
+                  </span>
+                  <button onClick={() => abrirEditar(u)} title="Editar usuario" className="p-1.5 rounded-lg transition-colors hover:bg-emerald-50" style={{ color: '#94A3B8' }}>
+                    <Edit className="w-4 h-4" />
+                  </button>
+                  <button onClick={() => { setError(null); setConfirmDel(u); }} title="Eliminar usuario" className="p-1.5 rounded-lg transition-colors hover:bg-red-50" style={{ color: '#94A3B8' }}>
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            ))
           )}
         </div>
       </main>
 
-      {/* Modal de Agregar Usuario */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-md w-full p-6">
-            <h3 className="text-xl font-bold text-gray-900 mb-4">Agregar Usuario a Sistemas-Vaxa</h3>
-            <p className="text-sm text-gray-600 mb-6">
-              Este usuario podrá acceder y gestionar los sistemas de Vaxa
-            </p>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Nombre</label>
-                <input
-                  type="text"
-                  value={newUser.nombre}
-                  onChange={(e) => setNewUser({ ...newUser, nombre: e.target.value })}
-                  placeholder="Juan"
-                  className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Apellido</label>
-                <input
-                  type="text"
-                  value={newUser.apellido}
-                  onChange={(e) => setNewUser({ ...newUser, apellido: e.target.value })}
-                  placeholder="Pérez"
-                  className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Email</label>
-                <input
-                  type="email"
-                  value={newUser.email}
-                  onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
-                  placeholder="juan.perez@vaxa.com"
-                  className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Rol</label>
-                <select
-                  value={newUser.rol}
-                  onChange={(e) => setNewUser({ ...newUser, rol: e.target.value as any })}
-                  className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                >
-                  <option value="admin">Admin</option>
-                  <option value="superadmin">Super Admin</option>
-                </select>
-                <p className="text-xs text-gray-500 mt-1">
-                  Super Admin tiene acceso completo a todos los sistemas
-                </p>
-              </div>
+      {modal !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(13,14,18,0.45)', backdropFilter: 'blur(4px)' }} onMouseDown={cerrar}>
+          <div className="bg-white rounded-2xl max-w-md w-full p-6" style={{ boxShadow: '0 24px 70px -12px rgba(13,14,18,0.4)' }} onMouseDown={(e) => e.stopPropagation()}>
+            <div className="flex items-start justify-between mb-5">
+              <h3 className="text-[18px] font-bold" style={{ color: '#0D0E12' }}>{editando ? 'Editar usuario' : 'Agregar usuario'}</h3>
+              <button onClick={cerrar} className="p-1 rounded-lg transition-colors hover:bg-gray-100" style={{ color: '#B0A898' }}><X className="w-4 h-4" /></button>
             </div>
+            <form onSubmit={guardar} className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <input value={form.nombres} onChange={(e) => set('nombres', e.target.value)} placeholder="Nombres" required className="sv-input" />
+                <input value={form.apellidos} onChange={(e) => set('apellidos', e.target.value)} placeholder="Apellidos" required className="sv-input" />
+              </div>
+              <input type="email" value={form.correo} onChange={(e) => set('correo', e.target.value)} placeholder="Correo" required className="sv-input" />
+              <div className="grid grid-cols-2 gap-3">
+                <input type="text" value={form.contrasena} onChange={(e) => set('contrasena', e.target.value)}
+                  placeholder={editando ? 'Nueva contraseña (opcional)' : 'Contraseña (mín. 6)'} required={!editando} className="sv-input" />
+                <select value={form.rol_id} onChange={(e) => set('rol_id', Number(e.target.value))} className="sv-input">
+                  {roles.map((r) => <option key={r.id} value={r.id}>{r.nombre}</option>)}
+                </select>
+              </div>
+              {editando && (
+                <label className="flex items-center gap-2 cursor-pointer pt-0.5">
+                  <input type="checkbox" checked={form.activo} onChange={(e) => set('activo', e.target.checked)} className="w-4 h-4 accent-emerald-600" />
+                  <span className="text-[13px]" style={{ color: '#374151' }}>{form.activo ? 'Usuario activo' : 'Usuario inactivo'}</span>
+                </label>
+              )}
+              {error && <p className="text-[12.5px]" style={{ color: '#DC2626' }}>{error}</p>}
+              <div className="flex items-center gap-2.5 pt-2">
+                <button type="button" onClick={cerrar} className="sv-btn sv-btn-ghost flex-1">Cancelar</button>
+                <button type="submit" disabled={saving} className="sv-btn sv-btn-primary flex-1">
+                  {saving && <Loader2 className="w-4 h-4 animate-spin" />} {editando ? 'Guardar cambios' : 'Crear usuario'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
-            <div className="flex items-center gap-3 mt-6">
-              <button
-                onClick={() => setShowModal(false)}
-                className="flex-1 px-4 py-2 border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-semibold"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleAddUser}
-                className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-semibold"
-              >
-                Agregar Usuario
+      {confirmDel && createPortal(
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" style={{ background: 'rgba(13,14,18,0.5)', backdropFilter: 'blur(4px)' }} onMouseDown={() => !deleting && setConfirmDel(null)}>
+          <div className="bg-white rounded-2xl max-w-[400px] w-full p-6" style={{ boxShadow: '0 24px 70px -12px rgba(13,14,18,0.4)' }} onMouseDown={(e) => e.stopPropagation()}>
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-4" style={{ background: '#FEF2F2', color: '#DC2626' }}>
+              <Trash2 className="w-6 h-6" />
+            </div>
+            <h3 className="text-[17px] font-bold" style={{ color: '#0D0E12' }}>Eliminar usuario</h3>
+            <p className="text-[13px] mt-1.5" style={{ color: '#6B7280', lineHeight: 1.5 }}>
+              Se quitará el acceso de <b>{confirmDel.nombres} {confirmDel.apellidos}</b> a sistemas-vaxa. Esta acción no se puede deshacer.
+            </p>
+            {error && <p className="text-[12.5px] mt-3" style={{ color: '#DC2626' }}>{error}</p>}
+            <div className="flex items-center gap-2.5 mt-6">
+              <button onClick={() => setConfirmDel(null)} disabled={deleting} className="sv-btn sv-btn-ghost flex-1">Cancelar</button>
+              <button onClick={eliminar} disabled={deleting} className="sv-btn flex-1 text-white" style={{ background: '#DC2626' }}>
+                {deleting && <Loader2 className="w-4 h-4 animate-spin" />} Eliminar
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

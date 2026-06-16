@@ -247,10 +247,10 @@ export default function HomePage() {
             <p className="text-[16px] mt-5 max-w-md mx-auto" style={{ color: MUTED }}>
               Cuéntanos qué necesitas y te mostramos cómo Vaxa puede ayudarte. Sin compromiso.
             </p>
-            <a href="mailto:vaxa.sac@gmail.com?subject=Quiero%20una%20demo%20de%20Vaxa"
+            <a href="mailto:info@vaxa.com.pe?subject=Quiero%20una%20demo%20de%20Vaxa"
               className="group inline-flex items-center justify-center gap-2 mt-9 px-8 py-4 rounded-xl text-[15px] font-semibold transition-transform hover:-translate-y-0.5"
               style={{ fontFamily: MONO, background: GREEN, color: '#04110C', boxShadow: '0 0 0 1px rgba(52,211,153,0.4), 0 16px 50px -12px rgba(16,185,129,0.7)' }}>
-              vaxa.sac@gmail.com <ArrowUpRight size={16} className="transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+              info@vaxa.com.pe <ArrowUpRight size={16} className="transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
             </a>
           </div>
         </div>
@@ -273,7 +273,7 @@ export default function HomePage() {
 
 /* ── Sub-componentes ─────────────────────────────────────────── */
 function Logo() {
-  return <img src="/vaxa.png" alt="Vaxa" className="w-8 h-8 rounded-[9px] object-contain" />;
+  return <img src="/vaxa-logo-white.png" alt="Vaxa" className="w-20 h-8 rounded-[9px] object-contain" />;
 }
 
 function GridGlow() {

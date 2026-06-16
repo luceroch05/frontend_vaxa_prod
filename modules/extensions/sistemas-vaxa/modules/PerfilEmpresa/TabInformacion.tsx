@@ -98,8 +98,8 @@ export default function TabInformacion({ empresa, onChange }: TabInformacionProp
         </div>
 
         <div className="flex justify-end gap-2.5 pt-2">
-          <button onClick={reset} className="px-4 py-2 text-sm font-semibold text-gray-600 border border-gray-200 rounded-xl">Cancelar</button>
-          <button onClick={guardar} disabled={saving} className="px-4 py-2 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl disabled:opacity-50 flex items-center gap-2">
+          <button onClick={reset} className="sv-btn sv-btn-ghost">Cancelar</button>
+          <button onClick={guardar} disabled={saving} className="sv-btn sv-btn-primary">
             {saving && <Loader2 className="w-4 h-4 animate-spin" />} Guardar cambios
           </button>
         </div>
@@ -117,48 +117,44 @@ export default function TabInformacion({ empresa, onChange }: TabInformacionProp
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-bold text-gray-900">Información de la empresa</h3>
-        <button onClick={() => setEditing(true)} className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors">
-          <Edit className="w-4 h-4" /> Editar
+        <h3 className="text-[15px] font-bold" style={{ color: '#0D0E12' }}>Información de la empresa</h3>
+        <button onClick={() => setEditing(true)} className="flex items-center gap-1.5 px-3 py-1.5 text-[12.5px] font-semibold rounded-lg transition-colors hover:bg-emerald-50" style={{ color: '#059669' }}>
+          <Edit className="w-3.5 h-3.5" /> Editar
         </button>
       </div>
 
-      {empresa.logo_url && (
-        <img src={empresa.logo_url} alt="logo" className="w-20 h-20 rounded-xl object-contain border border-gray-200" />
-      )}
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {items.map((it) => {
           const Icon = it.icon;
           return (
-            <div key={it.label} className="bg-gray-50 rounded-xl p-4 border border-gray-200 flex items-center gap-3">
-              <div className="w-10 h-10 bg-white rounded-lg border border-gray-200 flex items-center justify-center flex-shrink-0">
-                <Icon className="w-5 h-5 text-emerald-600" />
+            <div key={it.label} className="rounded-xl p-3.5 flex items-center gap-3" style={{ background: '#FAFAF8', border: '1px solid #EEECE6' }}>
+              <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: '#ECFDF5', border: '1px solid #A7F3D0' }}>
+                <Icon className="w-[18px] h-[18px]" style={{ color: '#059669' }} />
               </div>
               <div className="min-w-0">
-                <p className="text-xs text-gray-500">{it.label}</p>
-                <p className="font-semibold text-gray-900 truncate">{it.value}</p>
+                <p className="text-[10.5px] font-semibold uppercase tracking-wider" style={{ color: '#B0A898' }}>{it.label}</p>
+                <p className="text-[13.5px] font-semibold truncate" style={{ color: '#0D0E12' }}>{it.value}</p>
               </div>
             </div>
           );
         })}
       </div>
 
-      <p className="text-xs text-gray-400">
-        Portal público: <code className="text-gray-600">/{empresa.tenant_slug}/certificados</code>
+      <p className="text-[11.5px]" style={{ color: '#B0A898' }}>
+        Portal público: <code style={{ color: '#64748B' }}>/{empresa.tenant_slug}/certificados</code>
       </p>
     </div>
   );
 }
 
-const inputCls = 'w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500';
+const inputCls = 'sv-input';
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="block text-sm font-semibold text-gray-700 mb-1.5">{label}</label>
+      <label className="block text-[11px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: '#374151' }}>{label}</label>
       {children}
     </div>
   );

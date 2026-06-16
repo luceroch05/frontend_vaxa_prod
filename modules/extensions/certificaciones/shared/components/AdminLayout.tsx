@@ -8,6 +8,8 @@ import { authStorage } from '@/lib/auth';
 import { publicApi } from '../api/public.api';
 import { ConfirmProvider } from '../hooks/useConfirm';
 import { CreditosProvider, useCreditos } from '../hooks/useCreditos';
+import { useSessionSocket } from '../hooks/useSessionSocket';
+import SessionRevokedModal from './SessionRevokedModal';
 
 /** Pastilla con el saldo de créditos de certificados de la empresa. */
 function CreditosBadge() {
@@ -59,6 +61,10 @@ export default function AdminLayout() {
   const location      = useLocation();
   const [open, setOpen] = useState(false);
   const user = authStorage.getUser(empresa!);
+
+  // Sesión única: WebSocket que cierra esta sesión al instante si la cuenta
+  // inicia sesión en otro dispositivo.
+  useSessionSocket(empresa!);
 
   // Branding de la institución (logo + razón social) para personalizar el panel.
   const [brand, setBrand] = useState<{ logo: string | null; nombre: string | null }>({ logo: null, nombre: null });
@@ -232,6 +238,7 @@ export default function AdminLayout() {
 
   return (
     <CreditosProvider empresa={empresa!}>
+    <SessionRevokedModal />
     <div className="flex h-screen overflow-hidden" style={{ background: '#F5F4F0' }}>
       {/* Overlay móvil */}
       {open && (

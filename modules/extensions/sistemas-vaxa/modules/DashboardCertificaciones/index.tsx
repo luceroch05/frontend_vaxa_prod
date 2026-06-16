@@ -52,111 +52,135 @@ export default function DashboardCertificaciones({ tenantId }: Props) {
   const consumidos = empresas.reduce((a, e) => a + e.creditos_consumidos, 0);
 
   const stats = [
-    { title: 'Empresas Registradas', value: totalEmpresas, icon: Building2, bg: 'bg-emerald-50', tc: 'text-emerald-600' },
-    { title: 'Empresas Activas', value: activas, icon: TrendingUp, bg: 'bg-blue-50', tc: 'text-blue-600' },
-    { title: 'Créditos Disponibles', value: creditosDisponibles, icon: CreditCard, bg: 'bg-purple-50', tc: 'text-purple-600' },
-    { title: 'Certificados Emitidos', value: consumidos, icon: FileText, bg: 'bg-orange-50', tc: 'text-orange-600' },
+    { title: 'Empresas',     value: totalEmpresas,       icon: Building2,   bg: '#ECFDF5', bd: '#A7F3D0', color: '#059669' },
+    { title: 'Activas',      value: activas,             icon: TrendingUp,  bg: '#F0FDF4', bd: '#BBF7D0', color: '#15803D' },
+    { title: 'Créditos disp.', value: creditosDisponibles, icon: CreditCard, bg: '#FFFBEB', bd: '#FDE68A', color: '#D97706' },
+    { title: 'Certificados',  value: consumidos,         icon: FileText,    bg: '#F5F4F0', bd: '#EAE7DF', color: '#0D0E12' },
   ];
 
   const recientes = empresas.slice(0, 5);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen" style={{ background: '#F5F4F0' }}>
       <HeaderSistemasVaxa
         tenantId={tenantId}
         usuario={usuario}
-        config={{ name: 'Sistema de Certificaciones', primaryColor: VAXA_CONFIG.PRIMARY_COLOR, secondaryColor: VAXA_CONFIG.SECONDARY_COLOR }}
+        config={{ name: 'Sistemas Vaxa', primaryColor: VAXA_CONFIG.PRIMARY_COLOR, secondaryColor: VAXA_CONFIG.SECONDARY_COLOR }}
       />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8 flex items-center justify-between">
+      <main className="max-w-5xl mx-auto px-5 sm:px-6 lg:px-8 py-7">
+        {/* Encabezado */}
+        <div className="mb-6 flex items-end justify-between gap-4 page-enter">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Sistema de Certificaciones</h1>
-            <p className="text-gray-600">Gestiona empresas, usuarios y créditos</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] mb-1" style={{ color: '#059669' }}>
+              Panel de administración
+            </p>
+            <h1 className="text-[24px] font-bold tracking-tight" style={{ color: '#0D0E12' }}>
+              Certificaciones
+            </h1>
+            <p className="text-[13px] mt-1" style={{ color: '#9CA3AF' }}>Gestiona empresas, usuarios y créditos.</p>
           </div>
           <button
             onClick={() => navigate(`/${tenantId}/certificaciones/registrar-empresa`)}
-            className="flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-all shadow-lg hover:shadow-xl font-semibold"
+            className="vx-btn px-4 py-2.5 flex-shrink-0 text-white"
+            style={{ background: '#059669', boxShadow: '0 1px 2px rgba(5,150,105,0.25), 0 4px 12px rgba(5,150,105,0.18)' }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = '#047857'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = '#059669'; }}
           >
-            <Plus className="w-5 h-5" /> Registrar Empresa
+            <Plus className="w-4 h-4" /> Registrar empresa
           </button>
         </div>
 
         {loading ? (
-          <div className="flex justify-center py-20 text-gray-400"><Loader2 className="w-7 h-7 animate-spin" /></div>
+          <div className="flex justify-center py-20" style={{ color: '#D1D5DB' }}><Loader2 className="w-6 h-6 animate-spin" /></div>
         ) : (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            {/* Stats */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5 page-enter stagger-1">
               {stats.map((s, i) => {
                 const Icon = s.icon;
                 return (
-                  <div key={i} className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-md transition-shadow">
-                    <div className={`w-12 h-12 rounded-xl ${s.bg} flex items-center justify-center mb-4`}>
-                      <Icon className={`w-6 h-6 ${s.tc}`} />
+                  <div
+                    key={i}
+                    className="rounded-2xl p-4 transition-all hover:-translate-y-0.5"
+                    style={{ background: '#FFFFFF', border: '1px solid #EEECE6', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}
+                  >
+                    <div className="w-9 h-9 rounded-xl flex items-center justify-center mb-3"
+                      style={{ background: s.bg, border: `1px solid ${s.bd}` }}>
+                      <Icon className="w-[18px] h-[18px]" style={{ color: s.color }} />
                     </div>
-                    <p className="text-sm text-gray-600 mb-1">{s.title}</p>
-                    <p className="text-3xl font-bold text-gray-900">{s.value}</p>
+                    <p className="text-[26px] font-bold leading-none tabular-nums" style={{ color: '#0D0E12' }}>{s.value}</p>
+                    <p className="text-[11px] font-semibold uppercase tracking-wider mt-1.5" style={{ color: '#B0A898' }}>{s.title}</p>
                   </div>
                 );
               })}
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-              <button onClick={() => navigate(`/${tenantId}/certificaciones/empresas`)}
-                className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg hover:border-emerald-300 transition-all text-left group">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center group-hover:scale-110 transition-transform">
-                    <Building2 className="w-6 h-6 text-emerald-600" />
+            {/* Accesos rápidos */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-5 page-enter stagger-2">
+              {[
+                { to: `/${tenantId}/certificaciones/empresas`, Icon: Building2, t: 'Ver todas las empresas', d: 'Empresas, créditos y usuarios' },
+                { to: `/${tenantId}/certificaciones/registrar-empresa`, Icon: Plus, t: 'Registrar nueva empresa', d: 'Agrega una empresa al sistema' },
+              ].map(({ to, Icon, t, d }) => (
+                <button key={to} onClick={() => navigate(to)}
+                  className="rounded-2xl p-5 text-left transition-all hover:-translate-y-0.5 group"
+                  style={{ background: '#FFFFFF', border: '1px solid #EEECE6', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center"
+                      style={{ background: '#059669' }}>
+                      <Icon className="w-5 h-5 text-white" />
+                    </div>
+                    <ArrowRight className="w-4 h-4 transition-all group-hover:translate-x-1" style={{ color: '#C8C3BB' }} />
                   </div>
-                  <ArrowRight className="w-5 h-5 text-gray-400 group-hover:text-emerald-600 group-hover:translate-x-1 transition-all" />
-                </div>
-                <h3 className="text-lg font-bold text-gray-900 mb-2">Ver Todas las Empresas</h3>
-                <p className="text-sm text-gray-600">Empresas, créditos y usuarios</p>
-              </button>
-
-              <button onClick={() => navigate(`/${tenantId}/certificaciones/registrar-empresa`)}
-                className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg hover:border-blue-300 transition-all text-left group">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center group-hover:scale-110 transition-transform">
-                    <Plus className="w-6 h-6 text-blue-600" />
-                  </div>
-                  <ArrowRight className="w-5 h-5 text-gray-400 group-hover:text-blue-600 group-hover:translate-x-1 transition-all" />
-                </div>
-                <h3 className="text-lg font-bold text-gray-900 mb-2">Registrar Nueva Empresa</h3>
-                <p className="text-sm text-gray-600">Agrega una empresa al sistema</p>
-              </button>
+                  <h3 className="text-[14.5px] font-bold" style={{ color: '#0D0E12' }}>{t}</h3>
+                  <p className="text-[12.5px] mt-0.5" style={{ color: '#9CA3AF' }}>{d}</p>
+                </button>
+              ))}
             </div>
 
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-bold text-gray-900">Empresas Recientes</h2>
+            {/* Empresas recientes */}
+            <div className="rounded-2xl overflow-hidden page-enter stagger-3"
+              style={{ background: '#FFFFFF', border: '1px solid #EEECE6' }}>
+              <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid #F2F0EA' }}>
+                <h2 className="text-[14px] font-bold" style={{ color: '#0D0E12' }}>Empresas recientes</h2>
                 <button onClick={() => navigate(`/${tenantId}/certificaciones/empresas`)}
-                  className="text-sm text-emerald-600 hover:text-emerald-700 font-semibold flex items-center gap-1">
-                  Ver todas <ArrowRight className="w-4 h-4" />
+                  className="text-[12.5px] font-semibold flex items-center gap-1 transition-colors hover:opacity-70"
+                  style={{ color: '#059669' }}>
+                  Ver todas <ArrowRight className="w-3.5 h-3.5" />
                 </button>
               </div>
               {recientes.length === 0 ? (
-                <p className="text-sm text-gray-500 py-8 text-center">Aún no hay empresas registradas.</p>
+                <p className="text-[13px] py-10 text-center" style={{ color: '#B0A898' }}>Aún no hay empresas registradas.</p>
               ) : (
-                <div className="space-y-4">
-                  {recientes.map((e) => (
+                <div>
+                  {recientes.map((e, idx) => (
                     <div key={e.id} onClick={() => navigate(`/${tenantId}/certificaciones/empresa/${e.id}`)}
-                      className="flex items-center justify-between p-4 rounded-xl border border-gray-200 hover:border-emerald-300 hover:shadow-md transition-all cursor-pointer group">
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-gray-50 rounded-lg flex items-center justify-center border border-gray-200">
-                          <Building2 className="w-6 h-6 text-gray-400" />
-                        </div>
-                        <div>
-                          <h3 className="font-semibold text-gray-900 group-hover:text-emerald-600 transition-colors">{e.razon_social}</h3>
-                          <p className="text-sm text-gray-500">{e.tenant_slug}</p>
+                      className="flex items-center justify-between px-5 py-3.5 cursor-pointer group transition-colors"
+                      style={{ borderBottom: idx < recientes.length - 1 ? '1px solid #F5F4F0' : undefined }}
+                      onMouseEnter={(ev) => { ev.currentTarget.style.background = '#FAFAF8'; }}
+                      onMouseLeave={(ev) => { ev.currentTarget.style.background = 'transparent'; }}>
+                      <div className="flex items-center gap-3 min-w-0">
+                        {e.logo_url ? (
+                          <img src={e.logo_url} alt={e.razon_social}
+                            className="w-10 h-10 rounded-xl object-contain flex-shrink-0 bg-white"
+                            style={{ border: '1px solid #EEECE6' }} />
+                        ) : (
+                          <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                            style={{ background: '#F5F4F0', border: '1px solid #EEECE6' }}>
+                            <Building2 className="w-5 h-5" style={{ color: '#B0A898' }} />
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <h3 className="text-[13.5px] font-semibold truncate" style={{ color: '#0D0E12' }}>{e.razon_social}</h3>
+                          <p className="text-[11.5px] truncate" style={{ color: '#9CA3AF' }}>{e.tenant_slug}</p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-6">
+                      <div className="flex items-center gap-4 flex-shrink-0">
                         <div className="text-right">
-                          <p className="text-sm text-gray-600">Créditos</p>
-                          <p className="font-semibold text-gray-900">{e.creditos_disponibles}</p>
+                          <p className="text-[14px] font-bold tabular-nums" style={{ color: '#0D0E12' }}>{e.creditos_disponibles}</p>
+                          <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: '#B0A898' }}>créditos</p>
                         </div>
-                        <ArrowRight className="w-5 h-5 text-gray-400 group-hover:text-emerald-600 group-hover:translate-x-1 transition-all" />
+                        <ArrowRight className="w-4 h-4 transition-all group-hover:translate-x-1" style={{ color: '#C8C3BB' }} />
                       </div>
                     </div>
                   ))}

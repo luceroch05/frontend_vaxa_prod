@@ -81,7 +81,17 @@
       "Bash(tar -xzf /c/Users/Lucero/Desktop/backend-dist-15jun.tar.gz -O ./modules/certificados/public/public.routes.js)",
       "Bash(tar -czf /c/Users/Lucero/Desktop/frontend-dist-15jun.tar.gz .)",
       "Bash(tar -czf /c/Users/Lucero/Desktop/backend-dist-15jun.tar.gz .)",
-      "Bash(tar -xzf /c/Users/Lucero/Desktop/backend-dist-15jun.tar.gz -O ./modules/certificados/pdf/pdf.service.js)"
+      "Bash(tar -xzf /c/Users/Lucero/Desktop/backend-dist-15jun.tar.gz -O ./modules/certificados/pdf/pdf.service.js)",
+      "Bash(ls node_modules/ws)",
+      "Bash(ls node_modules/@types/ws)",
+      "Bash(PORT=4055 node dist/index.js)",
+      "Bash(echo \"backend pid $!\")",
+      "Read(//tmp/**)",
+      "Bash(tar czf *)",
+      "Bash(tar tzf *)",
+      "Bash(awk '{print $5}')",
+      "Bash(awk '{print $5\" bytes\"}')",
+      "Bash(awk '{print $5, $NF}')"
     ],
     "deny": [],
     "ask": []

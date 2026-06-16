@@ -14,6 +14,8 @@ interface LoginProps {
 
 /** Tenant raíz cuyo JWT autoriza la administración de créditos (ver requireRootTenant). */
 const ROOT_TENANT = 'vaxa';
+/** Producto interno de administración de Vaxa (no facturable; ver tabla `productos`). */
+const PRODUCTO_SISTEMAS_VAXA = 'sistemas-vaxa';
 
 export default function LoginSistemasVaxa({ tenantId, tenant }: LoginProps) {
   const navigate = useNavigate();
@@ -32,7 +34,7 @@ export default function LoginSistemasVaxa({ tenantId, tenant }: LoginProps) {
       // El JWT resultante (guardado como vaxa_jwt_vaxa) autoriza /api/admin/creditos/*.
       const { token, usuario } = await api.post<{ token: string; usuario: AuthUser }>(
         '/api/auth/login',
-        { correo: email, contrasena: password, empresa: ROOT_TENANT },
+        { correo: email, contrasena: password, empresa: ROOT_TENANT, producto: PRODUCTO_SISTEMAS_VAXA },
       );
       authStorage.setSession(ROOT_TENANT, token, usuario);
 
@@ -53,105 +55,61 @@ export default function LoginSistemasVaxa({ tenantId, tenant }: LoginProps) {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-500 to-emerald-700 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        {/* Card */}
-        <div className="bg-white rounded-2xl shadow-2xl p-8">
-          {/* Logo y título */}
-          <div className="text-center mb-8">
-            <div className="w-16 h-16 bg-emerald-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <svg
-                className="w-10 h-10 text-emerald-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-                />
-              </svg>
-            </div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Sistemas Vaxa</h1>
-            <p className="text-gray-600">Panel de Administración</p>
-          </div>
-
-          {/* Error message */}
-          {error && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-center gap-3">
-              <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
-              <p className="text-sm text-red-800">{error}</p>
-            </div>
-          )}
-
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <label htmlFor="email" className="block text-sm font-semibold text-gray-700 mb-2">
-                Email
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Mail className="h-5 w-5 text-gray-400" />
-                </div>
-                <input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
-                  placeholder="admin@vaxa.com"
-                  required
-                />
-              </div>
-            </div>
-
-            <div>
-              <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-2">
-                Contraseña
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Lock className="h-5 w-5 text-gray-400" />
-                </div>
-                <input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
-                  placeholder="••••••••"
-                  required
-                />
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? (
-                <>
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Ingresando...
-                </>
-              ) : (
-                <>
-                  <LogIn className="w-5 h-5" />
-                  Ingresar
-                </>
-              )}
-            </button>
-          </form>
-
+    <div className="min-h-screen flex items-center justify-center px-4 py-10" style={{ background: '#F4F2EC' }}>
+      <div className="w-full max-w-[400px]">
+        {/* Glows decorativos */}
+        <div className="absolute inset-0 pointer-events-none overflow-hidden">
+          <div className="absolute -top-24 -left-24 w-[26rem] h-[26rem] rounded-full blur-3xl" style={{ background: 'rgba(5,150,105,0.07)' }} />
+          <div className="absolute -bottom-32 -right-20 w-[24rem] h-[24rem] rounded-full blur-3xl" style={{ background: 'rgba(5,150,105,0.05)' }} />
         </div>
 
-        {/* Footer */}
-        <p className="text-center text-white text-sm mt-6">
-          © 2024 Sistemas Vaxa. Todos los derechos reservados.
+        <div className="relative rounded-[20px] overflow-hidden page-enter" style={{ background: '#FFFFFF', border: '1px solid #EAE7DF', boxShadow: '0 18px 50px rgba(13,14,18,0.10)' }}>
+          {/* Cabecera */}
+          <div className="px-9 pt-9 pb-7 text-center" style={{ borderBottom: '1px solid #F2F0EA' }}>
+            <img src="/vaxa.png" alt="Vaxa" className="h-24 w-auto object-contain mx-auto" style={{ maxWidth: 260 }} />
+            <p className="text-[10px] font-semibold mt-2" style={{ color: '#059669', letterSpacing: '0.22em' }}>ADMINISTRACIÓN</p>
+          </div>
+
+          <div className="px-9 py-8">
+            <h2 className="text-[20px] font-bold tracking-tight" style={{ color: '#0D0E12' }}>Bienvenido</h2>
+            <p className="text-[13px] mt-1 mb-6" style={{ color: '#9CA3AF' }}>Ingresa al panel de administración.</p>
+
+            {error && (
+              <div className="mb-5 px-3.5 py-2.5 rounded-xl flex items-center gap-2.5 text-[13px]" style={{ background: '#FEF2F2', border: '1px solid #FECACA', color: '#B91C1C' }}>
+                <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" /> {error}
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-[11px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: '#374151' }}>Email</label>
+                <div className="relative">
+                  <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-[15px] h-[15px] pointer-events-none" style={{ color: '#B0A898' }} />
+                  <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="admin@vaxa.com" required className="sv-input" style={{ paddingLeft: '2.5rem' }} />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: '#374151' }}>Contraseña</label>
+                <div className="relative">
+                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-[15px] h-[15px] pointer-events-none" style={{ color: '#B0A898' }} />
+                  <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required className="sv-input" style={{ paddingLeft: '2.5rem' }} />
+                </div>
+              </div>
+
+              <button type="submit" disabled={loading} className="sv-btn sv-btn-primary w-full py-3 mt-1">
+                {loading ? (
+                  <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Ingresando…</>
+                ) : (
+                  <><LogIn className="w-4 h-4" /> Ingresar</>
+                )}
+              </button>
+            </form>
+          </div>
+        </div>
+
+        <p className="relative text-center text-[11px] mt-5" style={{ color: '#B7B1A6' }}>
+          © {new Date().getFullYear()} · Sistemas Vaxa
         </p>
       </div>
     </div>

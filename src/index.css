@@ -149,3 +149,57 @@ body {
   background: #F5F3EE;
   color: #1a1c23;
 }
+
+/* ── Sistemas Vaxa — tema esmeralda premium ───────────────── */
+.sv-input {
+  width: 100%;
+  padding: 0.625rem 0.875rem;
+  font-size: 0.875rem;
+  border: 1.5px solid #E5E7EB;
+  border-radius: 10px;
+  background: #FAFAFA;
+  color: #0D0E12;
+  outline: none;
+  transition: border-color 150ms ease, box-shadow 150ms ease, background 150ms ease;
+  font-family: inherit;
+}
+.sv-input::placeholder { color: #9CA3AF; }
+.sv-input:focus {
+  border-color: #059669;
+  box-shadow: 0 0 0 3px rgba(5,150,105,0.12);
+  background: #FFFFFF;
+}
+.sv-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  padding: 0.6rem 1rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  border-radius: 10px;
+  transition: background 140ms ease, transform 90ms ease, box-shadow 140ms ease, opacity 140ms ease;
+  cursor: pointer;
+  font-family: inherit;
+  line-height: 1;
+}
+.sv-btn-primary {
+  background: #059669;
+  color: #fff;
+  box-shadow: 0 1px 2px rgba(5,150,105,0.25), 0 4px 12px rgba(5,150,105,0.16);
+}
+.sv-btn-primary:hover    { background: #047857; }
+.sv-btn-primary:active   { transform: scale(0.98); }
+.sv-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+.sv-btn-ghost {
+  background: #fff;
+  color: #374151;
+  border: 1px solid #E5E7EB;
+}
+.sv-btn-ghost:hover { background: #F9FAFB; border-color: #D1D5DB; }
+.sv-card {
+  background: #FFFFFF;
+  border: 1px solid #EEECE6;
+  border-radius: 16px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+}

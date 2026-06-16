@@ -58,111 +58,110 @@ export default function EmpresasCertificaciones({ tenantId }: Props) {
   );
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen" style={{ background: '#F5F4F0' }}>
       <HeaderSistemasVaxa
         tenantId={tenantId}
         usuario={usuario}
-        config={{ name: 'Sistema de Certificaciones', primaryColor: VAXA_CONFIG.PRIMARY_COLOR, secondaryColor: VAXA_CONFIG.SECONDARY_COLOR }}
+        config={{ name: 'Sistemas Vaxa', primaryColor: VAXA_CONFIG.PRIMARY_COLOR, secondaryColor: VAXA_CONFIG.SECONDARY_COLOR }}
       />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8 flex items-center justify-between">
+      <main className="max-w-5xl mx-auto px-5 sm:px-6 lg:px-8 py-7">
+        <div className="mb-5 flex items-end justify-between gap-4 page-enter">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Empresas Registradas</h1>
-            <p className="text-gray-600">Gestiona las empresas que usan el sistema de certificados</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] mb-1" style={{ color: '#059669' }}>Certificaciones</p>
+            <h1 className="text-[24px] font-bold tracking-tight" style={{ color: '#0D0E12' }}>Empresas registradas</h1>
+            <p className="text-[13px] mt-1" style={{ color: '#9CA3AF' }}>Gestiona las empresas que usan el sistema de certificados.</p>
           </div>
           <button
             onClick={() => navigate(`/${tenantId}/certificaciones/registrar-empresa`)}
-            className="flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-all shadow-lg hover:shadow-xl font-semibold"
+            className="sv-btn sv-btn-primary flex-shrink-0"
           >
-            <Plus className="w-5 h-5" /> Registrar Empresa
+            <Plus className="w-4 h-4" /> Registrar empresa
           </button>
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-            <input
-              type="text" placeholder="Buscar por nombre, slug o RUC..."
-              value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
-            />
-          </div>
+        <div className="relative mb-4 page-enter stagger-1">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-[15px] h-[15px]" style={{ color: '#B0A898' }} />
+          <input
+            type="text" placeholder="Buscar por nombre, slug o RUC…"
+            value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
+            className="sv-input" style={{ paddingLeft: '2.5rem' }}
+          />
         </div>
 
         {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-center gap-3">
-            <AlertCircle className="w-5 h-5 text-red-600" /> <p className="text-sm text-red-800">{error}</p>
+          <div className="mb-4 px-4 py-3 rounded-xl flex items-center gap-2.5 text-[13px]"
+            style={{ background: '#FEF2F2', border: '1px solid #FECACA', color: '#B91C1C' }}>
+            <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" /> {error}
           </div>
         )}
 
         {loading ? (
-          <div className="flex justify-center py-20 text-gray-400"><Loader2 className="w-7 h-7 animate-spin" /></div>
+          <div className="flex justify-center py-20" style={{ color: '#D1D5DB' }}><Loader2 className="w-6 h-6 animate-spin" /></div>
         ) : (
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 border-b border-gray-200">
-                  <tr>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Empresa</th>
-                    <th className="px-6 py-4 text-center text-sm font-semibold text-gray-900">Créditos</th>
-                    <th className="px-6 py-4 text-center text-sm font-semibold text-gray-900">Consumidos</th>
-                    <th className="px-6 py-4 text-center text-sm font-semibold text-gray-900">Estado</th>
-                    <th className="px-6 py-4 text-right text-sm font-semibold text-gray-900">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {filtradas.map((e) => {
-                    const bajo = e.creditos_disponibles <= 0, medio = e.creditos_disponibles > 0 && e.creditos_disponibles <= 10;
-                    return (
-                      <tr key={e.id} className="hover:bg-gray-50 transition-colors cursor-pointer"
-                        onClick={() => navigate(`/${tenantId}/certificaciones/empresa/${e.id}`)}>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-gray-50 rounded-lg flex items-center justify-center border border-gray-200">
-                              <Building2 className="w-5 h-5 text-gray-400" />
-                            </div>
-                            <div>
-                              <p className="font-semibold text-gray-900">{e.razon_social}</p>
-                              <p className="text-sm text-gray-500">{e.tenant_slug}{e.ruc ? ` · ${e.ruc}` : ''}</p>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 text-center">
-                          <span className="inline-flex items-center justify-center min-w-[3rem] px-3 py-1 rounded-full text-sm font-bold"
-                            style={{ background: bajo ? '#FEF2F2' : medio ? '#FFFBEB' : '#F0FDF4', color: bajo ? '#DC2626' : medio ? '#D97706' : '#15803D' }}>
-                            {e.creditos_disponibles}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-center text-sm font-semibold text-gray-700">{e.creditos_consumidos}</td>
-                        <td className="px-6 py-4 text-center">
-                          <span className={`inline-flex px-3 py-1 rounded-full text-xs font-semibold ${e.activo ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
-                            {e.activo ? 'Activo' : 'Inactivo'}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                          <button
-                            onClick={(ev) => { ev.stopPropagation(); navigate(`/${tenantId}/certificaciones/empresa/${e.id}`); }}
-                            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
-                          >
-                            <Eye className="w-4 h-4" /> Ver Perfil
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+          <div className="sv-card overflow-hidden page-enter stagger-2">
+            {/* Encabezado de tabla */}
+            <div className="hidden sm:grid items-center px-5 py-3 gap-3" style={{ gridTemplateColumns: '1fr auto auto auto auto', borderBottom: '1px solid #F2F0EA' }}>
+              <span className="text-[10.5px] font-semibold uppercase tracking-wider" style={{ color: '#B0A898' }}>Empresa</span>
+              <span className="text-[10.5px] font-semibold uppercase tracking-wider text-center w-20" style={{ color: '#B0A898' }}>Créditos</span>
+              <span className="text-[10.5px] font-semibold uppercase tracking-wider text-center w-24" style={{ color: '#B0A898' }}>Consumidos</span>
+              <span className="text-[10.5px] font-semibold uppercase tracking-wider text-center w-20" style={{ color: '#B0A898' }}>Estado</span>
+              <span className="w-9" />
             </div>
+
+            {filtradas.map((e, idx) => {
+              const bajo = e.creditos_disponibles <= 0, medio = e.creditos_disponibles > 0 && e.creditos_disponibles <= 10;
+              return (
+                <div key={e.id}
+                  className="grid items-center px-5 py-3.5 gap-3 cursor-pointer group transition-colors"
+                  style={{ gridTemplateColumns: '1fr auto auto auto auto', borderBottom: idx < filtradas.length - 1 ? '1px solid #F5F4F0' : undefined }}
+                  onClick={() => navigate(`/${tenantId}/certificaciones/empresa/${e.id}`)}
+                  onMouseEnter={(ev) => { ev.currentTarget.style.background = '#FAFAF8'; }}
+                  onMouseLeave={(ev) => { ev.currentTarget.style.background = 'transparent'; }}>
+                  <div className="flex items-center gap-3 min-w-0">
+                    {e.logo_url ? (
+                      <img src={e.logo_url} alt={e.razon_social}
+                        className="w-10 h-10 rounded-xl object-contain flex-shrink-0 bg-white"
+                        style={{ border: '1px solid #EEECE6' }} />
+                    ) : (
+                      <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: '#F5F4F0', border: '1px solid #EEECE6' }}>
+                        <Building2 className="w-5 h-5" style={{ color: '#B0A898' }} />
+                      </div>
+                    )}
+                    <div className="min-w-0">
+                      <p className="text-[13.5px] font-semibold truncate" style={{ color: '#0D0E12' }}>{e.razon_social}</p>
+                      <p className="text-[11.5px] truncate" style={{ color: '#9CA3AF' }}>{e.tenant_slug}{e.ruc ? ` · ${e.ruc}` : ''}</p>
+                    </div>
+                  </div>
+                  <div className="w-20 text-center">
+                    <span className="inline-flex items-center justify-center min-w-[2.5rem] px-2.5 py-1 rounded-lg text-[12.5px] font-bold"
+                      style={{ background: bajo ? '#FEF2F2' : medio ? '#FFFBEB' : '#F0FDF4', color: bajo ? '#DC2626' : medio ? '#D97706' : '#15803D' }}>
+                      {e.creditos_disponibles}
+                    </span>
+                  </div>
+                  <div className="w-24 text-center text-[13px] font-semibold tabular-nums" style={{ color: '#64748B' }}>{e.creditos_consumidos}</div>
+                  <div className="w-20 text-center">
+                    <span className="inline-flex px-2.5 py-1 rounded-lg text-[10.5px] font-semibold"
+                      style={e.activo ? { background: '#ECFDF5', color: '#059669' } : { background: '#F3F4F6', color: '#6B7280' }}>
+                      {e.activo ? 'Activo' : 'Inactivo'}
+                    </span>
+                  </div>
+                  <div className="w-9 flex justify-end">
+                    <Eye className="w-4 h-4 transition-all group-hover:translate-x-0.5" style={{ color: '#C8C3BB' }} />
+                  </div>
+                </div>
+              );
+            })}
+
             {filtradas.length === 0 && (
-              <div className="text-center py-16">
-                <Building2 className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                <p className="text-lg font-semibold text-gray-900 mb-2">No hay empresas</p>
+              <div className="text-center py-14">
+                <Building2 className="w-12 h-12 mx-auto mb-3" style={{ color: '#E5E1D8' }} />
+                <p className="text-[14px] font-semibold mb-3" style={{ color: '#0D0E12' }}>No hay empresas</p>
                 <button
                   onClick={() => navigate(`/${tenantId}/certificaciones/registrar-empresa`)}
-                  className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 font-semibold"
+                  className="sv-btn sv-btn-primary mx-auto"
                 >
-                  <Plus className="w-5 h-5" /> Registrar Primera Empresa
+                  <Plus className="w-4 h-4" /> Registrar primera empresa
                 </button>
               </div>
             )}

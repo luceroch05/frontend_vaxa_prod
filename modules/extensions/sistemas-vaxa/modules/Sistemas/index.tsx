@@ -65,16 +65,14 @@ export default function Sistemas({ tenantId, tenant }: SistemasProps) {
   // Verificar que tenantId está disponible antes de renderizar
   if (!tenantId) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-xl text-red-600">Error: Tenant ID no disponible</p>
-        </div>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: '#F5F4F0' }}>
+        <p className="text-[15px] font-semibold" style={{ color: '#DC2626' }}>Error: Tenant ID no disponible</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen" style={{ background: '#F5F4F0' }}>
       <HeaderSistemasVaxa
         tenantId={tenantId}
         usuario={usuario}
@@ -85,83 +83,81 @@ export default function Sistemas({ tenantId, tenant }: SistemasProps) {
         }}
       />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-5xl mx-auto px-5 sm:px-6 lg:px-8 py-7">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Panel de Administración</h1>
-          <p className="text-gray-600">Gestiona los sistemas y usuarios de Vaxa</p>
+        <div className="mb-6 page-enter">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] mb-1" style={{ color: '#059669' }}>Sistemas Vaxa</p>
+          <h1 className="text-[24px] font-bold tracking-tight" style={{ color: '#0D0E12' }}>Panel de administración</h1>
+          <p className="text-[13px] mt-1" style={{ color: '#9CA3AF' }}>Gestiona los sistemas y usuarios de Vaxa.</p>
         </div>
 
-        {/* Opciones principales */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Sistemas Registrados */}
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <div className="flex items-center justify-between mb-6">
+          <div className="sv-card p-5 page-enter stagger-1">
+            <div className="flex items-center justify-between mb-4">
               <div>
-                <h2 className="text-xl font-bold text-gray-900 mb-2">Sistemas Registrados</h2>
-                <p className="text-sm text-gray-600">
-                  Gestiona los sistemas activos de Vaxa
-                </p>
+                <h2 className="text-[15px] font-bold" style={{ color: '#0D0E12' }}>Sistemas registrados</h2>
+                <p className="text-[12.5px] mt-0.5" style={{ color: '#9CA3AF' }}>Software activo de Vaxa</p>
               </div>
-              <div className="w-12 h-12 bg-emerald-50 rounded-xl flex items-center justify-center">
-                <Package className="w-6 h-6 text-emerald-600" />
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: '#059669' }}>
+                <Package className="w-5 h-5 text-white" />
               </div>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-2">
               {SISTEMAS_MOCK.map((sistema) => (
                 <button
                   key={sistema.id}
                   onClick={() => navigate(`/${tenantId}/${sistema.slug}`)}
-                  className="w-full flex items-center justify-between p-4 rounded-lg border border-gray-200 hover:border-emerald-300 hover:shadow-md transition-all group"
+                  className="w-full flex items-center justify-between p-3 rounded-xl transition-all group"
+                  style={{ border: '1px solid #EEECE6' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = '#FAFAF8'; e.currentTarget.style.borderColor = '#A7F3D0'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = '#EEECE6'; }}
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-emerald-50 rounded-lg flex items-center justify-center">
-                      <Building2 className="w-5 h-5 text-emerald-600" />
+                    <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: '#ECFDF5', border: '1px solid #A7F3D0' }}>
+                      <Building2 className="w-[18px] h-[18px]" style={{ color: '#059669' }} />
                     </div>
                     <div className="text-left">
-                      <p className="font-semibold text-gray-900 group-hover:text-emerald-600 transition-colors">
-                        {sistema.nombre}
-                      </p>
-                      <p className="text-sm text-gray-500">/{sistema.slug}</p>
+                      <p className="text-[13.5px] font-semibold" style={{ color: '#0D0E12' }}>{sistema.nombre}</p>
+                      <p className="text-[11.5px]" style={{ color: '#9CA3AF' }}>/{sistema.slug}</p>
                     </div>
                   </div>
-                  <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-emerald-600 group-hover:translate-x-1 transition-all" />
+                  <ChevronRight className="w-4 h-4 transition-all group-hover:translate-x-1" style={{ color: '#C8C3BB' }} />
                 </button>
               ))}
             </div>
           </div>
 
           {/* Gestión de Usuarios */}
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <div className="flex items-center justify-between mb-6">
+          <div className="sv-card p-5 page-enter stagger-2">
+            <div className="flex items-center justify-between mb-4">
               <div>
-                <h2 className="text-xl font-bold text-gray-900 mb-2">Gestión de Usuarios</h2>
-                <p className="text-sm text-gray-600">
-                  Administra los usuarios de sistemas-vaxa
-                </p>
+                <h2 className="text-[15px] font-bold" style={{ color: '#0D0E12' }}>Gestión de usuarios</h2>
+                <p className="text-[12.5px] mt-0.5" style={{ color: '#9CA3AF' }}>Usuarios de sistemas-vaxa</p>
               </div>
-              <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center">
-                <Users className="w-6 h-6 text-blue-600" />
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: '#0D0E12' }}>
+                <Users className="w-5 h-5" style={{ color: '#059669' }} />
               </div>
             </div>
 
             <button
               onClick={() => navigate(`/${tenantId}/usuarios`)}
-              className="w-full flex items-center justify-between p-4 rounded-lg border border-gray-200 hover:border-blue-300 hover:shadow-md transition-all group"
+              className="w-full flex items-center justify-between p-3 rounded-xl transition-all group"
+              style={{ border: '1px solid #EEECE6' }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = '#FAFAF8'; e.currentTarget.style.borderColor = '#A7F3D0'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = '#EEECE6'; }}
             >
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center">
-                  <Users className="w-5 h-5 text-blue-600" />
+                <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: '#ECFDF5', border: '1px solid #A7F3D0' }}>
+                  <Users className="w-[18px] h-[18px]" style={{ color: '#059669' }} />
                 </div>
                 <div className="text-left">
-                  <p className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
-                    Ver Usuarios
-                  </p>
-                  <p className="text-sm text-gray-500">Gestiona accesos a sistemas-vaxa</p>
+                  <p className="text-[13.5px] font-semibold" style={{ color: '#0D0E12' }}>Ver usuarios</p>
+                  <p className="text-[11.5px]" style={{ color: '#9CA3AF' }}>Gestiona accesos a sistemas-vaxa</p>
                 </div>
               </div>
-              <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-blue-600 group-hover:translate-x-1 transition-all" />
+              <ChevronRight className="w-4 h-4 transition-all group-hover:translate-x-1" style={{ color: '#C8C3BB' }} />
             </button>
           </div>
         </div>

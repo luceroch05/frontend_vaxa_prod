@@ -16,8 +16,10 @@ function handleSessionRevoked(): void {
   try { authStorage.clearAllSessions(); } catch { /* ignore */ }
   try { sessionStorage.setItem('vaxa_session_revoked', '1'); } catch { /* ignore */ }
 
-  const empresa = window.location.pathname.split('/').filter(Boolean)[0] ?? '';
-  window.location.href = `/${empresa}/certificados/login`;
+  // El modal bloqueante (SessionRevokedModal) escucha este evento y se encarga de
+  // tapar la pantalla y llevar al login. Es el respaldo del WebSocket: si por lo
+  // que sea no llegó el aviso en tiempo real, la primera petición 401 lo dispara.
+  window.dispatchEvent(new CustomEvent('vaxa:session-revoked'));
 }
 
 export interface RequestOptions extends RequestInit {

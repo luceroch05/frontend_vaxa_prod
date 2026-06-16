@@ -62,82 +62,92 @@ export default function PerfilEmpresa({ tenantId, empresaId }: PerfilEmpresaProp
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen" style={{ background: '#F5F4F0' }}>
       <HeaderSistemasVaxa
         tenantId={tenantId}
         usuario={usuario}
-        config={{ name: 'Sistema de Certificaciones', primaryColor: VAXA_CONFIG.PRIMARY_COLOR, secondaryColor: VAXA_CONFIG.SECONDARY_COLOR }}
+        config={{ name: 'Sistemas Vaxa', primaryColor: VAXA_CONFIG.PRIMARY_COLOR, secondaryColor: VAXA_CONFIG.SECONDARY_COLOR }}
       />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-5xl mx-auto px-5 sm:px-6 lg:px-8 py-7">
         <button
           onClick={() => navigate(`/${tenantId}/certificaciones/empresas`)}
-          className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-8 transition-colors group"
+          className="flex items-center gap-1.5 mb-5 text-[13px] font-medium transition-colors group"
+          style={{ color: '#64748B' }}
         >
-          <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
-          <span className="font-medium">Volver a Empresas</span>
+          <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
+          Volver a empresas
         </button>
 
         {loading ? (
-          <div className="flex justify-center py-20 text-gray-400"><Loader2 className="w-7 h-7 animate-spin" /></div>
+          <div className="flex justify-center py-20" style={{ color: '#D1D5DB' }}><Loader2 className="w-6 h-6 animate-spin" /></div>
         ) : error ? (
-          <div className="p-4 bg-red-50 border border-red-200 rounded-xl flex items-center gap-3">
-            <AlertCircle className="w-5 h-5 text-red-600" /> <p className="text-sm text-red-800">{error}</p>
+          <div className="px-4 py-3 rounded-xl flex items-center gap-2.5 text-[13px]"
+            style={{ background: '#FEF2F2', border: '1px solid #FECACA', color: '#B91C1C' }}>
+            <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" /> {error}
           </div>
         ) : !empresa ? (
           <div className="text-center py-16">
-            <Building2 className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Empresa no encontrada</h2>
-            <button onClick={() => navigate(`/${tenantId}/certificaciones/empresas`)}
-              className="mt-2 px-6 py-3 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 font-semibold">Volver a Empresas</button>
+            <Building2 className="w-12 h-12 mx-auto mb-3" style={{ color: '#E5E1D8' }} />
+            <h2 className="text-[16px] font-bold mb-3" style={{ color: '#0D0E12' }}>Empresa no encontrada</h2>
+            <button onClick={() => navigate(`/${tenantId}/certificaciones/empresas`)} className="sv-btn sv-btn-primary mx-auto">Volver a empresas</button>
           </div>
         ) : (
           <>
             {/* Header empresa */}
-            <div className="bg-white rounded-xl border border-gray-200 p-8 mb-6">
-              <div className="flex items-center gap-6 mb-6">
-                <div className="w-24 h-24 bg-gray-50 rounded-xl flex items-center justify-center border-2 border-gray-200">
-                  <Building2 className="w-12 h-12 text-gray-400" />
-                </div>
-                <div>
-                  <h1 className="text-3xl font-bold text-gray-900 mb-2">{empresa.razon_social}</h1>
-                  <div className="flex items-center gap-4 text-sm text-gray-600">
-                    <span className="flex items-center gap-1"><Building2 className="w-4 h-4" />{empresa.tenant_slug}</span>
-                    {empresa.ruc && <span>RUC {empresa.ruc}</span>}
-                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${empresa.activo ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
+            <div className="sv-card p-6 mb-4 page-enter">
+              <div className="flex items-center gap-4 mb-5">
+                {empresa.logo_url ? (
+                  <img src={empresa.logo_url} alt={empresa.razon_social}
+                    className="w-16 h-16 rounded-2xl object-contain flex-shrink-0 bg-white"
+                    style={{ border: '1px solid #EEECE6' }} />
+                ) : (
+                  <div className="w-16 h-16 rounded-2xl flex items-center justify-center flex-shrink-0" style={{ background: '#ECFDF5', border: '1px solid #A7F3D0' }}>
+                    <Building2 className="w-8 h-8" style={{ color: '#059669' }} />
+                  </div>
+                )}
+                <div className="min-w-0">
+                  <h1 className="text-[22px] font-bold tracking-tight truncate" style={{ color: '#0D0E12' }}>{empresa.razon_social}</h1>
+                  <div className="flex items-center gap-2.5 mt-1 flex-wrap">
+                    <span className="text-[12.5px] flex items-center gap-1" style={{ color: '#9CA3AF' }}><Building2 className="w-3.5 h-3.5" />{empresa.tenant_slug}</span>
+                    {empresa.ruc && <span className="text-[12.5px]" style={{ color: '#9CA3AF' }}>· RUC {empresa.ruc}</span>}
+                    <span className="px-2.5 py-1 rounded-lg text-[10.5px] font-semibold"
+                      style={empresa.activo ? { background: '#ECFDF5', color: '#059669' } : { background: '#F3F4F6', color: '#6B7280' }}>
                       {empresa.activo ? 'Activo' : 'Inactivo'}
                     </span>
                   </div>
                 </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                  <p className="text-sm text-gray-600 mb-1">Créditos disponibles</p>
-                  <p className="text-2xl font-bold text-emerald-600">{empresa.creditos_disponibles}</p>
-                </div>
-                <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                  <p className="text-sm text-gray-600 mb-1">Consumidos</p>
-                  <p className="text-2xl font-bold text-gray-900">{empresa.creditos_consumidos}</p>
-                </div>
-                <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                  <p className="text-sm text-gray-600 mb-1">Asignados (total)</p>
-                  <p className="text-2xl font-bold text-gray-900">{empresa.creditos_asignados_total}</p>
-                </div>
+              <div className="grid grid-cols-3 gap-3">
+                {[
+                  { label: 'Disponibles', value: empresa.creditos_disponibles, color: '#059669' },
+                  { label: 'Consumidos', value: empresa.creditos_consumidos, color: '#0D0E12' },
+                  { label: 'Asignados', value: empresa.creditos_asignados_total, color: '#0D0E12' },
+                ].map((s) => (
+                  <div key={s.label} className="rounded-xl p-3.5" style={{ background: '#FAFAF8', border: '1px solid #EEECE6' }}>
+                    <p className="text-[24px] font-bold leading-none tabular-nums" style={{ color: s.color }}>{s.value}</p>
+                    <p className="text-[10.5px] font-semibold uppercase tracking-wider mt-1.5" style={{ color: '#B0A898' }}>{s.label}</p>
+                  </div>
+                ))}
               </div>
             </div>
 
             {/* Tabs */}
-            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-              <div className="border-b border-gray-200">
-                <nav className="flex -mb-px">
+            <div className="sv-card overflow-hidden page-enter stagger-1">
+              <div style={{ borderBottom: '1px solid #F2F0EA' }}>
+                <nav className="flex">
                   {tabs.map((tab) => {
                     const Icon = tab.icon;
+                    const active = activeTab === tab.id;
                     return (
                       <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-                        className={`flex-1 flex items-center justify-center gap-2 px-6 py-4 text-sm font-semibold border-b-2 transition-all ${
-                          activeTab === tab.id ? 'border-emerald-600 text-emerald-600 bg-emerald-50' : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                        }`}>
-                        <Icon className="w-5 h-5" /> {tab.label}
+                        className="flex-1 flex items-center justify-center gap-2 px-5 py-3.5 text-[13px] font-semibold transition-all"
+                        style={{
+                          borderBottom: active ? '2px solid #059669' : '2px solid transparent',
+                          color: active ? '#059669' : '#64748B',
+                          background: active ? '#F0FDF9' : 'transparent',
+                        }}>
+                        <Icon className="w-4 h-4" /> {tab.label}
                       </button>
                     );
                   })}

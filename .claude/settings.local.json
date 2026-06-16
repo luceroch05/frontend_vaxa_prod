@@ -68,7 +68,20 @@
       "Bash(grep -iE '\\\\$\\\\{|\\\\+ *req|\\\\+ *`')",
       "Bash(echo \"FRONT:$?\")",
       "Bash(echo \"BACK:$?\")",
-      "WebFetch(domain:vaxasys.com)"
+      "WebFetch(domain:vaxasys.com)",
+      "Bash(unzip -p backend-dist.zip \"*/public.routes.js\")",
+      "Bash(unzip -l backend-dist.zip)",
+      "Bash(mkdir -p /tmp/zipcheck)",
+      "Bash(unzip -o -q backend-dist.zip \"modules/certificados/public/public.routes.js\" -d /tmp/zipcheck)",
+      "Bash(grep -c \"maskEmail\" \"/tmp/zipcheck/modules/certificados/public/public.routes.js\")",
+      "Bash(grep -n \"email:\" \"/tmp/zipcheck/modules/certificados/public/public.routes.js\")",
+      "Bash(tar -tzf backend-dist.tar.gz)",
+      "Bash(tar -tzf frontend-dist.tar.gz)",
+      "Bash(tar -xzf /c/Users/Lucero/Desktop/backend-dist-15jun.tar.gz -O ./modules/certificados/certificados.routes.js)",
+      "Bash(tar -xzf /c/Users/Lucero/Desktop/backend-dist-15jun.tar.gz -O ./modules/certificados/public/public.routes.js)",
+      "Bash(tar -czf /c/Users/Lucero/Desktop/frontend-dist-15jun.tar.gz .)",
+      "Bash(tar -czf /c/Users/Lucero/Desktop/backend-dist-15jun.tar.gz .)",
+      "Bash(tar -xzf /c/Users/Lucero/Desktop/backend-dist-15jun.tar.gz -O ./modules/certificados/pdf/pdf.service.js)"
     ],
     "deny": [],
     "ask": []

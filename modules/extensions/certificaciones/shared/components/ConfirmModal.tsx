@@ -39,7 +39,7 @@ export default function ConfirmModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 z-[200] flex items-center justify-center p-4"
       style={{ background: 'rgba(13,14,18,0.45)', backdropFilter: 'blur(4px)' }}
       onMouseDown={onCancel}
     >

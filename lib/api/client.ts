@@ -1,4 +1,24 @@
+import { authStorage } from '../auth';
+
 const API_URL = (import.meta.env.VITE_API_URL as string) || 'http://localhost:4000';
+
+/**
+ * El backend revoca la sesión anterior cuando el mismo usuario inicia sesión en
+ * otro dispositivo (sesión única). Cuando llega ese 401, cerramos la sesión local
+ * y mandamos al login con un aviso, evitando que el usuario quede en un panel
+ * "fantasma" cuyas peticiones ya no funcionan.
+ */
+function handleSessionRevoked(): void {
+  if (typeof window === 'undefined') return;
+  // Evita bucles si ya estamos en la pantalla de login.
+  if (window.location.pathname.includes('/certificados/login')) return;
+
+  try { authStorage.clearAllSessions(); } catch { /* ignore */ }
+  try { sessionStorage.setItem('vaxa_session_revoked', '1'); } catch { /* ignore */ }
+
+  const empresa = window.location.pathname.split('/').filter(Boolean)[0] ?? '';
+  window.location.href = `/${empresa}/certificados/login`;
+}
 
 export interface RequestOptions extends RequestInit {
   tenantId?: string;
@@ -36,9 +56,12 @@ export async function apiClient<T>(
   });
 
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({})) as { message?: string; error?: string };
+    const errorData = await response.json().catch(() => ({})) as { message?: string; error?: string; code?: string };
     // El backend devuelve los errores como { error: "..." }; soportamos ambos por compatibilidad.
     const msg = errorData.error ?? errorData.message ?? response.statusText ?? 'Error en la petición';
+    if (response.status === 401 && errorData.code === 'SESSION_REVOKED') {
+      handleSessionRevoked();
+    }
     throw new ApiError(msg, response.status, errorData);
   }
 

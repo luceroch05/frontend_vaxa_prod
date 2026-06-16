@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   FileBadge, Loader2, AlertCircle, Ban, Download, Sparkles, CheckCircle,
@@ -113,6 +114,10 @@ export default function AdminCertificados() {
     config: ConfigCertificado;
   } | null>(null);
 
+  // Vista previa de la tanda antes de emitir: PDF real (mismo motor del backend).
+  const [batchPreview, setBatchPreview] = useState<{ ids: number[]; url: string; nombre: string } | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+
   /* ── Derivados ─────────────────────────────────────────── */
   const aprobadosSinCert = useMemo(() => inscripciones.filter(i =>
     i.estado_id === ESTADO_APROBADO &&
@@ -156,23 +161,6 @@ export default function AdminCertificados() {
   const clearSelection = () => setSelected(new Set());
 
   /* ── Acciones ──────────────────────────────────────────── */
-  const handleGenerarUno = async (inscripcionId: number) => {
-    setGenerando(inscripcionId);
-    setErrorMsg(null); setOkMsg(null);
-    try {
-      await generar(inscripcionId);
-      refrescarCreditos();
-      setOkMsg('Certificado emitido correctamente');
-      setTimeout(() => setOkMsg(null), 2500);
-    } catch (e: unknown) {
-      const raw = (e as Error).message;
-      if (raw.startsWith('FALTA_CONFIG:')) await avisarFaltaConfig(raw.replace('FALTA_CONFIG:', '').trim());
-      else if (raw.startsWith('SIN_CREDITOS')) setSinCreditosModal(true);
-      else setErrorMsg(raw);
-    }
-    finally { setGenerando(null); }
-  };
-
   const handleEliminar = async (id: number) => {
     if (!(await confirm({
       title: 'Eliminar certificado',
@@ -208,14 +196,39 @@ export default function AdminCertificados() {
     finally { setAnulando(null); }
   };
 
+  /** Paso 1: antes de emitir, genera la vista previa REAL (PDF del backend) del
+   *  primer seleccionado y la muestra. El cliente confirma viendo cómo saldrá. */
   const handleEmitirMasa = async (ids: number[]) => {
     if (ids.length === 0) return;
-    if (!(await confirm({
-      title: 'Emitir certificados',
-      message: `Se emitirán ${ids.length} certificado${ids.length !== 1 ? 's' : ''} ahora.`,
-      confirmText: 'Emitir',
-    }))) return;
+    setErrorMsg(null); setOkMsg(null);
+    setPreviewLoading(true);
+    try {
+      const blob = await certificadosApi.preview(empresa!, ids[0]);
+      const url  = URL.createObjectURL(blob);
+      const nombre = inscripciones.find(i => i.id === ids[0])?.participante_nombre ?? '';
+      setBatchPreview({ ids, url, nombre });
+    } catch (e: unknown) {
+      const err = e as Error & { code?: string };
+      if (err.code === 'FALTA_CONFIG' || err.message.startsWith('FALTA_CONFIG:')) {
+        await avisarFaltaConfig(err.message.replace('FALTA_CONFIG:', '').trim());
+      } else {
+        setErrorMsg('No se pudo generar la vista previa: ' + err.message);
+      }
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
 
+  const cerrarBatchPreview = () => {
+    setBatchPreview(prev => {
+      if (prev) URL.revokeObjectURL(prev.url);
+      return null;
+    });
+  };
+
+  /** Paso 2: emisión real de la tanda, ya confirmada desde la vista previa. */
+  const ejecutarEmision = async (ids: number[]) => {
+    if (ids.length === 0) return;
     setBatchRunning(true);
     setBatchProgress({ done: 0, total: ids.length, errors: 0 });
     setErrorMsg(null); setOkMsg(null);
@@ -425,7 +438,6 @@ export default function AdminCertificados() {
           onToggleAll={() => toggleAll(pendientesFiltradas.map(i => i.id))}
           onToggleOne={toggleOne}
           onClearSelection={clearSelection}
-          onGenerarUno={handleGenerarUno}
           onEmitirSeleccion={() => handleEmitirMasa(Array.from(selected))}
           onEmitirTodos={() => handleEmitirMasa(pendientesFiltradas.map(i => i.id))}
           onEmitirIds={handleEmitirMasa}
@@ -456,6 +468,98 @@ export default function AdminCertificados() {
           config={preview.config}
           onClose={() => setPreview(null)}
         />
+      )}
+
+      {/* ── Vista previa de la tanda (PDF real) antes de emitir ── */}
+      {batchPreview && createPortal(
+        <div
+          className="fixed inset-0 z-[100] flex flex-col"
+          style={{ background: 'rgba(13,14,18,0.85)' }}
+        >
+          {/* Toolbar */}
+          <div className="flex items-center justify-between px-5 py-3 flex-shrink-0"
+            style={{ background: '#0D0E12', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+            <div className="min-w-0">
+              <p className="text-[14px] font-bold truncate" style={{ color: '#F1F5F9' }}>
+                Vista previa del certificado
+              </p>
+              <p className="text-[11.5px] truncate" style={{ color: '#9CA3AF' }}>
+                Así saldrá el certificado{batchPreview.nombre ? ` de ${batchPreview.nombre}` : ''}
+                {batchPreview.ids.length > 1 ? ` · muestra del primero de ${batchPreview.ids.length}` : ''}
+              </p>
+            </div>
+            <button
+              onClick={cerrarBatchPreview}
+              className="p-2 rounded-lg flex items-center transition-colors hover:bg-white/10"
+              style={{ color: '#9CA3AF' }}
+            >
+              <X size={18} />
+            </button>
+          </div>
+
+          {/* PDF */}
+          <div className="flex-1 overflow-hidden" style={{ background: '#525659' }}>
+            <iframe
+              src={batchPreview.url}
+              title="Vista previa del certificado"
+              style={{ width: '100%', height: '100%', border: 'none' }}
+            />
+          </div>
+
+          {/* Footer acciones */}
+          <div className="flex items-center justify-between gap-3 px-5 py-3 flex-shrink-0"
+            style={{ background: '#0D0E12', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+            <p className="text-[12px] hidden sm:block" style={{ color: '#9CA3AF' }}>
+              Revisa el diseño, logos y firmas antes de emitir.
+            </p>
+            <div className="flex items-center gap-2 ml-auto">
+              <button
+                onClick={cerrarBatchPreview}
+                className="px-4 py-2 rounded-xl text-[13px] font-semibold transition-all"
+                style={{ background: 'rgba(255,255,255,0.08)', color: '#E5E7EB' }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={async () => {
+                  const ids = batchPreview.ids;
+                  const n = ids.length;
+                  const ok = await confirm({
+                    title: n > 1 ? `¿Emitir ${n} certificados?` : '¿Emitir certificado?',
+                    message: n > 1
+                      ? `Se emitirán ${n} certificados y se descontarán ${n} créditos de tu saldo. Esta acción no se puede deshacer.`
+                      : 'Se emitirá el certificado y se descontará 1 crédito de tu saldo. Esta acción no se puede deshacer.',
+                    confirmText: n > 1 ? `Sí, emitir ${n}` : 'Sí, emitir',
+                  });
+                  if (!ok) return;
+                  cerrarBatchPreview();
+                  ejecutarEmision(ids);
+                }}
+                className="flex items-center gap-2 px-5 py-2 rounded-xl text-[13px] font-semibold transition-all"
+                style={{ background: '#D97706', color: '#fff' }}
+              >
+                <Sparkles size={14} />
+                Emitir {batchPreview.ids.length} certificado{batchPreview.ids.length !== 1 ? 's' : ''}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
+
+      {/* ── Overlay generando vista previa ───────────────────── */}
+      {previewLoading && createPortal(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center"
+          style={{ background: 'rgba(13,14,18,0.55)', backdropFilter: 'blur(2px)' }}>
+          <div className="flex items-center gap-3 px-5 py-3.5 rounded-2xl bg-white"
+            style={{ boxShadow: '0 20px 60px -12px rgba(13,14,18,0.4)' }}>
+            <Loader2 size={18} className="animate-spin" style={{ color: '#D97706' }} />
+            <p className="text-[13.5px] font-semibold" style={{ color: '#0D0E12' }}>
+              Generando vista previa...
+            </p>
+          </div>
+        </div>,
+        document.body,
       )}
 
       {/* ── Modal: sin créditos ──────────────────────────────── */}
@@ -507,7 +611,6 @@ interface PendientesProps {
   onToggleAll: () => void;
   onToggleOne: (id: number) => void;
   onClearSelection: () => void;
-  onGenerarUno: (id: number) => void;
   onEmitirSeleccion: () => void;
   onEmitirTodos: () => void;
   onEmitirIds: (ids: number[]) => void;
@@ -516,7 +619,7 @@ interface PendientesProps {
 function TablaPendientes({
   items, selected, generando, batchRunning,
   onToggleOne, onClearSelection,
-  onGenerarUno, onEmitirSeleccion, onEmitirIds,
+  onEmitirSeleccion, onEmitirIds,
 }: PendientesProps) {
   // Agrupar items por grupo
   const grupos = useMemo(() => {
@@ -711,7 +814,7 @@ function TablaPendientes({
                           </p>
                         </div>
                         <button
-                          onClick={() => onGenerarUno(i.id)}
+                          onClick={() => onEmitirIds([i.id])}
                           disabled={generando === i.id || batchRunning}
                           className="flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-xl transition-all"
                           style={{

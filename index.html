@@ -2,6 +2,12 @@
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
+    <!-- Seguridad: solo se ejecutan scripts del propio servidor. Si un atacante
+         logra inyectar un <script> (XSS), el navegador lo bloquea y no puede
+         robar el token de sesión. No restringe imágenes/fuentes/API/PDF para
+         no romper la app (el PDF se genera en el navegador con html2canvas+jsPDF). -->
+    <meta http-equiv="Content-Security-Policy"
+          content="script-src 'self'; object-src 'none'; base-uri 'self';" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="Vaxa — software confiable para instituciones: sistema de certificados con validación pública e historias clínicas." />
     <title>Vaxa · Software para instituciones</title>

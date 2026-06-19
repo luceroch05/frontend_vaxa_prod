@@ -10,8 +10,8 @@ import AdminGuard   from '../modules/extensions/certificaciones/shared/component
 import AdminLayout  from '../modules/extensions/certificaciones/shared/components/AdminLayout';
 import AdminLogin   from '../modules/extensions/certificaciones/modules/AdminLogin';
 import AdminDashboard     from '../modules/extensions/certificaciones/modules/AdminDashboard';
-import AdminProgramas     from '../modules/extensions/certificaciones/modules/AdminProgramas';
-import AdminGrupos        from '../modules/extensions/certificaciones/modules/AdminGrupos';
+import AdminProgramas       from '../modules/extensions/certificaciones/modules/AdminProgramas';
+import AdminProgramaDetalle from '../modules/extensions/certificaciones/modules/AdminProgramaDetalle';
 import AdminInscripciones from '../modules/extensions/certificaciones/modules/AdminInscripciones';
 import AdminEstudiantes   from '../modules/extensions/certificaciones/modules/AdminEstudiantes';
 import AdminCertificados  from '../modules/extensions/certificaciones/modules/AdminCertificados';
@@ -54,7 +54,7 @@ export default function App() {
           <Route element={<AdminLayout />}>
             <Route index element={<AdminDashboard />} />
             <Route path="programas"     element={<AdminProgramas />} />
-            <Route path="grupos"        element={<AdminGrupos />} />
+            <Route path="programas/:programaId" element={<AdminProgramaDetalle />} />
             <Route path="estudiantes"   element={<AdminEstudiantes />} />
             <Route path="inscripciones" element={<AdminInscripciones />} />
             <Route path="certificados"  element={<AdminCertificados />} />

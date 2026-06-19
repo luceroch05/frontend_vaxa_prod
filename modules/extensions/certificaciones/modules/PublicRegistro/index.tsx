@@ -6,6 +6,7 @@ import { publicApi } from '../../shared/api/public.api';
 import BrandRow from '../../shared/components/BrandRow';
 import PhoneField from '../../shared/components/PhoneField';
 import ProgramaGrupoPicker from '../../shared/components/ProgramaGrupoPicker';
+import { aTituloNombre } from '../../shared/utils/text';
 import { ApiError }  from '@/lib/api/client';
 import type { Catalogos, Grupo, RegistroPublicoDto } from '../../shared/types';
 
@@ -266,13 +267,17 @@ export default function PublicRegistro() {
                   <div>
                     <label className="block text-[11px] font-medium mb-1.5" style={{ color: '#6B7280' }}>Nombres</label>
                     <input type="text" required maxLength={NOMBRE_MAX} value={form.nombres}
-                      onChange={e => set('nombres', e.target.value)} readOnly={yaRegistrado}
+                      onChange={e => set('nombres', e.target.value)}
+                      onBlur={() => set('nombres', aTituloNombre(form.nombres))}
+                      readOnly={yaRegistrado}
                       style={lockStyle} placeholder="María Fernanda" className="vx-input" />
                   </div>
                   <div>
                     <label className="block text-[11px] font-medium mb-1.5" style={{ color: '#6B7280' }}>Apellidos</label>
                     <input type="text" required maxLength={APELLIDO_MAX} value={form.apellidos}
-                      onChange={e => set('apellidos', e.target.value)} readOnly={yaRegistrado}
+                      onChange={e => set('apellidos', e.target.value)}
+                      onBlur={() => set('apellidos', aTituloNombre(form.apellidos))}
+                      readOnly={yaRegistrado}
                       style={lockStyle} placeholder="García López" className="vx-input" />
                   </div>
                 </div>

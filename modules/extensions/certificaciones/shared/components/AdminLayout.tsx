@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { NavLink, Outlet, useNavigate, useParams, useLocation } from 'react-router-dom';
 import {
-  LayoutDashboard, BookOpen, Layers, ClipboardList, FileBadge,
+  LayoutDashboard, BookOpen, ClipboardList, FileBadge,
   Settings, LogOut, Menu, X, GraduationCap, Globe, Users, CreditCard,
 } from '@/components/ui/icon';
 import { authStorage } from '@/lib/auth';
@@ -45,10 +45,11 @@ const PAGE_LABELS: Record<string, string> = {
   config:        'Configuración',
 };
 
+// "Grupos" se unificó dentro de cada programa (pestaña "Aulas"), por eso ya no
+// aparece como sección aparte del menú.
 const NAV_ITEMS = [
   { key: '',             label: 'Dashboard',     Icon: LayoutDashboard, end: true },
   { key: 'programas',    label: 'Programas',      Icon: BookOpen },
-  { key: 'grupos',       label: 'Grupos',         Icon: Layers },
   { key: 'estudiantes',  label: 'Estudiantes',    Icon: Users },
   { key: 'inscripciones',label: 'Inscripciones',  Icon: ClipboardList },
   { key: 'certificados', label: 'Certificados',   Icon: FileBadge },
@@ -86,7 +87,8 @@ export default function AdminLayout() {
 
   const segments  = location.pathname.split('/');
   const lastSeg   = segments[segments.length - 1] ?? 'panel';
-  const pageLabel = PAGE_LABELS[lastSeg] ?? 'Panel';
+  // En el detalle (/programas/:id) el último segmento es numérico → mostramos "Programa".
+  const pageLabel = PAGE_LABELS[lastSeg] ?? (/^\d+$/.test(lastSeg) ? 'Programa' : 'Panel');
 
   const initials = user
     ? `${user.nombres.charAt(0)}${user.apellidos.charAt(0)}`.toUpperCase()

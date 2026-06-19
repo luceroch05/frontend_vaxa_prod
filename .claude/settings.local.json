@@ -91,7 +91,8 @@
       "Bash(tar tzf *)",
       "Bash(awk '{print $5}')",
       "Bash(awk '{print $5\" bytes\"}')",
-      "Bash(awk '{print $5, $NF}')"
+      "Bash(awk '{print $5, $NF}')",
+      "WebSearch"
     ],
     "deny": [],
     "ask": []

@@ -115,7 +115,7 @@ export default function AdminInscripciones() {
   const grupoNombre   = searchParams.get('nombre');
   const grupoId       = grupoIdParam ? Number(grupoIdParam) : undefined;
 
-  const { inscripciones, loading, error, cambiarEstado } = useInscripciones(empresa!, grupoId);
+  const { inscripciones, loading, error, cambiarEstado, refetch } = useInscripciones(empresa!, grupoId);
   const { grupos } = useGrupos(empresa!);
 
   const [filtroEstado, setFiltroEstado] = useState<number | 'todos'>('todos');
@@ -169,14 +169,19 @@ export default function AdminInscripciones() {
 
   return (
     <div className="space-y-5 page-enter">
-      {/* Back */}
+      {/* Back — vuelve al programa del aula (las aulas viven dentro del programa) */}
       {grupoId && (
         <button
-          onClick={() => navigate(`/${empresa}/certificados/panel/grupos`)}
+          onClick={() => {
+            const g = grupos.find(x => x.id === Number(grupoId));
+            navigate(g
+              ? `/${empresa}/certificados/panel/programas/${g.programa_id}`
+              : `/${empresa}/certificados/panel/programas`);
+          }}
           className="flex items-center gap-1.5 text-[13px] font-medium transition-colors hover:opacity-70"
           style={{ color: '#9CA3AF' }}
         >
-          <ChevronLeft size={14} /> Volver a grupos
+          <ChevronLeft size={14} /> Volver al programa
         </button>
       )}
 
@@ -238,7 +243,7 @@ export default function AdminInscripciones() {
       {/* ════════ VISTA NOTAS ════════ */}
       {vista === 'notas' && (
         grupoId ? (
-          <NotasGrupo empresa={empresa!} grupoId={grupoId} />
+          <NotasGrupo empresa={empresa!} grupoId={grupoId} onEstadoCambiado={refetch} />
         ) : (
           <div className="bg-white rounded-2xl py-14 text-center" style={{ border: '1px solid #EEECE6' }}>
             <div className="w-12 h-12 rounded-2xl mx-auto mb-3 flex items-center justify-center" style={{ background: '#F3F0FF', color: '#7C3AED' }}>

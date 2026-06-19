@@ -198,7 +198,8 @@ export default function AdminEstudiantes() {
   const cargar = useCallback(() => {
     setLoading(true);
     participantesApi.list(empresa!)
-      .then(setParticipantes)
+      // Más reciente primero (id autoincremental: id mayor = más nuevo)
+      .then(data => setParticipantes([...data].sort((a, b) => b.id - a.id)))
       .catch(e => setError((e as Error).message))
       .finally(() => setLoading(false));
   }, [empresa]);

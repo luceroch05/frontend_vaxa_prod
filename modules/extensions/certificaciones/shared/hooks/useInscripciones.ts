@@ -13,7 +13,8 @@ export function useInscripciones(empresa: string, grupoId?: number) {
     setError(null);
     try {
       const data = await inscripcionesApi.list(empresa, grupoId);
-      setInscripciones(data);
+      // Más reciente primero (id autoincremental: id mayor = más nuevo)
+      setInscripciones([...data].sort((a, b) => b.id - a.id));
     } catch (e: unknown) {
       setError((e as Error).message);
     } finally {

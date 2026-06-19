@@ -11,7 +11,77 @@ import { firmasApi } from '../../shared/api/firmas.api';
 import { configApi } from '../../shared/api/config.api';
 import { useProgramas } from '../../shared/hooks/useProgramas';
 import { useGrupos }    from '../../shared/hooks/useGrupos';
+import CertificadoPreview from '../../shared/components/CertificadoPreview';
+import { VARIABLES_CERTIFICADO } from '../../shared/utils/certVariables';
 import type { Logo, Firma } from '../../shared/types';
+
+/* ── Campo de texto del certificado con variables insertables ──── */
+function TextoCertificadoField({ value, onChange, placeholder }: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder: string;
+}) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  const MAX = 500;
+
+  const insertar = (token: string) => {
+    const el = ref.current;
+    const v  = value ?? '';
+    let start = v.length, end = v.length;
+    if (el) { start = el.selectionStart ?? v.length; end = el.selectionEnd ?? v.length; }
+    const next = (v.slice(0, start) + token + v.slice(end)).slice(0, MAX);
+    onChange(next);
+    // Reposiciona el cursor justo después del token insertado.
+    requestAnimationFrame(() => {
+      if (!el) return;
+      const pos = Math.min(start + token.length, MAX);
+      el.focus();
+      el.setSelectionRange(pos, pos);
+    });
+  };
+
+  return (
+    <div>
+      <label className="block text-[11px] font-semibold uppercase tracking-wider mb-2" style={{ color: '#374151' }}>
+        Texto del certificado
+        <span className="ml-2 normal-case font-normal tracking-normal" style={{ color: '#9CA3AF' }}>
+          ({(value ?? '').length}/{MAX} · vacío = texto automático)
+        </span>
+      </label>
+      <textarea
+        ref={ref}
+        rows={5}
+        maxLength={MAX}
+        value={value}
+        onChange={e => onChange(e.target.value.slice(0, MAX))}
+        placeholder={placeholder}
+        className="vx-input resize-none"
+        style={{ fontSize: '13px', lineHeight: 1.6, height: 140 }}
+      />
+      {/* Variables insertables */}
+      <div className="mt-2 rounded-xl p-2.5" style={{ background: '#FAFAF8', border: '1px solid #EEECE6' }}>
+        <p className="text-[11px] font-semibold mb-1.5" style={{ color: '#374151' }}>Variables disponibles</p>
+        <div className="flex flex-wrap gap-1.5">
+          {VARIABLES_CERTIFICADO.map(v => (
+            <button
+              key={v.token}
+              type="button"
+              onClick={() => insertar(v.token)}
+              title={v.desc}
+              className="text-[11px] font-semibold px-2 py-1 rounded-lg transition-colors hover:brightness-95"
+              style={{ background: '#FFF7ED', color: '#C2410C', border: '1px solid #FED7AA', fontFamily: 'monospace' }}
+            >
+              {v.token}
+            </button>
+          ))}
+        </div>
+        <p className="text-[10.5px] mt-1.5" style={{ color: '#9CA3AF' }}>
+          Haz clic para insertarla en el texto. Al emitir se reemplaza por el dato real del participante.
+        </p>
+      </div>
+    </div>
+  );
+}
 
 function toBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -748,6 +818,9 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
         const gruposProg = grupos.filter(gr => gr.programa_id === p.id);
         const gruposConCfgSet = gruposConCfg[p.id] ?? new Set();
         const grupoEsCustom = g !== 0 && gruposConCfgSet.has(g);
+        // Logos/firmas seleccionados (en orden) para la vista previa en vivo.
+        const selLogos  = c.logos.map(id => logos.find(l => l.id === id)).filter(Boolean) as Logo[];
+        const selFirmas = c.firmas.map(id => firmas.find(f => f.id === id)).filter(Boolean) as Firma[];
 
         return (
           <div key={p.id} className="bg-white rounded-2xl overflow-hidden" style={{ border: '1px solid #EEECE6' }}>
@@ -875,6 +948,30 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
                 </p>
               </div>
 
+              {/* Vista previa en vivo del certificado */}
+              <div className="rounded-2xl p-4" style={{ background: '#0F1115', border: '1px solid #1F2937' }}>
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: '#9CA3AF' }}>
+                    Vista previa
+                  </p>
+                  <span className="text-[10.5px]" style={{ color: '#6B7280' }}>
+                    datos de ejemplo · así quedará al emitir
+                  </span>
+                </div>
+                <div className="flex justify-center overflow-x-auto">
+                  <CertificadoPreview
+                    plantillaUrl={c.plantilla_url}
+                    logos={selLogos}
+                    firmas={selFirmas}
+                    texto={c.texto_personalizado}
+                    tipoPrograma={p.tipo_programa_nombre}
+                    programaNombre={p.nombre}
+                    horas={p.horas_academicas}
+                    displayWidth={640}
+                  />
+                </div>
+              </div>
+
               {/* Fondo + Texto en dos columnas */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 {/* Fondo */}
@@ -919,24 +1016,12 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
                   )}
                 </div>
 
-                {/* Texto personalizado */}
-                <div>
-                  <label className="block text-[11px] font-semibold uppercase tracking-wider mb-2" style={{ color: '#374151' }}>
-                    Texto del certificado
-                    <span className="ml-2 normal-case font-normal tracking-normal" style={{ color: '#9CA3AF' }}>
-                      ({(c.texto_personalizado ?? '').length}/500 · vacío = texto automático)
-                    </span>
-                  </label>
-                  <textarea
-                    rows={6}
-                    maxLength={500}
-                    value={c.texto_personalizado}
-                    onChange={e => setCfg(p.id, g, { texto_personalizado: e.target.value.slice(0, 500) })}
-                    placeholder={`Por haber completado satisfactoriamente el programa "${p.nombre}" con una duración de ${p.horas_academicas} horas académicas...`}
-                    className="vx-input resize-none"
-                    style={{ fontSize: '13px', lineHeight: 1.6, height: 170 }}
-                  />
-                </div>
+                {/* Texto personalizado con variables insertables */}
+                <TextoCertificadoField
+                  value={c.texto_personalizado}
+                  onChange={v => setCfg(p.id, g, { texto_personalizado: v })}
+                  placeholder={`Por haber completado satisfactoriamente el programa "${p.nombre}" con una duración de ${p.horas_academicas} horas académicas...`}
+                />
               </div>
 
               {/* Logos — multi-select */}

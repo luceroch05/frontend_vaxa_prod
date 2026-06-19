@@ -1,0 +1,142 @@
+import {
+  W, H, getLogoSlots, logoSlotStyle, logoImgStyle, firmasGap, SIG_ITEM_W, SIG_IMG_H,
+} from './CertificadoPDF';
+import { expandirVariablesCertificado } from '../utils/certVariables';
+
+interface PreviewLogo  { id: number; imagen_logo: string; nombre?: string | null }
+interface PreviewFirma { id: number; imagen_firma: string; nombre_autoridad: string; cargo: string }
+
+interface Props {
+  plantillaUrl?: string | null;
+  logos: PreviewLogo[];           // en el orden seleccionado
+  firmas: PreviewFirma[];         // en el orden seleccionado
+  texto?: string | null;          // texto con variables (sin expandir)
+  tipoPrograma?: string;
+  programaNombre?: string;
+  horas?: number;
+  /** Ancho en px al que se muestra el certificado (se escala desde 1122). */
+  displayWidth?: number;
+}
+
+/* Datos de ejemplo: así el usuario VE cómo queda con un alumno real. */
+const EJEMPLO = {
+  participante: 'Ana María Torres López',
+  fechaInicio:  '5 de enero de 2026',
+  fechaFin:     '28 de febrero de 2026',
+  fecha:        '2 de marzo de 2026',
+};
+
+/* ── Vista previa del certificado ───────────────────────────────
+ * Réplica a escala del CertificadoPDF real (mismas posiciones de
+ * logos, firmas, texto y QR) con datos de ejemplo. Sirve para que
+ * al configurar se vea cómo quedará: qué logo va al centro/los lados,
+ * dónde caen las firmas y cómo se expande el texto con variables.
+ * ─────────────────────────────────────────────────────────────── */
+export default function CertificadoPreview({
+  plantillaUrl, logos, firmas, texto, tipoPrograma, programaNombre, horas, displayWidth = 460,
+}: Props) {
+  const scale = displayWidth / W;
+
+  const programa = programaNombre || 'Nombre del Programa';
+  const tipo     = tipoPrograma   || 'Certificado';
+
+  const periodo = `, realizado del ${EJEMPLO.fechaInicio} al ${EJEMPLO.fechaFin}`;
+  const cuerpoDefault = `Por haber completado satisfactoriamente ${tipo} "${programa}" con una duración de ${horas ?? 40} horas académicas${periodo}.`;
+  const cuerpoBase = texto?.trim() || cuerpoDefault;
+  const cuerpo = expandirVariablesCertificado(cuerpoBase, {
+    participante: EJEMPLO.participante,
+    programa,
+    horas: horas ?? 40,
+    fecha: EJEMPLO.fecha,
+    fechaInicio: EJEMPLO.fechaInicio,
+    fechaFin: EJEMPLO.fechaFin,
+  });
+
+  const cuerpoSize = (cuerpo.length > 200 ? 18 : 20);
+  const slots = getLogoSlots(logos.length);
+
+  return (
+    <div
+      style={{
+        width: displayWidth,
+        height: H * scale,
+        position: 'relative',
+        overflow: 'hidden',
+        borderRadius: 12,
+        border: '1px solid #EEECE6',
+        boxShadow: '0 4px 16px rgba(0,0,0,0.06)',
+        background: '#fff',
+        flexShrink: 0,
+      }}
+    >
+      <div style={{
+        position: 'absolute', top: 0, left: 0,
+        width: W, height: H,
+        transform: `scale(${scale})`, transformOrigin: 'top left',
+        background: '#fff',
+        fontFamily: 'Helvetica, Arial, sans-serif',
+      }}>
+        {/* Fondo */}
+        {plantillaUrl && (
+          <img src={plantillaUrl} alt="" style={{ position: 'absolute', inset: 0, width: W, height: H, objectFit: 'cover' }} />
+        )}
+
+        {/* Logos */}
+        {logos.map((logo, i) => (
+          <div key={logo.id} style={logoSlotStyle(slots[i] ?? 'center')}>
+            <img src={logo.imagen_logo} alt={logo.nombre ?? 'logo'} style={logoImgStyle} />
+          </div>
+        ))}
+
+        {/* Bloque central */}
+        <div style={{
+          position: 'absolute', top: 160, bottom: 180, left: 180, right: 180,
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center',
+        }}>
+          <p style={{ margin: 0, fontSize: 32, fontWeight: 700, color: '#1a365d', textTransform: 'uppercase' }}>{tipo}</p>
+          <p style={{ margin: '35px 0 0', fontSize: 42, fontWeight: 700, color: '#0f172a', lineHeight: 1.15, fontFamily: 'Georgia, "Times New Roman", serif' }}>
+            {EJEMPLO.participante}
+          </p>
+          <p style={{ margin: '35px 0 0', fontSize: cuerpoSize, color: '#475569', lineHeight: 1.65, maxWidth: 700, whiteSpace: 'pre-wrap' }}>
+            {cuerpo}
+          </p>
+          <p style={{ margin: '30px 0 0', fontSize: 22, fontStyle: 'italic', color: '#1e40af', fontFamily: 'Georgia, "Times New Roman", serif' }}>
+            &ldquo;{programa}&rdquo;
+          </p>
+        </div>
+
+        {/* Firmas */}
+        {firmas.length > 0 && (
+          <div style={{
+            position: 'absolute', left: 0, right: 0, bottom: 60,
+            display: 'flex', justifyContent: 'center', alignItems: 'flex-end', gap: firmasGap(firmas.length),
+          }}>
+            {firmas.map(f => (
+              <div key={f.id} style={{ width: SIG_ITEM_W, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                <img src={f.imagen_firma} alt={f.nombre_autoridad}
+                  style={{ height: SIG_IMG_H, width: 'auto', maxWidth: SIG_ITEM_W, objectFit: 'contain', marginBottom: -10 }} />
+                <div style={{ width: SIG_ITEM_W, borderTop: '1.5px solid #475569', marginBottom: 4 }} />
+                <p style={{ margin: 0, fontSize: 11, fontWeight: 700, color: '#1e293b', textAlign: 'center' }}>{f.nombre_autoridad}</p>
+                <p style={{ margin: '2px 0 0', fontSize: 9, fontStyle: 'italic', color: '#64748b', textAlign: 'center' }}>{f.cargo}</p>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* QR (placeholder) */}
+        <div style={{ position: 'absolute', right: 70, bottom: 40, width: 100, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <div style={{
+            width: 100, height: 100, background: '#F1F5F9', border: '1px solid #E2E8F0', borderRadius: 6,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 11, color: '#94a3b8', fontFamily: '"Courier New", monospace',
+          }}>QR</div>
+        </div>
+
+        {/* Pie izquierdo */}
+        <p style={{ position: 'absolute', left: 130, bottom: 20, margin: 0, fontSize: 11, color: '#9ca3af' }}>
+          Fecha de emisión: {EJEMPLO.fecha}
+        </p>
+      </div>
+    </div>
+  );
+}

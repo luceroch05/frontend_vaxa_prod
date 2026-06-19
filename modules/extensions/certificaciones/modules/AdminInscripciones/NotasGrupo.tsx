@@ -10,7 +10,13 @@ function estadoStyle(estadoId: number): { bg: string; color: string } {
   return { bg: '#F5F4F0', color: '#92400E' };
 }
 
-export default function NotasGrupo({ empresa, grupoId }: { empresa: string; grupoId: number }) {
+export default function NotasGrupo({ empresa, grupoId, onEstadoCambiado }: {
+  empresa: string;
+  grupoId: number;
+  /** Se llama cuando una nota guardada cambia el estado de aprobación de un alumno,
+   *  para que la lista de inscripciones del padre se refresque sin recargar. */
+  onEstadoCambiado?: () => void;
+}) {
   const [matriz,  setMatriz]  = useState<NotasMatriz | null>(null);
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState<string | null>(null);
@@ -69,6 +75,9 @@ export default function NotasGrupo({ empresa, grupoId }: { empresa: string; grup
     setSaving(inscId); setError(null);
     try {
       const r = await notasApi.guardar(empresa, inscId, notas);
+      // ¿Cambió el estado de aprobación? → avisar al padre para refrescar inscripciones.
+      const estadoAnterior = matriz.filas.find(f => f.inscripcion_id === inscId)?.estado_id;
+      if (estadoAnterior !== r.estado_id) onEstadoCambiado?.();
       // Actualizar estado de la fila en la matriz local
       setMatriz(prev => prev && ({
         ...prev,

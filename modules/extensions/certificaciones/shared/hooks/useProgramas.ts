@@ -12,7 +12,8 @@ export function useProgramas(empresa: string) {
     setError(null);
     try {
       const data = await programasApi.list(empresa);
-      setProgramas(data);
+      // Más reciente primero (id autoincremental: id mayor = más nuevo)
+      setProgramas([...data].sort((a, b) => b.id - a.id));
     } catch (e: unknown) {
       setError((e as Error).message);
     } finally {

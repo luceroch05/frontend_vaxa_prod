@@ -4,6 +4,7 @@ import jsPDF from 'jspdf';
 import QRCode from 'qrcode';
 import { Download, X } from '@/components/ui/icon';
 import type { Certificado, ConfigCertificado } from '../types';
+import { expandirVariablesCertificado } from '../utils/certVariables';
 
 interface Props {
   certificado: Certificado & { empresa_nombre: string };
@@ -12,8 +13,8 @@ interface Props {
 }
 
 /* ── Dimensiones (mismo viewport que el otro proyecto) ──────── */
-const W = 1122;
-const H = 794;
+export const W = 1122;
+export const H = 794;
 
 /* ── Helpers ────────────────────────────────────────────────── */
 function fmtDate(d: string | Date | undefined | null) {
@@ -29,14 +30,14 @@ function fmtDate(d: string | Date | undefined | null) {
    - 1 logo  → centro
    - 2 logos → izquierda y derecha
    - 3 logos → izquierda, centro y derecha                       */
-function getLogoSlots(n: number): ('left' | 'center' | 'right')[] {
+export function getLogoSlots(n: number): ('left' | 'center' | 'right')[] {
   if (n === 1) return ['center'];
   if (n === 2) return ['left', 'right'];
   return ['left', 'center', 'right'];
 }
 
 /* Wrappers de logos: contenedor centrado 200x110, img dentro con aspect ratio respetado */
-function logoSlotStyle(slot: 'left' | 'center' | 'right'): React.CSSProperties {
+export function logoSlotStyle(slot: 'left' | 'center' | 'right'): React.CSSProperties {
   const base: React.CSSProperties = {
     position: 'absolute',
     top: 60,
@@ -51,7 +52,7 @@ function logoSlotStyle(slot: 'left' | 'center' | 'right'): React.CSSProperties {
   return { ...base, left: (W - 200) / 2 };
 }
 
-const logoImgStyle: React.CSSProperties = {
+export const logoImgStyle: React.CSSProperties = {
   maxHeight: 100,
   maxWidth: 180,
   width: 'auto',
@@ -60,14 +61,14 @@ const logoImgStyle: React.CSSProperties = {
 };
 
 /* Gap entre firmas según cantidad — mismo criterio del otro proyecto */
-function firmasGap(n: number): number {
+export function firmasGap(n: number): number {
   if (n <= 1) return 0;
   if (n === 2) return 120;
   return 60;
 }
 
-const SIG_ITEM_W = 200;
-const SIG_IMG_H  = 55;
+export const SIG_ITEM_W = 200;
+export const SIG_IMG_H  = 55;
 
 /* ── Componente ─────────────────────────────────────────────── */
 export function CertificadoPDF({ certificado, config, onClose }: Props) {
@@ -120,7 +121,15 @@ export function CertificadoPDF({ certificado, config, onClose }: Props) {
   } "${certificado.programa_nombre}" con una duración de ${
     certificado.horas_academicas ?? ''
   } horas académicas${periodo}.`;
-  const cuerpoTexto = config.texto_personalizado?.trim() || cuerpoDefault;
+  const cuerpoBase  = config.texto_personalizado?.trim() || cuerpoDefault;
+  const cuerpoTexto = expandirVariablesCertificado(cuerpoBase, {
+    participante: certificado.participante_nombre,
+    programa:     certificado.programa_nombre,
+    horas:        certificado.horas_academicas ?? '',
+    fecha:        fmtDate(certificado.fecha_emision),
+    fechaInicio,
+    fechaFin,
+  });
 
   // Tamaño cuerpo adaptativo (igual que el otro proyecto)
   const esTextoLargo = cuerpoTexto.length > 200;

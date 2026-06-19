@@ -12,7 +12,8 @@ export function useCertificados(empresa: string) {
     setError(null);
     try {
       const data = await certificadosApi.list(empresa);
-      setCertificados(data);
+      // Más reciente primero (id autoincremental: id mayor = más nuevo)
+      setCertificados([...data].sort((a, b) => b.id - a.id));
     } catch (e: unknown) {
       setError((e as Error).message);
     } finally {

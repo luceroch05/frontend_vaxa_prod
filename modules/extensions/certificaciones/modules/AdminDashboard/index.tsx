@@ -272,13 +272,13 @@ export default function AdminDashboard() {
         {/* Grupos — green */}
         <StatCard
           icon={<Layers size={18} style={{ color: '#059669' }} />}
-          label="Grupos activos"
+          label="Aulas activas"
           value={activeGrps}
           cardBg="#F0FDF4"
           cardBorder="#BBF7D0"
           iconBg="#DCFCE7"
           numColor="#15803D"
-          onClick={() => navigate(`${base}/grupos`)}
+          onClick={() => navigate(`${base}/programas`)}
         />
       </div>
 
@@ -373,10 +373,10 @@ export default function AdminDashboard() {
             style={{ borderBottom: '1px solid #F5F4F0' }}
           >
             <p className="text-[15px] font-bold" style={{ color: '#0D0E12' }}>
-              Grupos activos
+              Aulas activas
             </p>
             <button
-              onClick={() => navigate(`${base}/grupos`)}
+              onClick={() => navigate(`${base}/programas`)}
               className="text-[12px] font-semibold flex items-center gap-0.5 transition-opacity hover:opacity-70"
               style={{ color: '#D97706' }}
             >
@@ -386,7 +386,7 @@ export default function AdminDashboard() {
 
           {grupos.filter(g => g.activo).length === 0 ? (
             <div className="px-5 py-10 text-center" style={{ color: '#C8C3BB' }}>
-              <p className="text-[13px]">Sin grupos activos</p>
+              <p className="text-[13px]">Sin aulas activas</p>
             </div>
           ) : (
             grupos.filter(g => g.activo).slice(0, 6).map((g, i, arr) => {

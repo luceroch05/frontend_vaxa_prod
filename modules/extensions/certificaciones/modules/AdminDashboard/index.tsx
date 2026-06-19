@@ -5,7 +5,7 @@ import { useProgramas }     from '../../shared/hooks/useProgramas';
 import { useGrupos }        from '../../shared/hooks/useGrupos';
 import { useInscripciones } from '../../shared/hooks/useInscripciones';
 import { useCertificados }  from '../../shared/hooks/useCertificados';
-import { useCreditos }      from '../../shared/hooks/useCreditos';
+import { usePlan }          from '../../shared/hooks/usePlan';
 
 /* ── Estado config ──────────────────────────────────────────── */
 const ESTADOS = [
@@ -155,10 +155,11 @@ export default function AdminDashboard() {
   const { grupos }        = useGrupos(empresa!);
   const { inscripciones } = useInscripciones(empresa!);
   const { certificados }  = useCertificados(empresa!);
-  const { estado: creditos } = useCreditos();
+  const { estado: plan } = usePlan();
 
-  const sinCreditos = !!creditos && creditos.saldo <= 0;
-  const creditosBajos = !!creditos && creditos.saldo > 0 && creditos.saldo <= 10;
+  const consumo   = plan?.consumo;
+  const cupoLleno = !!plan?.plan && !!consumo && consumo.restantes <= 0;                // alcanzó el cupo (los siguientes son excedente)
+  const cupoBajo  = !!consumo && consumo.restantes > 0 && consumo.restantes <= 10;     // pocos restantes
 
   const aprobados  = inscripciones.filter(i => i.estado_id === 3).length;
   const emitidos   = certificados.filter(c => c.estado_id === 1).length;
@@ -191,40 +192,38 @@ export default function AdminDashboard() {
         </p>
       </div>
 
-      {/* ── Alerta: sin créditos ─────────────────────────────── */}
-      {sinCreditos && (
+      {/* ── Aviso: cupo del mes alcanzado (no bloquea: pasa a excedente) ── */}
+      {cupoLleno && (
         <div
           className="rounded-2xl p-6 flex items-start gap-4 stagger-1 page-enter"
-          style={{ background: '#FEF2F2', border: '1.5px solid #FECACA' }}
+          style={{ background: '#FFFBEB', border: '1.5px solid #FDE68A' }}
         >
           <div className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0"
-            style={{ background: '#FEE2E2', border: '1px solid #FCA5A5' }}>
-            <AlertCircle size={24} style={{ color: '#DC2626' }} />
+            style={{ background: '#FEF3C7', border: '1px solid #FDE68A' }}>
+            <AlertCircle size={24} style={{ color: '#D97706' }} />
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className="text-[18px] font-bold" style={{ color: '#B91C1C' }}>
-              Te quedaste sin créditos
+            <h3 className="text-[18px] font-bold" style={{ color: '#92400E' }}>
+              Alcanzaste el cupo de tu plan este mes
             </h3>
-            <p className="text-[14px] mt-1 leading-relaxed" style={{ color: '#9F1239' }}>
-              No puedes emitir más certificados. Contacta a Vaxa para renovar tu plan y seguir emitiendo.
+            <p className="text-[14px] mt-1 leading-relaxed" style={{ color: '#92400E' }}>
+              Ya emitiste los <b>{consumo!.incluidos}</b> certificados incluidos. Puedes seguir emitiendo:
+              cada uno se cobra como excedente a <b>S/ {plan!.plan!.precio_certificado_adicional.toFixed(2)}</b>.
+              {consumo!.adicionales > 0 && <> Llevas <b>{consumo!.adicionales}</b> excedente{consumo!.adicionales === 1 ? '' : 's'} (S/ {consumo!.monto_adicional.toFixed(2)}).</>}
             </p>
-          </div>
-          <div className="hidden sm:flex flex-col items-center justify-center px-4 flex-shrink-0">
-            <span className="text-[32px] font-bold leading-none" style={{ color: '#DC2626' }}>0</span>
-            <span className="text-[11px] font-semibold uppercase tracking-wider mt-1" style={{ color: '#B91C1C' }}>créditos</span>
           </div>
         </div>
       )}
 
-      {/* ── Aviso: créditos bajos ────────────────────────────── */}
-      {creditosBajos && (
+      {/* ── Aviso: cupo bajo ─────────────────────────────────── */}
+      {cupoBajo && (
         <div
           className="rounded-2xl px-5 py-4 flex items-center gap-3 stagger-1 page-enter"
           style={{ background: '#FFFBEB', border: '1.5px solid #FDE68A' }}
         >
           <CreditCard size={20} style={{ color: '#D97706', flexShrink: 0 }} />
           <p className="text-[13.5px] font-medium" style={{ color: '#92400E' }}>
-            Te quedan <b>{creditos!.saldo}</b> {creditos!.saldo === 1 ? 'crédito' : 'créditos'}. Considera renovar tu plan pronto.
+            Te quedan <b>{consumo!.restantes}</b> certificado{consumo!.restantes === 1 ? '' : 's'} de tu cupo mensual ({consumo!.incluidos}).
           </p>
         </div>
       )}

@@ -57,7 +57,7 @@ export default function PerfilEmpresa({ tenantId, empresaId }: PerfilEmpresaProp
 
   const tabs = [
     { id: 'informacion' as TabType, label: 'Información', icon: Info },
-    { id: 'plan' as TabType, label: 'Créditos', icon: CreditCard },
+    { id: 'plan' as TabType, label: 'Plan', icon: CreditCard },
     { id: 'usuarios' as TabType, label: 'Usuarios', icon: Users },
   ];
 
@@ -118,18 +118,7 @@ export default function PerfilEmpresa({ tenantId, empresaId }: PerfilEmpresaProp
                   </div>
                 </div>
               </div>
-              <div className="grid grid-cols-3 gap-3">
-                {[
-                  { label: 'Disponibles', value: empresa.creditos_disponibles, color: '#059669' },
-                  { label: 'Consumidos', value: empresa.creditos_consumidos, color: '#0D0E12' },
-                  { label: 'Asignados', value: empresa.creditos_asignados_total, color: '#0D0E12' },
-                ].map((s) => (
-                  <div key={s.label} className="rounded-xl p-3.5" style={{ background: '#FAFAF8', border: '1px solid #EEECE6' }}>
-                    <p className="text-[24px] font-bold leading-none tabular-nums" style={{ color: s.color }}>{s.value}</p>
-                    <p className="text-[10.5px] font-semibold uppercase tracking-wider mt-1.5" style={{ color: '#B0A898' }}>{s.label}</p>
-                  </div>
-                ))}
-              </div>
+              {/* El plan y el consumo del mes se gestionan en la pestaña "Plan". */}
             </div>
 
             {/* Tabs */}

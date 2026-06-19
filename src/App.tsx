@@ -15,6 +15,7 @@ import AdminProgramaDetalle from '../modules/extensions/certificaciones/modules/
 import AdminInscripciones from '../modules/extensions/certificaciones/modules/AdminInscripciones';
 import AdminEstudiantes   from '../modules/extensions/certificaciones/modules/AdminEstudiantes';
 import AdminCertificados  from '../modules/extensions/certificaciones/modules/AdminCertificados';
+import AdminPlan          from '../modules/extensions/certificaciones/modules/AdminPlan';
 import AdminConfig        from '../modules/extensions/certificaciones/modules/AdminConfig';
 import PublicRegistro from '../modules/extensions/certificaciones/modules/PublicRegistro';
 import PublicValidar  from '../modules/extensions/certificaciones/modules/PublicValidar';
@@ -58,6 +59,7 @@ export default function App() {
             <Route path="estudiantes"   element={<AdminEstudiantes />} />
             <Route path="inscripciones" element={<AdminInscripciones />} />
             <Route path="certificados"  element={<AdminCertificados />} />
+            <Route path="plan"          element={<AdminPlan />} />
             <Route path="config"        element={<AdminConfig />} />
           </Route>
         </Route>

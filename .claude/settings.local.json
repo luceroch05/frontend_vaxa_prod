@@ -92,7 +92,14 @@
       "Bash(awk '{print $5}')",
       "Bash(awk '{print $5\" bytes\"}')",
       "Bash(awk '{print $5, $NF}')",
-      "WebSearch"
+      "WebSearch",
+      "Bash(ls -la scripts/)",
+      "Bash(ls -la docs/)",
+      "Bash(find scripts *)",
+      "Bash(echo \"EXIT=$?\")",
+      "Bash(rm -f tmp_migrate.cjs)",
+      "Bash(node tmp_gen_docx.cjs \"/c/Users/Lucero/Desktop/VAXA_Planes_Implementacion.docx\")",
+      "Bash(rm -f tmp_gen_docx.cjs)"
     ],
     "deny": [],
     "ask": []

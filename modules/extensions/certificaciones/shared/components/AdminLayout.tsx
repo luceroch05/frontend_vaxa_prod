@@ -7,29 +7,39 @@ import {
 import { authStorage } from '@/lib/auth';
 import { publicApi } from '../api/public.api';
 import { ConfirmProvider } from '../hooks/useConfirm';
-import { CreditosProvider, useCreditos } from '../hooks/useCreditos';
+import { PlanProvider, usePlan } from '../hooks/usePlan';
 import { useSessionSocket } from '../hooks/useSessionSocket';
 import SessionRevokedModal from './SessionRevokedModal';
 
-/** Pastilla con el saldo de créditos de certificados de la empresa. */
-function CreditosBadge() {
-  const { estado, loading } = useCreditos();
-  if (loading || !estado) return null;
+/** Pastilla con el cupo de certificados del mes (plan vigente de la empresa). */
+function CupoBadge() {
+  const { estado, loading } = usePlan();
+  if (loading || !estado || !estado.plan) return null;
 
-  const saldo = estado.saldo;
-  const color = saldo <= 0 ? '#DC2626' : saldo <= 10 ? '#D97706' : '#0D7C66';
-  const bg    = saldo <= 0 ? '#FEF2F2' : saldo <= 10 ? '#FEF3C7' : '#ECFDF5';
-  const border= saldo <= 0 ? '#FECACA' : saldo <= 10 ? '#FDE68A' : '#A7F3D0';
+  const { consumo, plan } = estado;
+  const restantes = consumo.restantes;
+  const sinCupo   = restantes <= 0;
+  // "Pocos" = queda ≤ 10% del cupo (mínimo 5).
+  const umbral = Math.max(Math.round(plan.limite_certificados_mes * 0.1), 5);
+  const pocos  = !sinCupo && restantes <= umbral;
+
+  const color = sinCupo ? '#DC2626' : pocos ? '#D97706' : '#0D7C66';
+  const bg    = sinCupo ? '#FEF2F2' : pocos ? '#FEF3C7' : '#ECFDF5';
+  const border= sinCupo ? '#FECACA' : pocos ? '#FDE68A' : '#A7F3D0';
+
+  const texto = sinCupo
+    ? `Cupo lleno${consumo.adicionales ? ` · ${consumo.adicionales} extra` : ''}`
+    : `${restantes} de ${consumo.incluidos}`;
 
   return (
     <div
       className="flex items-center gap-2 px-3 py-1.5 rounded-xl"
       style={{ background: bg, border: `1px solid ${border}` }}
-      title={`${saldo} créditos disponibles de ${estado.asignados_total} asignados`}
+      title={`Plan ${plan.nombre} · ${consumo.emitidos} emitidos este mes de ${consumo.incluidos} incluidos${consumo.adicionales ? ` · ${consumo.adicionales} excedentes (S/ ${consumo.monto_adicional.toFixed(2)})` : ''}`}
     >
       <CreditCard size={14} style={{ color }} />
       <span className="text-[12px] font-semibold" style={{ color }}>
-        {saldo} {saldo === 1 ? 'crédito' : 'créditos'}
+        {texto}
       </span>
     </div>
   );
@@ -42,6 +52,7 @@ const PAGE_LABELS: Record<string, string> = {
   estudiantes:   'Estudiantes',
   inscripciones: 'Inscripciones',
   certificados:  'Certificados',
+  plan:          'Mi plan',
   config:        'Configuración',
 };
 
@@ -53,6 +64,7 @@ const NAV_ITEMS = [
   { key: 'estudiantes',  label: 'Estudiantes',    Icon: Users },
   { key: 'inscripciones',label: 'Inscripciones',  Icon: ClipboardList },
   { key: 'certificados', label: 'Certificados',   Icon: FileBadge },
+  { key: 'plan',         label: 'Mi plan',        Icon: CreditCard },
   { key: 'config',       label: 'Configuración',  Icon: Settings },
 ];
 
@@ -239,7 +251,7 @@ export default function AdminLayout() {
   );
 
   return (
-    <CreditosProvider empresa={empresa!}>
+    <PlanProvider empresa={empresa!}>
     <SessionRevokedModal />
     <div className="flex h-screen overflow-hidden" style={{ background: '#F5F4F0' }}>
       {/* Overlay móvil */}
@@ -268,7 +280,7 @@ export default function AdminLayout() {
             </h1>
           </div>
           <div className="flex items-center gap-3">
-            <CreditosBadge />
+            <CupoBadge />
             <div
               className="w-8 h-8 rounded-full flex items-center justify-center text-[12px] font-bold flex-shrink-0"
               style={{ background: '#FEF3C7', color: '#D97706', border: '1px solid #FDE68A' }}
@@ -317,6 +329,6 @@ export default function AdminLayout() {
         </main>
       </div>
     </div>
-    </CreditosProvider>
+    </PlanProvider>
   );
 }

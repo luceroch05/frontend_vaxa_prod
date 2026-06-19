@@ -32,6 +32,34 @@ export interface MovimientoCredito {
   created_at: string;
 }
 
+/** ── Planes (modelo de suscripción) ────────────────────────── */
+export interface PlanCatalogo {
+  id: number;
+  slug: string;
+  nombre: string;
+  precio_mensual: number;
+  limite_certificados_mes: number;
+  precio_certificado_adicional: number;
+  setup_inicial: number;
+  permite_diseno: boolean;
+  permite_subdominio: boolean;
+  permite_api: boolean;
+  permite_carga_masiva: boolean;
+  permite_metricas: boolean;
+  permite_auditoria: boolean;
+  muestra_pdf_publico: boolean;
+}
+
+export interface EstadoPlanEmpresa {
+  plan: (PlanCatalogo & { muestra_pdf_publico: boolean }) | null;
+  suscripcion: { id: number; ciclo: string; estado: string; fecha_inicio: string; fecha_fin: string } | null;
+  consumo: {
+    anio: number; mes: number;
+    incluidos: number; emitidos: number; adicionales: number;
+    monto_adicional: number; restantes: number;
+  };
+}
+
 export interface UsuarioEmpresa {
   id: number;
   nombres: string;
@@ -50,7 +78,8 @@ export interface CrearEmpresaDto {
   dominio?: string;
   ruc?: string;
   logo?: string;
-  creditos_iniciales?: number;
+  plan_id?: number;     // plan con el que arranca (default: Básico)
+  ciclo_id?: number;    // ciclo de facturación (default: mensual)
 }
 
 export interface EditarEmpresaDto {
@@ -123,4 +152,14 @@ export const creditosAdminApi = {
 
   listRoles: () =>
     api.get<Rol[]>('/api/admin/roles', opts()),
+
+  /** ── Planes ── */
+  listPlanes: () =>
+    api.get<PlanCatalogo[]>('/api/admin/planes', opts()),
+
+  getPlanEmpresa: (empresaId: number) =>
+    api.get<EstadoPlanEmpresa>(`/api/admin/empresas/${empresaId}/plan`, opts()),
+
+  asignarPlan: (empresaId: number, plan_id: number, ciclo_id: number) =>
+    api.post<EstadoPlanEmpresa>(`/api/admin/empresas/${empresaId}/plan`, { plan_id, ciclo_id }, opts()),
 };

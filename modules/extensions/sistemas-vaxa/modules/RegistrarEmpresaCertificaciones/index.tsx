@@ -15,9 +15,17 @@ import {
   X,
 } from '@/components/ui/icon';
 import HeaderSistemasVaxa from '../../shared/components/HeaderSistemasVaxa';
-import { PLANES, VAXA_CONFIG } from '../../shared/constants';
-import { creditosAdminApi } from '../../shared/api/creditos.admin.api';
-import { AlertCircle } from '@/components/ui/icon';
+import { VAXA_CONFIG } from '../../shared/constants';
+import { creditosAdminApi, type PlanCatalogo } from '../../shared/api/creditos.admin.api';
+import { AlertCircle, CheckCircle } from '@/components/ui/icon';
+
+/** Ciclos de contrato (catálogo fijo: id 1/2/3). */
+const CICLOS = [
+  { id: 1, label: 'Mensual' },
+  { id: 2, label: 'Semestral (paga 5, recibe 6)' },
+  { id: 3, label: 'Anual (paga 10, recibe 12)' },
+];
+const sol = (n: number) => `S/ ${n.toFixed(2)}`;
 
 // Configuración específica del sistema de certificaciones
 const CERTIFICACIONES_CONFIG = {
@@ -46,7 +54,6 @@ interface FormData {
   telefono: string;
   direccion: string;
   pais: string;
-  planId: string;
   contactoNombre: string;
   contactoEmail: string;
   contactoCargo: string;
@@ -62,6 +69,9 @@ export default function RegistrarEmpresaCertificaciones({
   const [error, setError] = useState<string | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [planes, setPlanes] = useState<PlanCatalogo[]>([]);
+  const [planId, setPlanId] = useState<number>(0);
+  const [cicloId, setCicloId] = useState<number>(1);
 
   const [formData, setFormData] = useState<FormData>({
     nombre: '',
@@ -72,7 +82,6 @@ export default function RegistrarEmpresaCertificaciones({
     telefono: '',
     direccion: '',
     pais: 'Perú',
-    planId: 'basico',
     contactoNombre: '',
     contactoEmail: '',
     contactoCargo: '',
@@ -96,6 +105,13 @@ export default function RegistrarEmpresaCertificaciones({
       }
     }
   }, [tenantId, navigate]);
+
+  // Carga los planes reales de la BD para el selector.
+  useEffect(() => {
+    creditosAdminApi.listPlanes()
+      .then((ps) => { setPlanes(ps); setPlanId((id) => id || ps[0]?.id || 0); })
+      .catch(() => { /* el backend dará el error al guardar si falla */ });
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -127,20 +143,18 @@ export default function RegistrarEmpresaCertificaciones({
     setLoading(true);
     setError(null);
 
-    // El plan elegido define los créditos iniciales (límite de certificados del plan).
-    const plan = Object.values(PLANES).find((p) => p.id === formData.planId);
-    const creditosIniciales = plan && plan.certificadosMax > 0 ? plan.certificadosMax : 0;
-
     try {
-      // El backend tiene columnas razon_social, ruc, tenant_slug. El resto de
-      // campos (teléfono, dirección, contacto, logo) aún no se persisten.
+      // El backend tiene columnas razon_social, ruc, tenant_slug, dominio. El resto de
+      // campos (teléfono, dirección, contacto) aún no se persisten. El plan elegido se
+      // asigna como suscripción vigente en el backend.
       const empresa = await creditosAdminApi.crearEmpresa({
         razon_social: formData.nombre,
         tenant_slug: formData.slug || undefined,   // si vacío, el backend lo genera del nombre
         dominio: formData.dominio || undefined,
         ruc: formData.ruc || undefined,
         logo: logoPreview || undefined,            // data URL base64 del logo subido
-        creditos_iniciales: creditosIniciales,
+        plan_id: planId || undefined,
+        ciclo_id: cicloId,
       });
       navigate(`/${tenantId}/certificaciones/empresa/${empresa.id}`);
     } catch (err) {
@@ -275,21 +289,6 @@ export default function RegistrarEmpresaCertificaciones({
                 <p className="text-xs text-gray-500 mt-1.5">
                   Portal: <code className="text-emerald-600">/{formData.slug || '<se-genera-del-nombre>'}/certificados</code>
                 </p>
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-semibold uppercase tracking-wider text-gray-600 mb-1.5 flex items-center gap-2">
-                  <Globe className="w-4 h-4 text-gray-500" />
-                  Dominio (opcional)
-                </label>
-                <input
-                  type="text"
-                  name="dominio"
-                  value={formData.dominio}
-                  onChange={handleChange}
-                  placeholder="techpro.edu.pe"
-                  className="sv-input"
-                />
               </div>
 
               <div>
@@ -432,37 +431,93 @@ export default function RegistrarEmpresaCertificaciones({
               Plan de Suscripción
             </h2>
             <p className="text-sm text-gray-600 mb-6">
-              El cobro es <span className="font-semibold text-emerald-600">por usuario</span>. El
-              plan define el límite de certificados que puede generar la empresa.
+              El plan define el <span className="font-semibold text-emerald-600">cupo mensual</span> de certificados.
+              Al pasarlo, cada certificado adicional se cobra aparte.
             </p>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {Object.values(PLANES).map((plan) => (
-                <label
-                  key={plan.id}
-                  className="relative cursor-pointer rounded-2xl p-5 transition-all"
-                  style={formData.planId === plan.id
-                    ? { border: '1.5px solid #059669', background: '#F0FDF9', boxShadow: '0 4px 16px rgba(5,150,105,0.12)' }
-                    : { border: '1.5px solid #EEECE6', background: '#fff' }}
-                >
-                  <input type="radio" name="planId" value={plan.id} checked={formData.planId === plan.id} onChange={handleChange} className="sr-only" />
-                  <div className="text-center">
-                    <h3 className="text-[14px] font-bold mb-2" style={{ color: '#0D0E12' }}>{plan.nombre}</h3>
-                    <div className="mb-4">
-                      <span className="text-[26px] font-bold" style={{ color: '#0D0E12' }}>${plan.precioPorUsuario}</span>
-                      <span className="text-[12px]" style={{ color: '#9CA3AF' }}>/usuario/mes</span>
+
+            {/* Tarjetas de plan (reales de la BD) */}
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+              {planes.map((plan) => {
+                const sel = planId === plan.id;
+                return (
+                  <label key={plan.id} className="relative cursor-pointer rounded-2xl p-4 transition-all flex flex-col"
+                    style={sel
+                      ? { border: '1.5px solid #059669', background: '#F0FDF9', boxShadow: '0 4px 16px rgba(5,150,105,0.12)' }
+                      : { border: '1.5px solid #EEECE6', background: '#fff' }}>
+                    <input type="radio" name="plan" value={plan.id} checked={sel} onChange={() => setPlanId(plan.id)} className="sr-only" />
+                    <h3 className="text-[14px] font-bold mb-1" style={{ color: '#0D0E12' }}>{plan.nombre}</h3>
+                    <div className="mb-2">
+                      <span className="text-[22px] font-bold" style={{ color: '#0D0E12' }}>{sol(plan.precio_mensual)}</span>
+                      <span className="text-[12px]" style={{ color: '#9CA3AF' }}>/mes</span>
                     </div>
-                    <div className="space-y-1.5 text-left">
-                      {plan.features.map((feature, idx) => (
-                        <div key={idx} className="flex items-start gap-2 text-[12.5px]" style={{ color: '#64748B' }}>
-                          <span className="mt-0.5" style={{ color: '#059669' }}>✓</span>
-                          <span>{feature}</span>
+                    <p className="text-[12px]" style={{ color: '#64748B' }}>
+                      {plan.limite_certificados_mes ? `${plan.limite_certificados_mes} certificados/mes` : 'Cupo a medida'}
+                    </p>
+                    <p className="text-[11.5px] mt-0.5" style={{ color: '#9CA3AF' }}>
+                      Adicional {sol(plan.precio_certificado_adicional)} c/u
+                      {plan.setup_inicial > 0 && <> · setup {sol(plan.setup_inicial)}</>}
+                    </p>
+                  </label>
+                );
+              })}
+            </div>
+
+            {/* Ciclo de facturación */}
+            <div className="mt-4 max-w-xs">
+              <label className="block text-[11px] font-semibold uppercase tracking-wider text-gray-600 mb-1.5">Ciclo de facturación</label>
+              <select value={cicloId} onChange={(e) => setCicloId(Number(e.target.value))} className="sv-input">
+                {CICLOS.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
+              </select>
+            </div>
+
+            {/* Qué incluye el plan elegido + campos que pide (dominio, etc.) */}
+            {(() => {
+              const p = planes.find((x) => x.id === planId);
+              if (!p) return null;
+              const incluidos = [
+                p.permite_diseno       && 'Diseño personalizado del certificado',
+                p.permite_subdominio   && 'Dominio o subdominio propio',
+                p.permite_carga_masiva && 'Carga masiva (Excel) / API',
+                p.permite_api          && 'Acceso por API',
+                p.permite_metricas     && 'Panel de métricas',
+                p.permite_auditoria    && 'Auditoría completa',
+              ].filter(Boolean) as string[];
+
+              return (
+                <div className="mt-4 rounded-2xl p-4" style={{ background: '#FAFAF8', border: '1px solid #EEECE6' }}>
+                  <p className="text-[12px] font-semibold uppercase tracking-wider mb-2" style={{ color: '#374151' }}>
+                    Incluye el {p.nombre}
+                  </p>
+                  {incluidos.length ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                      {incluidos.map((f) => (
+                        <div key={f} className="flex items-center gap-1.5 text-[12.5px]" style={{ color: '#15803D' }}>
+                          <CheckCircle className="w-3.5 h-3.5" /> {f}
                         </div>
                       ))}
                     </div>
-                  </div>
-                </label>
-              ))}
-            </div>
+                  ) : (
+                    <p className="text-[12.5px]" style={{ color: '#64748B' }}>Funciones base: códigos, validación pública y PDF.</p>
+                  )}
+
+                  {/* Si el plan incluye dominio propio, se pide el dominio aquí. */}
+                  {p.permite_subdominio && (
+                    <div className="mt-3 pt-3" style={{ borderTop: '1px solid #EEECE6' }}>
+                      <label className="block text-[11px] font-semibold uppercase tracking-wider mb-1.5 flex items-center gap-2" style={{ color: '#374151' }}>
+                        <Globe className="w-4 h-4 text-emerald-600" /> Dominio propio del cliente
+                      </label>
+                      <input
+                        type="text" name="dominio" value={formData.dominio} onChange={handleChange}
+                        placeholder="validar.suempresa.com" className="sv-input"
+                      />
+                      <p className="text-[11.5px] mt-1" style={{ color: '#9CA3AF' }}>
+                        Este plan incluye dominio propio. Si lo provee Vaxa, déjalo y se configura luego.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
 
           {error && (

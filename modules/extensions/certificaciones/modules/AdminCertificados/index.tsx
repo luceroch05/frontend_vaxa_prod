@@ -10,7 +10,7 @@ import { useInscripciones } from '../../shared/hooks/useInscripciones';
 import { useGrupos }        from '../../shared/hooks/useGrupos';
 import { usePagination }    from '../../shared/hooks/usePagination';
 import { useConfirm }        from '../../shared/hooks/useConfirm';
-import { useCreditos }       from '../../shared/hooks/useCreditos';
+import { usePlan }           from '../../shared/hooks/usePlan';
 import Pagination from '../../shared/components/Pagination';
 import { configApi } from '../../shared/api/config.api';
 import { certificadosApi } from '../../shared/api/certificados.api';
@@ -75,9 +75,9 @@ export default function AdminCertificados() {
   const confirm = useConfirm();
   const navigate = useNavigate();
   const { certificados, loading, error, generar, anular, eliminar } = useCertificados(empresa!);
-  const { refetch: refrescarCreditos } = useCreditos();
+  const { refetch: refrescarPlan } = usePlan();
 
-  const SIN_CREDITOS_MSG = 'Te quedaste sin créditos. Contacta a Vaxa para renovar tu plan y seguir emitiendo certificados.';
+  const SIN_PLAN_MSG = 'Tu empresa no tiene un plan activo. Contacta a Vaxa para activar tu suscripción y emitir certificados.';
 
   /** Si falta el diseño del programa, muestra un modal de advertencia con acceso a Configuración. */
   const avisarFaltaConfig = async (msg: string) => {
@@ -107,7 +107,7 @@ export default function AdminCertificados() {
 
   const [errorMsg,  setErrorMsg]  = useState<string | null>(null);
   const [okMsg,     setOkMsg]     = useState<string | null>(null);
-  const [sinCreditosModal, setSinCreditosModal] = useState(false);
+  const [sinPlanModal, setSinPlanModal] = useState(false);
 
   const [preview,   setPreview]   = useState<{
     cert: Certificado & { empresa_nombre: string };
@@ -172,7 +172,7 @@ export default function AdminCertificados() {
     setErrorMsg(null); setOkMsg(null);
     try {
       await eliminar(id);
-      refrescarCreditos();
+      refrescarPlan();
       setOkMsg('Certificado eliminado · 1 crédito devuelto');
       setTimeout(() => setOkMsg(null), 2500);
     } catch (e: unknown) { setErrorMsg((e as Error).message); }
@@ -236,7 +236,7 @@ export default function AdminCertificados() {
     let done = 0;
     let errors = 0;
     let configMsg: string | null = null;
-    let sinCreditos = false;
+    let sinPlan = false;
     for (const id of ids) {
       try {
         await generar(id);
@@ -244,7 +244,7 @@ export default function AdminCertificados() {
         errors += 1;
         const raw = (e as Error).message;
         if (raw.startsWith('FALTA_CONFIG:') && !configMsg) configMsg = raw.replace('FALTA_CONFIG:', '').trim();
-        else if (raw.startsWith('SIN_CREDITOS')) { sinCreditos = true; break; }  // sin saldo: no tiene sentido seguir
+        else if (raw.startsWith('SIN_PLAN')) { sinPlan = true; break; }  // sin suscripción: no tiene sentido seguir
       }
       done += 1;
       setBatchProgress({ done, total: ids.length, errors });
@@ -252,11 +252,11 @@ export default function AdminCertificados() {
 
     setBatchRunning(false);
     clearSelection();
-    refrescarCreditos();
+    refrescarPlan();
 
     // Si el programa no tiene diseño, el motivo principal es ése → modal de advertencia.
     if (configMsg) { await avisarFaltaConfig(configMsg); return; }
-    if (sinCreditos) { setSinCreditosModal(true); return; }
+    if (sinPlan) { setSinPlanModal(true); return; }
 
     if (errors === 0) {
       setOkMsg(`${done} certificados emitidos correctamente`);
@@ -563,11 +563,11 @@ export default function AdminCertificados() {
       )}
 
       {/* ── Modal: sin créditos ──────────────────────────────── */}
-      {sinCreditosModal && (
+      {sinPlanModal && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4"
           style={{ background: 'rgba(13,14,18,0.5)', backdropFilter: 'blur(4px)' }}
-          onMouseDown={() => setSinCreditosModal(false)}
+          onMouseDown={() => setSinPlanModal(false)}
         >
           <div
             className="w-full max-w-[420px] bg-white rounded-2xl p-7 text-center"
@@ -579,13 +579,13 @@ export default function AdminCertificados() {
               <AlertCircle size={30} style={{ color: '#DC2626' }} />
             </div>
             <h3 className="text-[20px] font-bold" style={{ color: '#0D0E12' }}>
-              Te quedaste sin créditos
+              Sin plan activo
             </h3>
             <p className="text-[14px] mt-2 leading-relaxed" style={{ color: '#6B7280' }}>
-              {SIN_CREDITOS_MSG}
+              {SIN_PLAN_MSG}
             </p>
             <button
-              onClick={() => setSinCreditosModal(false)}
+              onClick={() => setSinPlanModal(false)}
               className="w-full mt-6 py-3 rounded-xl text-[14px] font-semibold text-white"
               style={{ background: '#DC2626' }}
             >

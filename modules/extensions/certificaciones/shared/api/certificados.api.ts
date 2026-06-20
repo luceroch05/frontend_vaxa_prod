@@ -56,4 +56,25 @@ export const certificadosApi = {
   /** Endpoint público — no requiere token */
   validar: (codigo: string) =>
     api.get<CertificadoPublico>(`/public/certificado/${codigo}`),
+
+  descargarZipGrupo: async (empresa: string, grupoId: number) => {
+  const base = (import.meta.env.VITE_API_URL as string) || 'http://localhost:4000';
+  const token = authStorage.getToken(empresa) ?? '';
+
+  const res = await fetch(
+    `${base}/api/certificados/emision/grupo/${grupoId}/zip`,
+    {
+      headers: {
+        'x-tenant-id': empresa,
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  if (!res.ok) {
+    throw new Error('No se pudo descargar el ZIP');
+  }
+
+  return res.blob();
+},
 };

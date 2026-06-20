@@ -118,6 +118,31 @@ export default function AdminCertificados() {
   const [batchPreview, setBatchPreview] = useState<{ ids: number[]; url: string; nombre: string } | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
 
+  const [descargandoZip, setDescargandoZip] = useState(false);
+
+  /** Descarga en un ZIP todos los PDF de certificados del grupo seleccionado. */
+  const handleDescargarZip = async () => {
+    if (grupoFilter === 'todos') return;
+    setDescargandoZip(true);
+    setErrorMsg(null);
+    try {
+      const blob = await certificadosApi.descargarZipGrupo(empresa!, grupoFilter);
+      const nombre = grupos.find(g => g.id === grupoFilter)?.nombre_grupo ?? `grupo-${grupoFilter}`;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `certificados-${nombre}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e: unknown) {
+      setErrorMsg('No se pudo descargar el ZIP: ' + (e as Error).message);
+    } finally {
+      setDescargandoZip(false);
+    }
+  };
+
   /* ── Derivados ─────────────────────────────────────────── */
   const aprobadosSinCert = useMemo(() => inscripciones.filter(i =>
     i.estado_id === ESTADO_APROBADO &&
@@ -416,6 +441,20 @@ export default function AdminCertificados() {
             <option value="todos">Todos los grupos</option>
             {grupos.map(g => <option key={g.id} value={g.id}>{g.nombre_grupo}</option>)}
           </select>
+
+          {/* Descargar ZIP — solo en Emitidos y con un grupo elegido. */}
+          {tab === 'emitidos' && grupoFilter !== 'todos' && (
+            <button
+              onClick={handleDescargarZip}
+              disabled={descargandoZip}
+              className="flex items-center gap-1.5 px-3.5 rounded-xl text-[13px] font-semibold flex-shrink-0 transition-all"
+              style={{ background: '#0D0E12', color: '#fff', opacity: descargandoZip ? 0.6 : 1 }}
+              title="Descargar todos los certificados del grupo en un ZIP"
+            >
+              {descargandoZip ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+              ZIP
+            </button>
+          )}
         </div>
       </div>
 
@@ -441,6 +480,7 @@ export default function AdminCertificados() {
           onEmitirSeleccion={() => handleEmitirMasa(Array.from(selected))}
           onEmitirTodos={() => handleEmitirMasa(pendientesFiltradas.map(i => i.id))}
           onEmitirIds={handleEmitirMasa}
+          
         />
       )}
 
@@ -840,7 +880,12 @@ function TablaPendientes({
 
 /* ── Emitidos ──────────────────────────────────────────────── */
 function TablaEmitidos({
-  items, anulando, generandoPdf, apiBase, onVerPDF, onAnular,
+  items,
+  anulando,
+  generandoPdf,
+  apiBase,
+  onVerPDF,
+  onAnular,
 }: {
   items: Certificado[];
   anulando: number | null;
@@ -851,7 +896,6 @@ function TablaEmitidos({
 }) {
   const { page, setPage, totalPages, pageItems, startIndex, endIndex, total } =
     usePagination(items, 15);
-
   if (items.length === 0) {
     return (
       <div className="bg-white rounded-2xl py-14 text-center" style={{ border: '1px solid #EEECE6' }}>
@@ -968,6 +1012,7 @@ function TablaEmitidos({
       accentColor="#C9962C"
     />
     </div>
+    
   );
 }
 

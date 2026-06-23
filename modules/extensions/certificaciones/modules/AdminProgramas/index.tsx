@@ -33,8 +33,8 @@ function ProgramaForm({
     onSubmit(form);
   };
 
-  // Requeridos completos para habilitar el guardado.
-  const puedeGuardar = !!form.tipo_programa_id && form.horas_academicas > 0 && form.nombre.trim() !== '';
+  // Requeridos para habilitar el guardado (las horas académicas son opcionales).
+  const puedeGuardar = !!form.tipo_programa_id && form.nombre.trim() !== '';
 
   return (
     <div
@@ -78,11 +78,11 @@ function ProgramaForm({
           <div>
             <label className="block text-[12px] font-semibold mb-1.5 uppercase tracking-wider" style={{ color: '#374151' }}>
               Horas académicas
+              <span className="ml-1.5 normal-case font-normal tracking-normal" style={{ color: '#9CA3AF' }}>(opcional)</span>
             </label>
             <input
               type="number"
-              min={1}
-              required
+              min={0}
               value={form.horas_academicas || ''}
               onChange={e => setForm(f => ({ ...f, horas_academicas: +e.target.value }))}
               className="vx-input"
@@ -333,7 +333,7 @@ export default function AdminProgramas() {
                   Horas:
                 </span>
                 <p className="text-[13px] font-medium tabular-nums" style={{ color: '#4B5563' }}>
-                  {p.horas_academicas}h
+                  {p.horas_academicas > 0 ? `${p.horas_academicas}h` : '—'}
                 </p>
               </div>
 

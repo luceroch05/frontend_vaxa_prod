@@ -17,6 +17,32 @@ export interface InscribirDto {
   grupo_id: number;
 }
 
+/** Una fila de participante para la carga masiva. */
+export interface ImportarFila {
+  tipo_documento_id: number;
+  numero_documento: string;
+  nombres: string;
+  apellidos: string;
+  email?: string;
+  telefono?: string;
+}
+
+export interface ImportarResultadoFila {
+  fila: number;
+  documento: string;
+  nombre: string;
+  estado: 'inscrito' | 'ya_inscrito' | 'emitido' | 'ya_emitido' | 'error';
+  motivo?: string;
+}
+
+export interface ImportarResultado {
+  resumen: {
+    total: number; inscritos: number; ya_inscritos: number;
+    emitidos: number; ya_emitidos: number; errores: number;
+  };
+  resultados: ImportarResultadoFila[];
+}
+
 export const inscripcionesApi = {
   list: (empresa: string, grupoId?: number) => {
     const qs = grupoId ? `?grupo_id=${grupoId}` : '';
@@ -50,6 +76,10 @@ export const inscripcionesApi = {
       { ids, estado_id },
       opts(empresa)
     ),
+
+  /** Carga masiva: inscribe (y opcionalmente emite el certificado de) una lista de participantes a un grupo. */
+  importarMasivo: (empresa: string, data: { grupo_id: number; emitir: boolean; participantes: ImportarFila[] }) =>
+    api.post<ImportarResultado>('/api/certificados/inscripciones/importar', data, opts(empresa)),
 
   /** Registro público: crea participante + inscripción en una sola operación */
   registroPublico: (empresa: string, data: RegistroPublicoDto) =>

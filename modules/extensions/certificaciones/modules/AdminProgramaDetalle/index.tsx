@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, Plus, Layers, Loader2, AlertCircle, Users, Calendar, Clock,
-  ChevronRight, GraduationCap, ClipboardList, Link2, Ban, RefreshCw, Trash2,
+  ChevronRight, GraduationCap, ClipboardList, Link2, Ban, RefreshCw, Trash2, FileSpreadsheet,
 } from '@/components/ui/icon';
 import { useProgramas } from '../../shared/hooks/useProgramas';
 import { useGrupos }    from '../../shared/hooks/useGrupos';
@@ -10,6 +10,7 @@ import { useConfirm }   from '../../shared/hooks/useConfirm';
 import GrupoForm, { DIAS_CORTO } from '../../shared/components/GrupoForm';
 import UnidadesEditor from '../../shared/components/UnidadesEditor';
 import CopyLinkButton from '../../shared/components/CopyLinkButton';
+import ImportarExcelModal from '../../shared/components/ImportarExcelModal';
 import type { CreateGrupoDto, Grupo } from '../../shared/types';
 
 /** Base pública de links para compartir (inscripción / validación). */
@@ -31,7 +32,7 @@ function fmtHorario(g: { dias_semana?: string | null; hora_inicio?: string | nul
 }
 
 /* ── Fila de aula ───────────────────────────────────────────────── */
-function AulaRow({ aula, empresa, onVerInscritos, onToggleActivo, onEliminar, isLast }: { aula: Grupo; empresa: string; onVerInscritos: (g: Grupo) => void; onToggleActivo: (g: Grupo) => void; onEliminar: (g: Grupo) => void; isLast: boolean }) {
+function AulaRow({ aula, empresa, onVerInscritos, onImportar, onToggleActivo, onEliminar, isLast }: { aula: Grupo; empresa: string; onVerInscritos: (g: Grupo) => void; onImportar: (g: Grupo) => void; onToggleActivo: (g: Grupo) => void; onEliminar: (g: Grupo) => void; isLast: boolean }) {
   return (
     <div
       className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-4 transition-colors"
@@ -81,6 +82,17 @@ function AulaRow({ aula, empresa, onVerInscritos, onToggleActivo, onEliminar, is
         >
           <Users size={12} /> Inscritos <ChevronRight size={11} />
         </button>
+        {/* Importar participantes por Excel (carga masiva) */}
+        <button
+          onClick={() => onImportar(aula)}
+          className="flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-xl transition-all"
+          style={{ background: '#ECFDF5', color: '#15803D', border: '1px solid #A7F3D0' }}
+          onMouseEnter={e => { e.currentTarget.style.background = '#15803D'; e.currentTarget.style.color = '#fff'; }}
+          onMouseLeave={e => { e.currentTarget.style.background = '#ECFDF5'; e.currentTarget.style.color = '#15803D'; }}
+          title="Importar participantes desde Excel"
+        >
+          <FileSpreadsheet size={12} /> Importar
+        </button>
         {/* Archivar / reactivar aula (soft-delete) */}
         <button
           onClick={() => onToggleActivo(aula)}
@@ -120,6 +132,7 @@ export default function AdminProgramaDetalle() {
   const [showForm,  setShowForm]  = useState(false);
   const [saving,    setSaving]    = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [importAula, setImportAula] = useState<Grupo | null>(null);   // aula sobre la que se importa por Excel
 
   const programa = programas.find(p => p.id === pid);
   const aulas    = grupos.filter(g => g.programa_id === pid);
@@ -246,7 +259,9 @@ export default function AdminProgramaDetalle() {
             <span className="text-[12px] font-medium px-2 py-0.5 rounded-full" style={{ background: '#F5F3FF', color: '#7C3AED' }}>
               {programa!.tipo_programa_nombre}
             </span>
-            <span className="text-[12px]" style={{ color: '#9CA3AF' }}>{programa!.horas_academicas}h</span>
+            {programa!.horas_academicas > 0 && (
+              <span className="text-[12px]" style={{ color: '#9CA3AF' }}>{programa!.horas_academicas}h</span>
+            )}
             <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full"
               style={programa!.activo
                 ? { background: '#F0FDF4', color: '#15803D', border: '1px solid #BBF7D0' }
@@ -371,7 +386,7 @@ export default function AdminProgramaDetalle() {
           {!gruposLoading && aulas.length > 0 && (
             <div className="bg-white rounded-2xl overflow-hidden" style={{ border: '1px solid #EEECE6' }}>
               {aulas.map((a, i) => (
-                <AulaRow key={a.id} aula={a} empresa={empresa!} onVerInscritos={handleVerInscritos} onToggleActivo={handleToggleAula} onEliminar={handleEliminarAula} isLast={i === aulas.length - 1} />
+                <AulaRow key={a.id} aula={a} empresa={empresa!} onVerInscritos={handleVerInscritos} onImportar={setImportAula} onToggleActivo={handleToggleAula} onEliminar={handleEliminarAula} isLast={i === aulas.length - 1} />
               ))}
             </div>
           )}
@@ -381,6 +396,16 @@ export default function AdminProgramaDetalle() {
       {/* ── Pestaña: Evaluación ── */}
       {tab === 'evaluacion' && (
         <UnidadesEditor empresa={empresa!} programa={programa!} onSaveProg={update} />
+      )}
+
+      {/* Modal de carga masiva por Excel */}
+      {importAula && (
+        <ImportarExcelModal
+          empresa={empresa!}
+          aula={importAula}
+          programaNombre={programa!.nombre}
+          onClose={() => setImportAula(null)}
+        />
       )}
     </div>
   );

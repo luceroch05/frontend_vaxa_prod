@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronDown, BookOpen, Clock, Calendar } from '@/components/ui/icon';
 import type { Grupo } from '../types';
 
@@ -32,9 +33,39 @@ export default function ProgramaGrupoPicker({ grupos, value, onChange, initialPr
 
   const [open, setOpen]   = useState(false);
   const [query, setQuery] = useState('');
-  const ref = useRef<HTMLDivElement>(null);
+  const ref = useRef<HTMLDivElement>(null);       // contenedor del input
+  const menuRef = useRef<HTMLDivElement>(null);   // menú flotante (en portal)
+  // Coordenadas del menú flotante. Se renderiza en un portal sobre el modal
+  // (position: fixed) para que NO lo recorte el overflow del modal, y se abre
+  // hacia arriba si no hay espacio suficiente abajo.
+  const [coords, setCoords] = useState<{ left: number; top: number; width: number; openUp: boolean } | null>(null);
+
+  const actualizarCoords = () => {
+    const el = ref.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const espacioAbajo = window.innerHeight - r.bottom;
+    const openUp = espacioAbajo < 260 && r.top > espacioAbajo;
+    setCoords({ left: r.left, top: openUp ? r.top : r.bottom, width: r.width, openUp });
+  };
+
+  // Recalcula la posición al abrir y mientras se hace scroll/resize.
   useEffect(() => {
-    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    if (!open) return;
+    actualizarCoords();
+    const on = () => actualizarCoords();
+    window.addEventListener('scroll', on, true);
+    window.addEventListener('resize', on);
+    return () => { window.removeEventListener('scroll', on, true); window.removeEventListener('resize', on); };
+  }, [open]);
+
+  // Cerrar al hacer clic fuera del input Y fuera del menú flotante.
+  useEffect(() => {
+    const h = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (ref.current?.contains(t) || menuRef.current?.contains(t)) return;
+      setOpen(false);
+    };
     document.addEventListener('mousedown', h);
     return () => document.removeEventListener('mousedown', h);
   }, []);
@@ -71,8 +102,22 @@ export default function ProgramaGrupoPicker({ grupos, value, onChange, initialPr
         />
         <ChevronDown size={16} className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: '#B0A898', transform: open ? 'rotate(180deg)' : undefined, transition: 'transform .15s' }} />
 
-        {open && (
-          <div className="absolute z-30 mt-1.5 w-full rounded-xl overflow-hidden page-enter" style={{ background: '#FFFFFF', border: '1px solid #EAE7DF', boxShadow: '0 12px 32px rgba(13,14,18,0.12)' }}>
+        {open && coords && createPortal(
+          <div
+            ref={menuRef}
+            className="rounded-xl overflow-hidden"
+            style={{
+              position: 'fixed',
+              left: coords.left,
+              width: coords.width,
+              top:    coords.openUp ? undefined : coords.top + 6,
+              bottom: coords.openUp ? (window.innerHeight - coords.top + 6) : undefined,
+              zIndex: 1000,
+              background: '#FFFFFF',
+              border: '1px solid #EAE7DF',
+              boxShadow: '0 12px 32px rgba(13,14,18,0.18)',
+            }}
+          >
             <div className="max-h-56 overflow-y-auto py-1">
               {filtered.length === 0 ? (
                 <p className="px-4 py-6 text-center text-[13px]" style={{ color: '#B0A898' }}>Sin resultados</p>
@@ -86,7 +131,8 @@ export default function ProgramaGrupoPicker({ grupos, value, onChange, initialPr
                 ))
               )}
             </div>
-          </div>
+          </div>,
+          document.body,
         )}
       </div>
 

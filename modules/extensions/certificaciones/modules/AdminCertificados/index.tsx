@@ -14,6 +14,7 @@ import { usePlan }           from '../../shared/hooks/usePlan';
 import Pagination from '../../shared/components/Pagination';
 import { configApi } from '../../shared/api/config.api';
 import { certificadosApi } from '../../shared/api/certificados.api';
+import { formatDateShort } from '../../shared/utils';
 import type { Certificado, ConfigCertificado } from '../../shared/types';
 import { CertificadoPDF } from '../../shared/components/CertificadoPDF';
 
@@ -954,9 +955,9 @@ function TablaEmitidos({
               {c.programa_nombre}
             </p>
 
-            {/* Fecha */}
+            {/* Fecha — formatDateShort es timezone-safe (no resta un día por la zona horaria). */}
             <p className="text-[11.5px] hidden sm:block tabular-nums" style={{ color: '#9CA3AF' }}>
-              {new Date(c.fecha_emision).toLocaleDateString('es-PE', { day: '2-digit', month: 'short', year: '2-digit' })}
+              {formatDateShort(c.fecha_emision)}
             </p>
 
             {/* Acciones */}

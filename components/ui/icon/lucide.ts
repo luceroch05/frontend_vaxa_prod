@@ -25,6 +25,7 @@ import {
   RefreshCw,
   Package,
   Users,
+  MessageCircle,
 
   Star,
   ChevronDown,
@@ -152,6 +153,6 @@ export {
   // Certificados
   GraduationCap, BookOpen, ClipboardList, UserCheck, UserPlus, FileBadge,
   QrCode, Layers, Menu, Home, ChevronLeft, MoreVertical, AlertTriangle,
-  BadgeCheck, Pencil, Ban, PrinterIcon, Copy, Link2,
+  BadgeCheck, Pencil, Ban, PrinterIcon, Copy, Link2, MessageCircle,
 };
 export type { LucideIcon };

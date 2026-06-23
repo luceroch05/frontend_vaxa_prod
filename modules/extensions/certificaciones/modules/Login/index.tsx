@@ -285,7 +285,7 @@ export default function CertificacionesLogin({ tenantId, tenant }: LoginProps) {
                 {/* Botón */}
                 <button
                   type="submit"
-                  disabled={isLoading}
+                  disabled={isLoading || !email.trim() || !password}
                   className="w-full text-white py-3.5 rounded-xl font-medium text-base transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 group relative overflow-hidden shadow-sm hover:shadow-md"
                   style={{
                     backgroundColor: isLoading ? '#9ca3af' : TENANT_CONFIG.PRIMARY_COLOR

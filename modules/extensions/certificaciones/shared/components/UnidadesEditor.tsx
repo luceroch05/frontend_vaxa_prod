@@ -34,6 +34,11 @@ export default function UnidadesEditor({
       .finally(() => setLoading(false));
   }, [empresa, programa.id]);
 
+  // ¿Cambió la etiqueta o la nota mínima respecto al programa? (para habilitar "Guardar")
+  const configModificada =
+    (label.trim() || 'Unidad') !== (programa.unidad_label || 'Unidad') ||
+    notaMin !== Number(programa.nota_minima ?? 11);
+
   const guardarConfig = async () => {
     setSavingProg(true); setError(null);
     try { await onSaveProg(programa.id, { unidad_label: label.trim() || 'Unidad', nota_minima: notaMin }); }
@@ -90,8 +95,8 @@ export default function UnidadesEditor({
             onChange={e => setNotaMin(Number(e.target.value))}
             className="vx-input" style={{ padding: '0.45rem 0.7rem', width: 120 }} />
         </div>
-        <button onClick={guardarConfig} disabled={savingProg}
-          className="flex items-center gap-1.5 text-[12px] font-semibold px-3.5 py-2 rounded-xl"
+        <button onClick={guardarConfig} disabled={savingProg || !configModificada}
+          className="flex items-center gap-1.5 text-[12px] font-semibold px-3.5 py-2 rounded-xl disabled:opacity-50"
           style={{ background: '#7C3AED', color: '#fff' }}>
           {savingProg ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
           Guardar

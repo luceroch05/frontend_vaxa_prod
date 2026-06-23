@@ -81,6 +81,22 @@ export default function TabUsuarios({ empresa }: TabUsuariosProps) {
 
   const set = (k: keyof typeof VACIO, v: any) => setForm((f) => ({ ...f, [k]: v }));
 
+  // ¿Se puede guardar? Requeridos completos y, si es edición, que algo haya cambiado.
+  const original = editando ? (usuarios ?? []).find((u) => u.id === modal) : undefined;
+  // Contraseña: al crear es obligatoria (mín. 6). Al editar es opcional, pero si se
+  // escribe algo debe tener al menos 6 caracteres.
+  const passLen = form.contrasena.trim().length;
+  const passwordCorta = editando ? (passLen > 0 && passLen < 6) : passLen < 6;
+  const requeridosOk =
+    form.nombres.trim() !== '' && form.apellidos.trim() !== '' && form.correo.trim() !== '' &&
+    !!form.rol_id && !passwordCorta;
+  const huboCambios = !original
+    ? true
+    : form.nombres !== original.nombres || form.apellidos !== original.apellidos ||
+      form.correo !== original.correo || Number(form.rol_id) !== original.rol_id ||
+      form.activo !== (original.activo === 1) || form.contrasena.trim() !== '';
+  const puedeGuardar = requeridosOk && (!editando || huboCambios);
+
   const eliminar = async () => {
     if (!confirmDel) return;
     setDeleting(true); setError(null);
@@ -170,8 +186,14 @@ export default function TabUsuarios({ empresa }: TabUsuariosProps) {
               </div>
               <input type="text" value={form.correo} onChange={(e) => set('correo', e.target.value)} placeholder="Usuario o correo" required className="sv-input" />
               <div className="grid grid-cols-2 gap-3">
-                <input type="text" value={form.contrasena} onChange={(e) => set('contrasena', e.target.value)}
-                  placeholder={editando ? 'Nueva contraseña (opcional)' : 'Contraseña (mín. 6)'} required={!editando} className="sv-input" />
+                <div>
+                  <input type="text" value={form.contrasena} onChange={(e) => set('contrasena', e.target.value)}
+                    placeholder={editando ? 'Nueva contraseña (opcional)' : 'Contraseña (mín. 6)'} required={!editando}
+                    className="sv-input w-full" />
+                  <p className="text-[11px] mt-1" style={{ color: passwordCorta ? '#DC2626' : '#9CA3AF' }}>
+                    {editando ? 'Déjala vacía para no cambiarla · mínimo 6 caracteres' : 'Mínimo 6 caracteres'}
+                  </p>
+                </div>
                 <select value={form.rol_id} onChange={(e) => set('rol_id', Number(e.target.value))} className="sv-input">
                   {roles.map((r) => <option key={r.id} value={r.id}>{r.nombre}</option>)}
                 </select>
@@ -185,7 +207,7 @@ export default function TabUsuarios({ empresa }: TabUsuariosProps) {
               {error && <p className="text-[12.5px]" style={{ color: '#DC2626' }}>{error}</p>}
               <div className="flex items-center gap-2.5 pt-2">
                 <button type="button" onClick={cerrar} className="sv-btn sv-btn-ghost flex-1">Cancelar</button>
-                <button type="submit" disabled={saving} className="sv-btn sv-btn-primary flex-1">
+                <button type="submit" disabled={saving || !puedeGuardar} className="sv-btn sv-btn-primary flex-1">
                   {saving && <Loader2 className="w-4 h-4 animate-spin" />} {editando ? 'Guardar cambios' : 'Crear usuario'}
                 </button>
               </div>

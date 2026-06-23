@@ -174,6 +174,14 @@ export default function RegistrarEmpresaCertificaciones({
   // Ciclo de pago elegido (define cuántas mensualidades se cobran y la vigencia).
   const cicloSel = CICLOS.find((c) => c.id === cicloId) ?? CICLOS[0];
 
+  // ¿Se puede registrar? Todos los campos marcados con * deben estar completos.
+  const f = formData;
+  const puedeRegistrar =
+    f.nombre.trim() !== '' && f.ruc.trim() !== '' && f.pais.trim() !== '' &&
+    f.email.trim() !== '' && f.telefono.trim() !== '' && f.direccion.trim() !== '' &&
+    f.contactoNombre.trim() !== '' && f.contactoEmail.trim() !== '' && f.contactoCargo.trim() !== '' &&
+    !!planId;
+
   return (
     <div className="min-h-screen" style={{ background: '#F5F4F0' }}>
       <HeaderSistemasVaxa
@@ -570,7 +578,7 @@ export default function RegistrarEmpresaCertificaciones({
             <button type="button" onClick={() => navigate(`/${tenantId}/certificaciones`)} className="sv-btn sv-btn-ghost px-5">
               Cancelar
             </button>
-            <button type="submit" disabled={loading} className="sv-btn sv-btn-primary px-5">
+            <button type="submit" disabled={loading || !puedeRegistrar} className="sv-btn sv-btn-primary px-5">
               <Save className="w-4 h-4" />
               {loading ? 'Registrando…' : 'Registrar empresa'}
             </button>

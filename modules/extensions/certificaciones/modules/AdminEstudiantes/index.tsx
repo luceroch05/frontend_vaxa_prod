@@ -81,6 +81,8 @@ function InscribirModal({ empresa, onClose, onDone }: {
     return () => clearTimeout(t);
   }, [doc, doLookup]);
 
+  const puedeGuardar = doc.trim() !== '' && nombres.trim() !== '' && apellidos.trim() !== '' && !!grupoId;
+
   const submit = async () => {
     if (!doc.trim() || !nombres.trim() || !apellidos.trim() || !grupoId) {
       setError('Completa documento, nombres, apellidos y grupo.'); return;
@@ -211,7 +213,7 @@ function InscribirModal({ empresa, onClose, onDone }: {
         <div className="flex items-center justify-end gap-2.5 px-5 py-4" style={{ borderTop: '1px solid #EEECE6' }}>
           <button onClick={onClose} className="px-4 py-2 text-[13px] font-semibold rounded-xl"
             style={{ color: '#4B5563', border: '1px solid rgba(15,24,41,0.12)' }}>Cancelar</button>
-          <button onClick={submit} disabled={saving} className="vx-btn vx-btn-primary px-4 py-2">
+          <button onClick={submit} disabled={saving || !puedeGuardar} className="vx-btn vx-btn-primary px-4 py-2">
             {saving ? <Loader2 size={14} className="animate-spin" /> : <UserPlus size={14} />}
             Inscribir
           </button>
@@ -244,6 +246,13 @@ function EditarModal({ empresa, participante, onClose, onDone }: {
   const docRule = getDocRule(tiposDoc.find(t => t.id === tipoDoc)?.codigo);
   const sanitizeDoc = (raw: string, rule = docRule) =>
     (rule.numeric ? raw.replace(/\D/g, '') : raw.replace(/[^a-zA-Z0-9]/g, '')).slice(0, rule.max);
+
+  // Requeridos completos y que algo haya cambiado respecto al estudiante original.
+  const huboCambios =
+    tipoDoc !== participante.tipo_documento_id || doc.trim() !== participante.numero_documento ||
+    nombres.trim() !== participante.nombres || apellidos.trim() !== participante.apellidos ||
+    email.trim() !== (participante.email ?? '') || telefono.trim() !== (participante.telefono ?? '');
+  const puedeGuardar = doc.trim() !== '' && nombres.trim() !== '' && apellidos.trim() !== '' && huboCambios;
 
   const submit = async () => {
     if (!doc.trim() || !nombres.trim() || !apellidos.trim()) { setError('Completa documento, nombres y apellidos.'); return; }
@@ -325,7 +334,7 @@ function EditarModal({ empresa, participante, onClose, onDone }: {
         <div className="flex items-center justify-end gap-2.5 px-5 py-4" style={{ borderTop: '1px solid #EEECE6' }}>
           <button onClick={onClose} className="px-4 py-2 text-[13px] font-semibold rounded-xl"
             style={{ color: '#4B5563', border: '1px solid rgba(15,24,41,0.12)' }}>Cancelar</button>
-          <button onClick={submit} disabled={saving} className="vx-btn vx-btn-primary px-4 py-2">
+          <button onClick={submit} disabled={saving || !puedeGuardar} className="vx-btn vx-btn-primary px-4 py-2">
             {saving ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle size={14} />}
             Guardar cambios
           </button>

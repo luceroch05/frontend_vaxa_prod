@@ -11,6 +11,8 @@ export interface Branding {
   slug: string;
   razonSocial: string | null;
   logoUrl: string | null;
+  /** false = empresa desactivada: solo se permite validar certificados. */
+  activo: boolean;
 }
 
 /** Hook para que las páginas públicas lean el branding de la institución. */
@@ -25,18 +27,21 @@ export default function CertificadosLayout() {
   const { empresa } = useParams<{ empresa: string }>();
   const slug = empresa!;
   const [estado, setEstado] = useState<Estado>('verificando');
-  const [branding, setBranding] = useState<Branding>({ slug, razonSocial: null, logoUrl: null });
+  const [branding, setBranding] = useState<Branding>({ slug, razonSocial: null, logoUrl: null, activo: true });
 
   useEffect(() => {
     let activo = true;
     setEstado('verificando');
-    setBranding({ slug, razonSocial: null, logoUrl: null });
+    setBranding({ slug, razonSocial: null, logoUrl: null, activo: true });
     publicApi
       .existeEmpresa(slug)
       .then(r => {
         if (!activo) return;
+        // Una empresa desactivada SIGUE existiendo (exists=true): se renderiza la
+        // plataforma para que la validación funcione; el login/inscripción se
+        // bloquean según `activo` en cada página.
         setEstado(r.exists ? 'existe' : 'no-existe');
-        setBranding({ slug, razonSocial: r.razon_social ?? null, logoUrl: r.logo_url ?? null });
+        setBranding({ slug, razonSocial: r.razon_social ?? null, logoUrl: r.logo_url ?? null, activo: r.activo ?? true });
       })
       // Falla ABIERTO: si no se pudo verificar (red caída, CORS, 500), dejamos
       // pasar y que el backend imponga la seguridad. Solo bloqueamos cuando la

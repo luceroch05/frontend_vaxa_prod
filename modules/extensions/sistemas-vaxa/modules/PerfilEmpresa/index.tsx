@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { TenantConfig } from '@/lib/tenants';
 import {
   ArrowLeft, Building2, Users, CreditCard, Info, Loader2, AlertCircle,
+  Trash2, RefreshCw, AlertTriangle, CheckCircle,
 } from '@/components/ui/icon';
 import HeaderSistemasVaxa from '../../shared/components/HeaderSistemasVaxa';
 import { VAXA_CONFIG } from '../../shared/constants';
@@ -26,6 +27,31 @@ export default function PerfilEmpresa({ tenantId, empresaId }: PerfilEmpresaProp
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>('informacion');
+
+  // Acciones de la empresa (en el header): eliminar / restaurar.
+  const [confirmarEliminar, setConfirmarEliminar] = useState(false);
+  const [eliminando, setEliminando] = useState(false);
+  const [accionError, setAccionError] = useState<string | null>(null);
+  const [reactivando, setReactivando] = useState(false);
+
+  const eliminarEmpresa = async () => {
+    if (eliminando) return;
+    setEliminando(true); setAccionError(null);
+    try {
+      await creditosAdminApi.eliminarEmpresa(Number(empresaId));
+      navigate(`/${tenantId}/certificaciones/empresas`);
+    } catch (e) { setAccionError((e as Error).message); setEliminando(false); }
+  };
+
+  const restaurarEmpresa = async () => {
+    if (reactivando) return;
+    setReactivando(true); setAccionError(null);
+    try {
+      await creditosAdminApi.editarEmpresa(Number(empresaId), { activo: true });
+      await cargar();
+    } catch (e) { setAccionError((e as Error).message); }
+    finally { setReactivando(false); }
+  };
 
   const cargar = useCallback(async () => {
     setLoading(true); setError(null);
@@ -96,7 +122,7 @@ export default function PerfilEmpresa({ tenantId, empresaId }: PerfilEmpresaProp
           <>
             {/* Header empresa */}
             <div className="sv-card p-6 mb-4 page-enter">
-              <div className="flex items-center gap-4 mb-5">
+              <div className="flex items-start gap-4">
                 {empresa.logo_url ? (
                   <img src={empresa.logo_url} alt={empresa.razon_social}
                     className="w-16 h-16 rounded-2xl object-contain flex-shrink-0 bg-white"
@@ -106,7 +132,7 @@ export default function PerfilEmpresa({ tenantId, empresaId }: PerfilEmpresaProp
                     <Building2 className="w-8 h-8" style={{ color: '#059669' }} />
                   </div>
                 )}
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <h1 className="text-[22px] font-bold tracking-tight truncate" style={{ color: '#0D0E12' }}>{empresa.razon_social}</h1>
                   <div className="flex items-center gap-2.5 mt-1 flex-wrap">
                     <span className="text-[12.5px] flex items-center gap-1" style={{ color: '#9CA3AF' }}><Building2 className="w-3.5 h-3.5" />{empresa.tenant_slug}</span>
@@ -117,8 +143,38 @@ export default function PerfilEmpresa({ tenantId, empresaId }: PerfilEmpresaProp
                     </span>
                   </div>
                 </div>
+
+                {/* Acciones: restaurar (si inactiva) / eliminar */}
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  {empresa.activo !== 1 && (
+                    <button
+                      onClick={restaurarEmpresa}
+                      disabled={reactivando}
+                      className="flex items-center gap-1.5 px-3 py-2 text-[12.5px] font-semibold rounded-lg transition-all disabled:opacity-50"
+                      style={{ background: '#059669', color: '#FFFFFF' }}
+                      title="Restaurar empresa"
+                    >
+                      {reactivando ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                      Restaurar
+                    </button>
+                  )}
+                  <button
+                    onClick={() => { setConfirmarEliminar(true); setAccionError(null); }}
+                    className="flex items-center gap-1.5 px-3 py-2 text-[12.5px] font-semibold rounded-lg transition-colors"
+                    style={{ background: '#FFFFFF', border: '1px solid #FCA5A5', color: '#DC2626' }}
+                    title="Eliminar empresa"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" /> Eliminar
+                  </button>
+                </div>
               </div>
-              {/* El plan y el consumo del mes se gestionan en la pestaña "Plan". */}
+
+              {accionError && (
+                <div className="mt-4 px-3 py-2.5 rounded-xl flex items-center gap-2 text-[12.5px]"
+                  style={{ background: '#FEF2F2', border: '1px solid #FECACA', color: '#B91C1C' }}>
+                  <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" /> {accionError}
+                </div>
+              )}
             </div>
 
             {/* Tabs */}
@@ -143,7 +199,9 @@ export default function PerfilEmpresa({ tenantId, empresaId }: PerfilEmpresaProp
                 </nav>
               </div>
               <div className="p-6">
-                {activeTab === 'informacion' && <TabInformacion empresa={empresa} onChange={cargar} />}
+                {activeTab === 'informacion' && (
+                  <TabInformacion empresa={empresa} onChange={cargar} />
+                )}
                 {activeTab === 'plan' && <TabPlan empresa={empresa} onChange={cargar} />}
                 {activeTab === 'usuarios' && <TabUsuarios empresa={empresa} />}
               </div>
@@ -151,6 +209,55 @@ export default function PerfilEmpresa({ tenantId, empresaId }: PerfilEmpresaProp
           </>
         )}
       </main>
+
+      {/* Modal de confirmación de eliminación */}
+      {confirmarEliminar && empresa && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: 'rgba(13,14,18,0.45)' }}
+          onClick={() => { if (!eliminando) setConfirmarEliminar(false); }}
+        >
+          <div className="sv-card w-full max-w-md p-6" onClick={(ev) => ev.stopPropagation()}>
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: '#FEF2F2', border: '1px solid #FECACA' }}>
+                <AlertTriangle className="w-5 h-5" style={{ color: '#DC2626' }} />
+              </div>
+              <div className="min-w-0">
+                <h3 className="text-[16px] font-bold" style={{ color: '#0D0E12' }}>Eliminar empresa</h3>
+                <p className="text-[13px] mt-1" style={{ color: '#64748B' }}>
+                  ¿Seguro que quieres eliminar <b style={{ color: '#0D0E12' }}>{empresa.razon_social}</b>?
+                </p>
+                <p className="text-[12.5px] mt-2" style={{ color: '#9F5757' }}>
+                  Si tiene certificados, alumnos o usuarios, no se borra: se desactiva (reversible).
+                  Solo si está vacía se elimina por completo.
+                </p>
+              </div>
+            </div>
+
+            {accionError && (
+              <div className="mt-4 px-3 py-2.5 rounded-xl flex items-center gap-2 text-[12.5px]"
+                style={{ background: '#FEF2F2', border: '1px solid #FECACA', color: '#B91C1C' }}>
+                <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" /> {accionError}
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2.5 mt-5">
+              <button onClick={() => setConfirmarEliminar(false)} disabled={eliminando} className="sv-btn sv-btn-ghost">
+                Cancelar
+              </button>
+              <button
+                onClick={eliminarEmpresa}
+                disabled={eliminando}
+                className="flex items-center gap-1.5 px-4 py-2 text-[13px] font-semibold rounded-lg transition-all disabled:opacity-50"
+                style={{ background: '#DC2626', color: '#FFFFFF' }}
+              >
+                {eliminando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                Sí, eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

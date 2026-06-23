@@ -1,9 +1,11 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
 import {
   FileBadge, Shield, Zap, QrCode, ArrowRight, ArrowUpRight,
-  Users, FileText, Clock, Layers, Menu, X, Award, Check,
+  Users, FileText, Clock, Layers, Menu, X, Award, Check, MessageCircle,
 } from '@/components/ui/icon';
+
+/** Contacto de Vaxa para la landing. */
+const WA_LINK = `https://wa.me/51974280156?text=${encodeURIComponent('Hola Vaxa 👋, quiero información sobre el sistema de certificados.')}`;
 
 /* ── Sistema visual (tech / dark) ────────────────────────────── */
 const BG = '#070B0A';            // casi negro verdoso
@@ -247,11 +249,18 @@ export default function HomePage() {
             <p className="text-[16px] mt-5 max-w-md mx-auto" style={{ color: MUTED }}>
               Cuéntanos qué necesitas y te mostramos cómo Vaxa puede ayudarte. Sin compromiso.
             </p>
-            <a href="mailto:info@vaxa.com.pe?subject=Quiero%20una%20demo%20de%20Vaxa"
-              className="group inline-flex items-center justify-center gap-2 mt-9 px-8 py-4 rounded-xl text-[15px] font-semibold transition-transform hover:-translate-y-0.5"
-              style={{ fontFamily: MONO, background: GREEN, color: '#04110C', boxShadow: '0 0 0 1px rgba(52,211,153,0.4), 0 16px 50px -12px rgba(16,185,129,0.7)' }}>
-              info@vaxa.com.pe <ArrowUpRight size={16} className="transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-            </a>
+            <div className="mt-9 flex flex-col sm:flex-row items-center justify-center gap-3">
+              <a href={WA_LINK} target="_blank" rel="noreferrer"
+                className="group inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-[15px] font-semibold transition-transform hover:-translate-y-0.5"
+                style={{ fontFamily: MONO, background: '#25D366', color: '#04110C', boxShadow: '0 16px 50px -12px rgba(37,211,102,0.6)' }}>
+                <MessageCircle size={18} /> WhatsApp · +51 974 280 156
+              </a>
+              <a href="mailto:info@vaxa.com.pe?subject=Quiero%20una%20demo%20de%20Vaxa"
+                className="group inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-[15px] font-semibold transition-transform hover:-translate-y-0.5"
+                style={{ fontFamily: MONO, background: SURFACE, color: TEXT, border: `1px solid ${BORDER}` }}>
+                info@vaxa.com.pe <ArrowUpRight size={16} className="transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+              </a>
+            </div>
           </div>
         </div>
       </section>
@@ -264,7 +273,6 @@ export default function HomePage() {
             
           </div>
           <p className="text-[12px]" style={{ fontFamily: MONO, color: '#4F5B57' }}>© {new Date().getFullYear()} Vaxa — software para instituciones</p>
-          <Link to="/sistemas-vaxa/login" className="text-[12px] transition-colors hover:text-white" style={{ color: MUTED }}>Acceso administrativo →</Link>
         </div>
       </footer>
     </div>

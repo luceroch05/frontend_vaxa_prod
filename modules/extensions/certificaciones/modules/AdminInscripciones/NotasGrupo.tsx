@@ -60,6 +60,18 @@ export default function NotasGrupo({ empresa, grupoId, onEstadoCambiado }: {
     return vals.reduce((a, b) => a + b, 0) / vals.length;
   };
 
+  // ¿La fila tiene notas modificadas respecto a lo guardado? (para habilitar "Guardar")
+  const filaModificada = (inscId: number): boolean => {
+    if (!matriz) return false;
+    const fila = matriz.filas.find(f => f.inscripcion_id === inscId);
+    if (!fila) return false;
+    return matriz.unidades.some(u => {
+      const orig = fila.notas[u.id];
+      const original = orig === undefined || orig === null ? '' : String(orig);
+      return original !== (edits[inscId]?.[u.id] ?? '');
+    });
+  };
+
   const guardarFila = async (inscId: number) => {
     if (!matriz) return;
     const notas = matriz.unidades
@@ -196,8 +208,8 @@ export default function NotasGrupo({ empresa, grupoId, onEstadoCambiado }: {
                     <div className="flex items-center justify-end">
                       <button
                         onClick={() => guardarFila(f.inscripcion_id)}
-                        disabled={saving === f.inscripcion_id}
-                        className="flex items-center gap-1 text-[11.5px] font-semibold px-2.5 py-1.5 rounded-lg transition-all"
+                        disabled={saving === f.inscripcion_id || (!filaModificada(f.inscripcion_id) && savedOk !== f.inscripcion_id)}
+                        className="flex items-center gap-1 text-[11.5px] font-semibold px-2.5 py-1.5 rounded-lg transition-all disabled:opacity-50"
                         style={savedOk === f.inscripcion_id
                           ? { background: '#F0FDF4', color: '#15803D', border: '1px solid #BBF7D0' }
                           : { background: '#0D0E12', color: '#fff' }}

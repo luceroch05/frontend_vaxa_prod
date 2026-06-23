@@ -3,9 +3,10 @@ import type { Catalogos, Grupo, RegistroPublicoDto } from '../types';
 
 /** Endpoints públicos — no requieren JWT ni x-tenant-id header */
 export const publicApi = {
-  /** Verifica si el tenant_slug corresponde a una empresa activa (y trae su branding). */
+  /** Verifica si el tenant_slug existe y si está activa (y trae su branding).
+   *  `activo=false` → empresa desactivada: solo se permite validar certificados. */
   existeEmpresa: (empresa: string) =>
-    api.get<{ exists: boolean; razon_social?: string | null; logo_url?: string | null }>(`/public/certificados/${empresa}/existe`),
+    api.get<{ exists: boolean; activo?: boolean; razon_social?: string | null; logo_url?: string | null }>(`/public/certificados/${empresa}/existe`),
 
   getCatalogos: (empresa: string) =>
     api.get<Catalogos>(`/public/certificados/${empresa}/catalogos`),

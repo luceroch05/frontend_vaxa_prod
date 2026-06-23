@@ -3,7 +3,15 @@ import { NavLink, Outlet, useNavigate, useParams, useLocation } from 'react-rout
 import {
   LayoutDashboard, BookOpen, ClipboardList, FileBadge,
   Settings, LogOut, Menu, X, GraduationCap, Globe, Users, CreditCard,
+  MessageCircle, Mail,
 } from '@/components/ui/icon';
+
+/** Contacto de soporte de Vaxa (para que el cliente nos escriba directo). */
+const VAXA_SOPORTE = {
+  whatsapp: '51974280156',          // número en formato internacional (sin +)
+  whatsappLabel: '+51 974 280 156',
+  email: 'info@vaxa.com.pe',
+};
 import { authStorage } from '@/lib/auth';
 import { publicApi } from '../api/public.api';
 import { ConfirmProvider } from '../hooks/useConfirm';
@@ -107,6 +115,15 @@ export default function AdminLayout() {
     : 'OP';
 
   const fullName = user ? `${user.nombres} ${user.apellidos}` : 'Operador';
+
+  // Enlaces de contacto con Vaxa. El mensaje "chapa" al usuario logueado y su
+  // empresa, así sabemos quién escribe y desde qué cliente sin preguntar.
+  const empresaNombre = brand.nombre ?? empresa;
+  const waMsg = encodeURIComponent(
+    `Hola Vaxa 👋, soy ${fullName}${user?.rol ? ` (${user.rol})` : ''} de "${empresaNombre}" y necesito ayuda con el sistema de certificados.`,
+  );
+  const waLink = `https://wa.me/${VAXA_SOPORTE.whatsapp}?text=${waMsg}`;
+  const mailLink = `mailto:${VAXA_SOPORTE.email}?subject=${encodeURIComponent(`Soporte Vaxa — ${empresaNombre}`)}&body=${encodeURIComponent(`Hola Vaxa, soy ${fullName} de "${empresaNombre}".\n\n`)}`;
 
   /* ── Sidebar ─────────────────────────────────────────────── */
   const Sidebar = () => (
@@ -216,6 +233,33 @@ export default function AdminLayout() {
           <Globe size={16} style={{ color: '#B0A898', flexShrink: 0 }} />
           Portal público
         </a>
+
+        {/* Soporte Vaxa — para que el cliente nos contacte directo */}
+        <div className="px-1 pt-4">
+          <div className="rounded-2xl p-3.5" style={{ background: '#0D0E12' }}>
+            <p className="text-[12px] font-bold text-white">¿Necesitas ayuda?</p>
+            <p className="text-[10.5px] mb-2.5" style={{ color: '#9AA39F' }}>Escríbenos a Vaxa</p>
+
+            <a
+              href={waLink}
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center gap-2 px-2.5 py-2 rounded-lg text-[12px] font-semibold transition-transform hover:-translate-y-0.5"
+              style={{ background: '#25D366', color: '#04110C' }}
+            >
+              <MessageCircle size={15} style={{ flexShrink: 0 }} />
+              WhatsApp
+            </a>
+            <a
+              href={mailLink}
+              className="flex items-center gap-2 mt-1.5 px-2.5 py-2 rounded-lg text-[11.5px] font-medium transition-colors hover:bg-white/5"
+              style={{ color: '#C8CFCB' }}
+            >
+              <Mail size={14} style={{ flexShrink: 0, color: '#9AA39F' }} />
+              {VAXA_SOPORTE.email}
+            </a>
+          </div>
+        </div>
       </nav>
 
       <div className="mx-4 h-px" style={{ background: '#F0EEE9' }} />

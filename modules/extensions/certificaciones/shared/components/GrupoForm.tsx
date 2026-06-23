@@ -33,6 +33,12 @@ export default function GrupoForm({ onSubmit, onCancel, loading, lockedPrograma 
   const set = (k: keyof CreateGrupoDto, v: string | number) => setForm(f => ({ ...f, [k]: v }));
   const toggleDia = (n: number) => setDias(d => (d.includes(n) ? d.filter(x => x !== n) : [...d, n].sort((a, b) => a - b)));
 
+  // Requeridos completos (el orden de fechas/horas se valida al enviar).
+  const puedeGuardar =
+    !!form.programa_id && !!form.modalidad_id && form.nombre_grupo.trim() !== '' &&
+    !!form.fecha_inicio && !!form.fecha_fin && dias.length > 0 &&
+    !!form.hora_inicio && !!form.hora_fin;
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.programa_id) { setFormError('Selecciona el programa.'); return; }
@@ -155,7 +161,7 @@ export default function GrupoForm({ onSubmit, onCancel, loading, lockedPrograma 
 
         <div className="flex gap-2 justify-end pt-1">
           <button type="button" onClick={onCancel} className="vx-btn vx-btn-ghost px-4 py-2">Cancelar</button>
-          <button type="submit" disabled={loading} className="vx-btn vx-btn-primary px-5 py-2">
+          <button type="submit" disabled={loading || !puedeGuardar} className="vx-btn vx-btn-primary px-5 py-2">
             {loading && <Loader2 size={14} className="animate-spin" />}
             Guardar aula
           </button>

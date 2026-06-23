@@ -7,7 +7,7 @@ import { useBranding } from '../../shared/components/CertificadosLayout';
 export default function AdminLogin() {
   const { empresa }  = useParams<{ empresa: string }>();
   const { login, loading, error } = useAuth(empresa!);
-  const { slug, razonSocial, logoUrl } = useBranding();
+  const { slug, razonSocial, logoUrl, activo } = useBranding();
   const marca = razonSocial ?? slug;
 
   const [correo,     setCorreo]    = useState('');
@@ -26,6 +26,7 @@ export default function AdminLogin() {
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
+    if (!activo) return;   // empresa desactivada: no se permite el acceso
     login(correo, contrasena);
   };
 
@@ -82,6 +83,16 @@ export default function AdminLogin() {
             <div className="px-9 py-8">
               <h1 className="text-[21px] font-bold tracking-tight" style={{ color: '#0D0E12' }}>Bienvenido de nuevo</h1>
               <p className="text-[13px] mt-1 mb-6" style={{ color: '#9CA3AF' }}>Ingresa con tus credenciales de operador.</p>
+
+              {!activo && (
+                <div
+                  className="flex items-start gap-2.5 px-3.5 py-2.5 rounded-xl text-[12.5px] mb-5"
+                  style={{ background: '#FEF2F2', border: '1px solid #FECACA', color: '#B91C1C' }}
+                >
+                  <AlertCircle size={14} className="flex-shrink-0 mt-0.5" />
+                  Esta empresa está desactivada. El acceso al sistema está suspendido; la validación de certificados sigue disponible. Contacta con Vaxa para reactivarla.
+                </div>
+              )}
 
               {sesionCerrada && (
                 <div
@@ -143,7 +154,7 @@ export default function AdminLogin() {
                   </div>
                 )}
 
-                <button type="submit" disabled={loading} className="vx-btn vx-btn-primary w-full py-3 mt-1">
+                <button type="submit" disabled={loading || !activo || !correo.trim() || !contrasena} className="vx-btn vx-btn-primary w-full py-3 mt-1">
                   {loading ? <Loader2 size={15} className="animate-spin" /> : <>Ingresar <ArrowRight size={15} /></>}
                 </button>
               </form>

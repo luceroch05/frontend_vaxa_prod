@@ -119,6 +119,10 @@ export const creditosAdminApi = {
   editarEmpresa: (id: number, dto: EditarEmpresaDto) =>
     api.patch<EmpresaCreditos>(`/api/admin/empresas/${id}`, dto, opts()),
 
+  /** Elimina la empresa. Devuelve si se borró ('eliminada') o se desactivó ('desactivada'). */
+  eliminarEmpresa: (id: number) =>
+    api.delete<{ ok: boolean; modo: 'eliminada' | 'desactivada' }>(`/api/admin/empresas/${id}`, opts()),
+
   recargar: (empresaId: number, cantidad: number, descripcion?: string) =>
     api.post<{ empresaId: number; saldo: number }>(
       `/api/admin/creditos/empresas/${empresaId}/recargar`,
@@ -162,4 +166,10 @@ export const creditosAdminApi = {
 
   asignarPlan: (empresaId: number, plan_id: number, ciclo_id: number) =>
     api.post<EstadoPlanEmpresa>(`/api/admin/empresas/${empresaId}/plan`, { plan_id, ciclo_id }, opts()),
+
+  /** Recarga `cantidad` certificados al mes en curso (cobro proporcional al plan). */
+  recargarCupo: (empresaId: number, cantidad: number) =>
+    api.post<{ agregados: number; precio_unitario: number; monto: number }>(
+      `/api/admin/empresas/${empresaId}/recargar-cupo`, { cantidad }, opts(),
+    ),
 };

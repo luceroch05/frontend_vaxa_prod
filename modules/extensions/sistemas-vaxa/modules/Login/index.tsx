@@ -97,7 +97,7 @@ export default function LoginSistemasVaxa({ tenantId, tenant }: LoginProps) {
                 </div>
               </div>
 
-              <button type="submit" disabled={loading} className="sv-btn sv-btn-primary w-full py-3 mt-1">
+              <button type="submit" disabled={loading || !email.trim() || !password} className="sv-btn sv-btn-primary w-full py-3 mt-1">
                 {loading ? (
                   <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Ingresando…</>
                 ) : (

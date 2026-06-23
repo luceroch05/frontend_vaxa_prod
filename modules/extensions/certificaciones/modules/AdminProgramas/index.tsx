@@ -33,6 +33,9 @@ function ProgramaForm({
     onSubmit(form);
   };
 
+  // Requeridos completos para habilitar el guardado.
+  const puedeGuardar = !!form.tipo_programa_id && form.horas_academicas > 0 && form.nombre.trim() !== '';
+
   return (
     <div
       className="bg-white rounded-2xl p-5 page-fade"
@@ -133,7 +136,7 @@ function ProgramaForm({
           </button>
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || !puedeGuardar}
             className="vx-btn vx-btn-primary px-5 py-2"
           >
             {loading && <Loader2 size={14} className="animate-spin" />}

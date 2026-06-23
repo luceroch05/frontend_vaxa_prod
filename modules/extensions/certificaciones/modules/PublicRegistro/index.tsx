@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef, FormEvent } from 'react';
-import { useParams, useSearchParams } from 'react-router-dom';
+import { useParams, useSearchParams, Link } from 'react-router-dom';
 import { CheckCircle, Loader2, AlertCircle, UserPlus } from '@/components/ui/icon';
 import { isPossiblePhoneNumber, parsePhoneNumber } from 'libphonenumber-js';
 import { publicApi } from '../../shared/api/public.api';
+import { useBranding } from '../../shared/components/CertificadosLayout';
 import BrandRow from '../../shared/components/BrandRow';
 import BrandAside from '../../shared/components/BrandAside';
 import PhoneField from '../../shared/components/PhoneField';
@@ -47,6 +48,7 @@ function SectionLabel({ n, children }: { n: number; children: string }) {
 
 export default function PublicRegistro() {
   const { empresa } = useParams<{ empresa: string }>();
+  const { activo } = useBranding();
   const [searchParams] = useSearchParams();
   // Link compartido por la empresa: ?programa=ID preselecciona el programa,
   // ?grupo=ID preselecciona el aula concreta.
@@ -68,11 +70,13 @@ export default function PublicRegistro() {
   const [buscando,     setBuscando]     = useState(false);
 
   useEffect(() => {
+    // Empresa desactivada: no se cargan programas; la inscripción está cerrada.
+    if (!activo) { setLoadingData(false); return; }
     Promise.all([publicApi.getCatalogos(empresa!), publicApi.getGrupos(empresa!)])
       .then(([cat, grp]) => { setCatalogos(cat); setGrupos(grp); })
       .catch(() => setError('No se pudo cargar la información. Intenta recargar la página.'))
       .finally(() => setLoadingData(false));
-  }, [empresa]);
+  }, [empresa, activo]);
 
   const set = (field: keyof RegistroPublicoDto, value: string | number) =>
     setForm(f => ({ ...f, [field]: value }));
@@ -165,6 +169,38 @@ export default function PublicRegistro() {
   };
 
   const lockStyle = yaRegistrado ? { background: '#F4F2EC', color: '#6B7280' } : undefined;
+
+  /* ── Empresa desactivada: inscripción cerrada ─────────────── */
+  if (!activo) {
+    return (
+      <div className="min-h-screen flex items-center justify-center px-4 py-10" style={PAGE}>
+        <div className="w-full max-w-[440px]">
+          <div className="rounded-[20px] p-9 text-center page-enter" style={CARD}>
+            <div className="lg:hidden mb-6"><BrandRow /></div>
+            <div
+              className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-5"
+              style={{ background: '#FEF2F2', border: '2px solid #FECACA' }}
+            >
+              <AlertCircle size={32} style={{ color: '#DC2626' }} />
+            </div>
+            <h1 className="text-[22px] font-bold mb-2" style={{ color: '#0D0E12' }}>Inscripciones cerradas</h1>
+            <p className="text-[14px]" style={{ color: '#6B7280' }}>
+              Esta institución no está aceptando nuevas inscripciones en este momento.
+            </p>
+            <p className="text-[13px] mt-3 mb-6" style={{ color: '#9CA3AF' }}>
+              ¿Necesitas validar un certificado ya emitido? Hazlo aquí:
+            </p>
+            <Link
+              to={`/${empresa}/certificados/validar`}
+              className="vx-btn vx-btn-primary w-full py-3 inline-flex items-center justify-center gap-2"
+            >
+              <CheckCircle size={16} /> Validar un certificado
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   /* ── Éxito ────────────────────────────────────────────────── */
   if (paso === 'exito') {

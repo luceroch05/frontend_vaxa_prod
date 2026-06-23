@@ -588,6 +588,9 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
 
   /* configs: key = `${progId}-${grupoId}`, value = ProgramCfg */
   const [configs, setConfigs] = useState<Record<string, ProgramCfg>>({});
+  /* baselines: snapshot (normalizado) de la config tal como se cargó/guardó,
+     para deshabilitar "Guardar" cuando no hay cambios reales. */
+  const [baselines, setBaselines] = useState<Record<string, string>>({});
   /* Lista de grupos con config propia por programa: progId -> Set<grupoId> */
   const [gruposConCfg, setGruposConCfg] = useState<Record<number, Set<number>>>({});
   /* Cuál grupo se está editando para cada programa (0 = default) */
@@ -611,6 +614,20 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
   const cfg = (progId: number, grupoId: number = 0): ProgramCfg =>
     configs[cfgKey(progId, grupoId)] ?? { plantilla_url: '', texto_personalizado: '', logos: [], firmas: [] };
 
+  /* Firma normalizada de una config para comparar cambios (orden de ids no importa). */
+  const normCfg = (c: ProgramCfg) => JSON.stringify({
+    plantilla_url: c.plantilla_url ?? '',
+    texto_personalizado: c.texto_personalizado ?? '',
+    logos: [...c.logos].sort((a, b) => a - b),
+    firmas: [...c.firmas].sort((a, b) => a - b),
+  });
+  /* ¿La config (prog/grupo) cambió respecto a lo cargado/guardado? */
+  const esModificado = (progId: number, grupoId: number) => {
+    const k = cfgKey(progId, grupoId);
+    if (baselines[k] === undefined) return true;   // aún sin baseline → no bloquear
+    return normCfg(cfg(progId, grupoId)) !== baselines[k];
+  };
+
   const setCfg = (progId: number, grupoId: number, partial: Partial<ProgramCfg>) =>
     setConfigs(prev => ({ ...prev, [cfgKey(progId, grupoId)]: { ...cfg(progId, grupoId), ...partial } }));
 
@@ -621,19 +638,21 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
     if (!programas.length) return;
     programas.forEach(p => {
       configApi.get(empresa, p.id, 0)
-        .then(c => setConfigs(prev => ({
-          ...prev,
-          [cfgKey(p.id, 0)]: {
+        .then(c => {
+          const cargado: ProgramCfg = {
             plantilla_url:      c.plantilla_url ?? '',
             texto_personalizado: c.texto_personalizado ?? '',
             logos:  c.logos?.map(l => l.id)  ?? [],
             firmas: c.firmas?.map(f => f.id) ?? [],
-          },
-        })))
-        .catch(() => setConfigs(prev => ({
-          ...prev,
-          [cfgKey(p.id, 0)]: { plantilla_url: '', texto_personalizado: '', logos: [], firmas: [] },
-        })));
+          };
+          setConfigs(prev => ({ ...prev, [cfgKey(p.id, 0)]: cargado }));
+          setBaselines(prev => ({ ...prev, [cfgKey(p.id, 0)]: normCfg(cargado) }));
+        })
+        .catch(() => {
+          const vacio: ProgramCfg = { plantilla_url: '', texto_personalizado: '', logos: [], firmas: [] };
+          setConfigs(prev => ({ ...prev, [cfgKey(p.id, 0)]: vacio }));
+          setBaselines(prev => ({ ...prev, [cfgKey(p.id, 0)]: normCfg(vacio) }));
+        });
 
       configApi.listGruposConConfig(empresa, p.id)
         .then(r => setGruposConCfg(prev => ({ ...prev, [p.id]: new Set(r.grupos) })))
@@ -646,21 +665,19 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
     if (configs[cfgKey(progId, grupoId)]) return; // ya está cargada
     try {
       const c = await configApi.get(empresa, progId, grupoId);
-      setConfigs(prev => ({
-        ...prev,
-        [cfgKey(progId, grupoId)]: {
-          plantilla_url:      c.plantilla_url ?? '',
-          texto_personalizado: c.texto_personalizado ?? '',
-          logos:  c.logos?.map(l => l.id)  ?? [],
-          firmas: c.firmas?.map(f => f.id) ?? [],
-        },
-      }));
+      const cargado: ProgramCfg = {
+        plantilla_url:      c.plantilla_url ?? '',
+        texto_personalizado: c.texto_personalizado ?? '',
+        logos:  c.logos?.map(l => l.id)  ?? [],
+        firmas: c.firmas?.map(f => f.id) ?? [],
+      };
+      setConfigs(prev => ({ ...prev, [cfgKey(progId, grupoId)]: cargado }));
+      setBaselines(prev => ({ ...prev, [cfgKey(progId, grupoId)]: normCfg(cargado) }));
     } catch {
       // Si el grupo no tiene config, arrancamos vacío
-      setConfigs(prev => ({
-        ...prev,
-        [cfgKey(progId, grupoId)]: { plantilla_url: '', texto_personalizado: '', logos: [], firmas: [] },
-      }));
+      const vacio: ProgramCfg = { plantilla_url: '', texto_personalizado: '', logos: [], firmas: [] };
+      setConfigs(prev => ({ ...prev, [cfgKey(progId, grupoId)]: vacio }));
+      setBaselines(prev => ({ ...prev, [cfgKey(progId, grupoId)]: normCfg(vacio) }));
     }
   };
 
@@ -717,6 +734,8 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
           return next;
         });
       }
+      // Lo guardado pasa a ser el nuevo baseline (ya no hay cambios pendientes).
+      setBaselines(prev => ({ ...prev, [cfgKey(progId, g)]: normCfg(c) }));
       setSavedOk(progId);
       setTimeout(() => setSavedOk(null), 2500);
     } catch (e: unknown) { setError((e as Error).message); }
@@ -857,8 +876,8 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
               {isExpanded && (
                 <button
                   onClick={e => { e.stopPropagation(); handleSave(p.id); }}
-                  disabled={saving === p.id}
-                  className="flex items-center gap-1.5 text-[12px] font-semibold px-3.5 py-2 rounded-xl transition-all flex-shrink-0"
+                  disabled={saving === p.id || (!esModificado(p.id, g) && savedOk !== p.id)}
+                  className="flex items-center gap-1.5 text-[12px] font-semibold px-3.5 py-2 rounded-xl transition-all flex-shrink-0 disabled:opacity-50"
                   style={savedOk === p.id
                     ? { background: '#F0FDF4', color: '#15803D', border: '1px solid #BBF7D0' }
                     : { background: '#0D0E12', color: '#fff' }

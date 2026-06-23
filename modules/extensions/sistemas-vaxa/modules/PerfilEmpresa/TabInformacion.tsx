@@ -1,12 +1,15 @@
 'use client';
 
 import { useState } from 'react';
-import { Building2, FileText, Globe, CreditCard, Edit, Loader2, Upload, AlertCircle,Copy, Check} from '@/components/ui/icon';
+import { Building2, FileText, Globe, CreditCard, Edit, Loader2, Upload, AlertCircle } from '@/components/ui/icon';
 
 import { creditosAdminApi, type EmpresaCreditos } from '../../shared/api/creditos.admin.api';
 import CopyLinkCard from '../../shared/components/CopyLinkCard';
 
-interface TabInformacionProps { empresa: EmpresaCreditos; onChange?: () => void; }
+interface TabInformacionProps {
+  empresa: EmpresaCreditos;
+  onChange?: () => void;
+}
 
 export default function TabInformacion({ empresa, onChange }: TabInformacionProps) {
   const [editing, setEditing] = useState(false);
@@ -19,6 +22,12 @@ export default function TabInformacion({ empresa, onChange }: TabInformacionProp
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // ¿Se puede guardar? Requeridos completos y que algo haya cambiado vs. el original.
+  const huboCambios =
+    razon !== empresa.razon_social || slug !== empresa.tenant_slug ||
+    dominio !== (empresa.dominio ?? '') || ruc !== (empresa.ruc ?? '') ||
+    activo !== (empresa.activo === 1) || (logo ?? '') !== (empresa.logo_url ?? '');
+  const puedeGuardar = razon.trim() !== '' && slug.trim() !== '' && huboCambios;
 
   const reset = () => {
     setRazon(empresa.razon_social); setSlug(empresa.tenant_slug);
@@ -102,7 +111,7 @@ export default function TabInformacion({ empresa, onChange }: TabInformacionProp
 
         <div className="flex justify-end gap-2.5 pt-2">
           <button onClick={reset} className="sv-btn sv-btn-ghost">Cancelar</button>
-          <button onClick={guardar} disabled={saving} className="sv-btn sv-btn-primary">
+          <button onClick={guardar} disabled={saving || !puedeGuardar} className="sv-btn sv-btn-primary">
             {saving && <Loader2 className="w-4 h-4 animate-spin" />} Guardar cambios
           </button>
         </div>
@@ -127,7 +136,7 @@ export default function TabInformacion({ empresa, onChange }: TabInformacionProp
 
   const links = {
     inscripcion: `${baseUrl}/${empresa.tenant_slug}/certificados`,
-    validacion: `${baseUrl}/${empresa.tenant_slug}/validar`,
+    validacion: `${baseUrl}/${empresa.tenant_slug}/certificados/validar`,
     login: `${baseUrl}/${empresa.tenant_slug}/certificados/login`,
   };
 
@@ -163,51 +172,16 @@ export default function TabInformacion({ empresa, onChange }: TabInformacionProp
         className="rounded-xl p-4 space-y-4"
         style={{ background: '#FAFAF8', border: '1px solid #EEECE6' }}
       >
-        <h4
-          className="text-sm font-semibold"
-          style={{ color: '#0D0E12' }}
-        >
-          Enlaces del cliente
-        </h4>
-
         <div>
-          
-
-          <div className="flex gap-2">
-           
-          <CopyLinkCard
-              label="Inscripción"
-              value={links.inscripcion}
-            />
-          </div>
+          <h4 className="text-sm font-semibold" style={{ color: '#0D0E12' }}>Enlaces del cliente</h4>
+          <p className="text-[12px] mt-0.5" style={{ color: '#9CA3AF' }}>
+            Cópialos y envíaselos directamente al cliente.
+          </p>
         </div>
 
-        <div>
-       
-
-          <div className="flex gap-2">
-            
-
-         <CopyLinkCard
-              label="Validación de certificados"
-              value={links.validacion}
-            />
-          </div>
-          
-        </div>
-
-        <div>
-         
-
-          <div className="flex gap-2">
-          
-              <CopyLinkCard
-              label="Login interno"
-              value={links.login}
-            />
-          
-          </div>
-        </div>
+        <CopyLinkCard label="Inscripción" value={links.inscripcion} />
+        <CopyLinkCard label="Validación de certificados" value={links.validacion} />
+        <CopyLinkCard label="Login interno" value={links.login} />
       </div>
     </div>
   );

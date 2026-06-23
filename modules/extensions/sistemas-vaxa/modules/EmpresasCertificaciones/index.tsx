@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { TenantConfig } from '@/lib/tenants';
 import {
-  Search, Plus, Building2, Eye, Loader2, AlertCircle,
+  Search, Plus, Building2, Eye, Loader2, AlertCircle, AlertTriangle, Trash2, CheckCircle, RefreshCw,
 } from '@/components/ui/icon';
 import HeaderSistemasVaxa from '../../shared/components/HeaderSistemasVaxa';
 import { VAXA_CONFIG } from '../../shared/constants';
@@ -22,6 +22,45 @@ export default function EmpresasCertificaciones({ tenantId }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Eliminar empresa desde el listado (con confirmación en modal).
+  const [aEliminar, setAEliminar] = useState<EmpresaCreditos | null>(null);
+  const [eliminando, setEliminando] = useState(false);
+  const [delError, setDelError] = useState<string | null>(null);
+  const [okMsg, setOkMsg] = useState<string | null>(null);
+
+  // Filtro Activas / Inactivas y reactivación rápida.
+  const [estadoFiltro, setEstadoFiltro] = useState<'activas' | 'inactivas'>('activas');
+  const [reactivandoId, setReactivandoId] = useState<number | null>(null);
+
+  const reactivar = async (e: EmpresaCreditos) => {
+    if (reactivandoId) return;
+    setReactivandoId(e.id); setError(null);
+    try {
+      await creditosAdminApi.editarEmpresa(e.id, { activo: true });
+      setOkMsg(`"${e.razon_social}" se reactivó.`);
+      await fetchEmpresas();
+      setTimeout(() => setOkMsg(null), 4000);
+    } catch (err) { setError((err as Error).message); }
+    finally { setReactivandoId(null); }
+  };
+
+  const confirmarEliminar = async () => {
+    if (!aEliminar || eliminando) return;
+    setEliminando(true); setDelError(null);
+    try {
+      const r = await creditosAdminApi.eliminarEmpresa(aEliminar.id);
+      setOkMsg(
+        r.modo === 'eliminada'
+          ? `"${aEliminar.razon_social}" se eliminó por completo.`
+          : `"${aEliminar.razon_social}" se desactivó (tenía datos asociados).`,
+      );
+      setAEliminar(null);
+      await fetchEmpresas();
+      setTimeout(() => setOkMsg(null), 4000);
+    } catch (e) { setDelError((e as Error).message); }
+    finally { setEliminando(false); }
+  };
 
   const fetchEmpresas = useCallback(async () => {
     setLoading(true); setError(null);
@@ -50,12 +89,17 @@ export default function EmpresasCertificaciones({ tenantId }: Props) {
 
   if (!usuario) return null;
 
+  const activasCount = empresas.filter((e) => e.activo).length;
+  const inactivasCount = empresas.length - activasCount;
+
   const q = searchTerm.toLowerCase().trim();
-  const filtradas = empresas.filter((e) =>
-    e.razon_social.toLowerCase().includes(q) ||
-    e.tenant_slug.toLowerCase().includes(q) ||
-    (e.ruc ?? '').toLowerCase().includes(q),
-  );
+  const filtradas = empresas
+    .filter((e) => (estadoFiltro === 'activas' ? !!e.activo : !e.activo))
+    .filter((e) =>
+      e.razon_social.toLowerCase().includes(q) ||
+      e.tenant_slug.toLowerCase().includes(q) ||
+      (e.ruc ?? '').toLowerCase().includes(q),
+    );
 
   return (
     <div className="min-h-screen" style={{ background: '#F5F4F0' }}>
@@ -80,6 +124,34 @@ export default function EmpresasCertificaciones({ tenantId }: Props) {
           </button>
         </div>
 
+        {/* Segmentado Activas / Inactivas */}
+        <div className="mb-4 flex items-center gap-1 p-1 rounded-xl w-fit page-enter stagger-1" style={{ background: '#ECEAE4', border: '1px solid #E5E1D8' }}>
+          {([
+            { id: 'activas' as const, label: 'Activas', count: activasCount },
+            { id: 'inactivas' as const, label: 'Inactivas', count: inactivasCount },
+          ]).map((seg) => {
+            const active = estadoFiltro === seg.id;
+            return (
+              <button
+                key={seg.id}
+                onClick={() => setEstadoFiltro(seg.id)}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-[12.5px] font-semibold transition-all"
+                style={{
+                  background: active ? '#FFFFFF' : 'transparent',
+                  color: active ? '#0D0E12' : '#8A8678',
+                  boxShadow: active ? '0 1px 2px rgba(13,14,18,0.08)' : 'none',
+                }}
+              >
+                {seg.label}
+                <span className="px-1.5 py-0.5 rounded-md text-[10.5px] font-bold tabular-nums"
+                  style={{ background: active ? '#F0FDF4' : 'rgba(13,14,18,0.05)', color: active ? '#15803D' : '#9CA3AF' }}>
+                  {seg.count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
         <div className="relative mb-4 page-enter stagger-1">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-[15px] h-[15px]" style={{ color: '#B0A898' }} />
           <input
@@ -96,6 +168,13 @@ export default function EmpresasCertificaciones({ tenantId }: Props) {
           </div>
         )}
 
+        {okMsg && (
+          <div className="mb-4 px-4 py-3 rounded-xl flex items-center gap-2.5 text-[13px]"
+            style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', color: '#15803D' }}>
+            <CheckCircle className="w-3.5 h-3.5 flex-shrink-0" /> {okMsg}
+          </div>
+        )}
+
         {loading ? (
           <div className="flex justify-center py-20" style={{ color: '#D1D5DB' }}><Loader2 className="w-6 h-6 animate-spin" /></div>
         ) : (
@@ -106,7 +185,7 @@ export default function EmpresasCertificaciones({ tenantId }: Props) {
               <span className="text-[10.5px] font-semibold uppercase tracking-wider text-center w-20" style={{ color: '#B0A898' }}>Créditos</span>
               <span className="text-[10.5px] font-semibold uppercase tracking-wider text-center w-24" style={{ color: '#B0A898' }}>Consumidos</span>
               <span className="text-[10.5px] font-semibold uppercase tracking-wider text-center w-20" style={{ color: '#B0A898' }}>Estado</span>
-              <span className="w-9" />
+              <span className="w-16" />
             </div>
 
             {filtradas.map((e, idx) => {
@@ -146,7 +225,33 @@ export default function EmpresasCertificaciones({ tenantId }: Props) {
                       {e.activo ? 'Activo' : 'Inactivo'}
                     </span>
                   </div>
-                  <div className="w-9 flex justify-end">
+                  <div className="w-16 flex justify-end items-center gap-1">
+                    {e.activo ? (
+                      <button
+                        onClick={(ev) => { ev.stopPropagation(); setAEliminar(e); setDelError(null); }}
+                        title="Eliminar empresa"
+                        className="w-7 h-7 rounded-lg flex items-center justify-center transition-all"
+                        style={{ color: '#DC2626' }}
+                        onMouseEnter={(ev) => { ev.currentTarget.style.background = '#FEF2F2'; }}
+                        onMouseLeave={(ev) => { ev.currentTarget.style.background = 'transparent'; }}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    ) : (
+                      <button
+                        onClick={(ev) => { ev.stopPropagation(); reactivar(e); }}
+                        disabled={reactivandoId === e.id}
+                        title="Reactivar empresa"
+                        className="w-7 h-7 rounded-lg flex items-center justify-center transition-all"
+                        style={{ color: '#059669' }}
+                        onMouseEnter={(ev) => { ev.currentTarget.style.background = '#ECFDF5'; }}
+                        onMouseLeave={(ev) => { ev.currentTarget.style.background = 'transparent'; }}
+                      >
+                        {reactivandoId === e.id
+                          ? <Loader2 className="w-4 h-4 animate-spin" />
+                          : <RefreshCw className="w-4 h-4" />}
+                      </button>
+                    )}
                     <Eye className="w-4 h-4 transition-all group-hover:translate-x-0.5" style={{ color: '#C8C3BB' }} />
                   </div>
                 </div>
@@ -156,18 +261,78 @@ export default function EmpresasCertificaciones({ tenantId }: Props) {
             {filtradas.length === 0 && (
               <div className="text-center py-14">
                 <Building2 className="w-12 h-12 mx-auto mb-3" style={{ color: '#E5E1D8' }} />
-                <p className="text-[14px] font-semibold mb-3" style={{ color: '#0D0E12' }}>No hay empresas</p>
-                <button
-                  onClick={() => navigate(`/${tenantId}/certificaciones/registrar-empresa`)}
-                  className="sv-btn sv-btn-primary mx-auto"
-                >
-                  <Plus className="w-4 h-4" /> Registrar primera empresa
-                </button>
+                <p className="text-[14px] font-semibold mb-3" style={{ color: '#0D0E12' }}>
+                  {estadoFiltro === 'inactivas' ? 'No hay empresas inactivas' : 'No hay empresas activas'}
+                </p>
+                {estadoFiltro === 'activas' && (
+                  <button
+                    onClick={() => navigate(`/${tenantId}/certificaciones/registrar-empresa`)}
+                    className="sv-btn sv-btn-primary mx-auto"
+                  >
+                    <Plus className="w-4 h-4" /> Registrar primera empresa
+                  </button>
+                )}
               </div>
             )}
           </div>
         )}
       </main>
+
+      {/* ── Modal de confirmación de eliminación ────────────── */}
+      {aEliminar && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: 'rgba(13,14,18,0.45)' }}
+          onClick={() => { if (!eliminando) setAEliminar(null); }}
+        >
+          <div
+            className="sv-card w-full max-w-md p-6"
+            onClick={(ev) => ev.stopPropagation()}
+          >
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: '#FEF2F2', border: '1px solid #FECACA' }}>
+                <AlertTriangle className="w-5 h-5" style={{ color: '#DC2626' }} />
+              </div>
+              <div className="min-w-0">
+                <h3 className="text-[16px] font-bold" style={{ color: '#0D0E12' }}>Eliminar empresa</h3>
+                <p className="text-[13px] mt-1" style={{ color: '#64748B' }}>
+                  ¿Eliminar <b style={{ color: '#0D0E12' }}>{aEliminar.razon_social}</b>?
+                </p>
+                <p className="text-[12.5px] mt-2" style={{ color: '#9F5757' }}>
+                  Si tiene certificados, alumnos o usuarios, no se borra: se desactiva (reversible).
+                  Solo si está vacía se elimina por completo.
+                </p>
+              </div>
+            </div>
+
+            {delError && (
+              <div className="mt-4 px-3 py-2.5 rounded-xl flex items-center gap-2 text-[12.5px]"
+                style={{ background: '#FEF2F2', border: '1px solid #FECACA', color: '#B91C1C' }}>
+                <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" /> {delError}
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2.5 mt-5">
+              <button
+                onClick={() => setAEliminar(null)}
+                disabled={eliminando}
+                className="sv-btn sv-btn-ghost"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmarEliminar}
+                disabled={eliminando}
+                className="flex items-center gap-1.5 px-4 py-2 text-[13px] font-semibold rounded-lg transition-all disabled:opacity-50"
+                style={{ background: '#DC2626', color: '#FFFFFF' }}
+              >
+                {eliminando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                Eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

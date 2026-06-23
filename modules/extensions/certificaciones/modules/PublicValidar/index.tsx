@@ -3,6 +3,7 @@ import { useParams, useSearchParams } from 'react-router-dom';
 import { Search, Loader2, BadgeCheck, XCircle, QrCode } from '@/components/ui/icon';
 import { useValidarCertificado } from '../../shared/hooks/useCertificados';
 import BrandRow from '../../shared/components/BrandRow';
+import BrandAside from '../../shared/components/BrandAside';
 
 const PAGE = { background: '#F4F2EC' } as const;
 const CARD = { background: '#FFFFFF', border: '1px solid #EAE7DF', boxShadow: '0 18px 50px rgba(13,14,18,0.07)' } as const;
@@ -30,35 +31,44 @@ export default function PublicValidar() {
 
   useState(() => {
     const c = searchParams.get('codigo');
-    if (c) validar(c);
+    if (c && empresa) validar(empresa, c);
   });
 
-  const handleSubmit = (e: FormEvent) => { e.preventDefault(); validar(codigo); };
+  const handleSubmit = (e: FormEvent) => { e.preventDefault(); if (empresa) validar(empresa, codigo); };
 
   const valid = resultado && (resultado.estado === 'EMITIDO' || resultado.estado === 'VIGENTE');
 
   return (
-    <div className="min-h-screen px-4 py-10" style={PAGE}>
-      <div className="max-w-xl mx-auto">
-        <BrandRow />
+    <div className="min-h-screen px-4 sm:px-6 py-8 sm:py-10 flex items-start lg:items-center justify-center" style={PAGE}>
+      <div className="w-full max-w-[1040px] grid lg:grid-cols-2 gap-8 lg:gap-24 items-center">
+
+        {/* Columna izquierda · logo de la institución (solo desktop) */}
+        <BrandAside subtitulo="VERIFICACIÓN DE CERTIFICADOS" />
+
+        {/* Columna derecha · contenido */}
+        <div className="w-full max-w-xl mx-auto">
+          {/* Marca compacta solo en móvil (en desktop está a la izquierda) */}
+          <div className="lg:hidden mb-2">
+            <BrandRow />
+          </div>
 
         {/* Hero de búsqueda */}
-        <div className="text-center mt-10 mb-6">
+        <div className="text-center mt-6 sm:mt-10 mb-6">
           <div
             className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4"
             style={{ background: '#0D0E12' }}
           >
             <QrCode size={26} style={{ color: '#C9962C' }} />
           </div>
-          <h1 className="text-[27px] font-bold tracking-tight" style={{ color: '#0D0E12' }}>Verificar certificado</h1>
-          <p className="text-[14px] mt-1.5" style={{ color: '#9CA3AF' }}>
+          <h1 className="text-[22px] sm:text-[27px] font-bold tracking-tight" style={{ color: '#0D0E12' }}>Verificar certificado</h1>
+          <p className="text-[13.5px] sm:text-[14px] mt-1.5" style={{ color: '#9CA3AF' }}>
             Ingresa el código único del certificado para comprobar su autenticidad.
           </p>
         </div>
 
         {/* Buscador */}
         <form onSubmit={handleSubmit} className="rounded-[20px] p-3 page-enter" style={CARD}>
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2">
             <div className="relative flex-1">
               <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: '#B0A898' }} />
               <input
@@ -73,7 +83,7 @@ export default function PublicValidar() {
             <button
               type="submit"
               disabled={loading || !codigo.trim()}
-              className="vx-btn vx-btn-primary px-5 flex-shrink-0"
+              className="vx-btn vx-btn-primary px-5 flex-shrink-0 justify-center w-full sm:w-auto"
             >
               {loading ? <Loader2 size={15} className="animate-spin" /> : <Search size={15} />}
               Verificar
@@ -162,6 +172,7 @@ export default function PublicValidar() {
             Ir a inscripción
           </a>
         </p>
+        </div>
       </div>
     </div>
   );

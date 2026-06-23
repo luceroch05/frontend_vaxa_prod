@@ -39,6 +39,18 @@ export const inscripcionesApi = {
       opts(empresa)
     ),
 
+  /** Borra una inscripción (falla 409 si ya tiene certificado emitido). */
+  eliminar: (empresa: string, id: number) =>
+    api.delete<void>(`/api/certificados/inscripciones/${id}`, opts(empresa)),
+
+  /** Cambia el estado de varias inscripciones a la vez (ej. aprobar todo un grupo sin notas). */
+  cambiarEstadoMasivo: (empresa: string, ids: number[], estado_id: number) =>
+    api.patch<{ actualizadas: number }>(
+      '/api/certificados/inscripciones/estado-masivo',
+      { ids, estado_id },
+      opts(empresa)
+    ),
+
   /** Registro público: crea participante + inscripción en una sola operación */
   registroPublico: (empresa: string, data: RegistroPublicoDto) =>
     api.post<{ participante_id: number; inscripcion_id: number }>(

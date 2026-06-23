@@ -53,9 +53,10 @@ export const certificadosApi = {
     return res.blob();
   },
 
-  /** Endpoint público — no requiere token */
-  validar: (codigo: string) =>
-    api.get<CertificadoPublico>(`/public/certificado/${codigo}`),
+  /** Endpoint público — no requiere token. Acotado a la empresa (slug): un código
+   *  solo se valida desde el slug de la empresa que lo emitió. */
+  validar: (empresa: string, codigo: string) =>
+    api.get<CertificadoPublico>(`/public/certificado/${encodeURIComponent(empresa)}/${encodeURIComponent(codigo)}`),
 
   descargarZipGrupo: async (empresa: string, grupoId: number) => {
   const base = (import.meta.env.VITE_API_URL as string) || 'http://localhost:4000';
@@ -77,4 +78,26 @@ export const certificadosApi = {
 
   return res.blob();
 },
+
+  /** ZIP de una lista explícita de certificados (lo que el panel tenga filtrado). */
+  descargarZipIds: async (empresa: string, ids: number[]) => {
+    const base = (import.meta.env.VITE_API_URL as string) || 'http://localhost:4000';
+    const token = authStorage.getToken(empresa) ?? '';
+
+    const res = await fetch(`${base}/api/certificados/emision/zip`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-tenant-id': empresa,
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ ids }),
+    });
+
+    if (!res.ok) {
+      throw new Error('No se pudo descargar el ZIP');
+    }
+
+    return res.blob();
+  },
 };

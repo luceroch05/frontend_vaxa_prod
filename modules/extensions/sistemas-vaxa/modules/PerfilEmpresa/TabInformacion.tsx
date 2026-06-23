@@ -1,8 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { Building2, FileText, Globe, CreditCard, Edit, Loader2, Upload, AlertCircle } from '@/components/ui/icon';
+import { Building2, FileText, Globe, CreditCard, Edit, Loader2, Upload, AlertCircle,Copy, Check} from '@/components/ui/icon';
+
 import { creditosAdminApi, type EmpresaCreditos } from '../../shared/api/creditos.admin.api';
+import CopyLinkCard from '../../shared/components/CopyLinkCard';
 
 interface TabInformacionProps { empresa: EmpresaCreditos; onChange?: () => void; }
 
@@ -16,6 +18,7 @@ export default function TabInformacion({ empresa, onChange }: TabInformacionProp
   const [logo, setLogo] = useState<string | null>(empresa.logo_url);  // base64/data URL
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
 
   const reset = () => {
     setRazon(empresa.razon_social); setSlug(empresa.tenant_slug);
@@ -114,7 +117,21 @@ export default function TabInformacion({ empresa, onChange }: TabInformacionProp
     { icon: Globe,      label: 'Dominio', value: empresa.dominio || '—' },
     { icon: FileText,   label: 'RUC', value: empresa.ruc || '—' },
     { icon: CreditCard, label: 'Créditos disponibles', value: String(empresa.creditos_disponibles) },
+    
   ];
+
+  const baseUrl =
+  typeof window !== 'undefined'
+    ? window.location.origin
+    : 'https://vaxasys.com';
+
+  const links = {
+    inscripcion: `${baseUrl}/${empresa.tenant_slug}/certificados`,
+    validacion: `${baseUrl}/${empresa.tenant_slug}/validar`,
+    login: `${baseUrl}/${empresa.tenant_slug}/certificados/login`,
+  };
+
+ 
 
   return (
     <div className="space-y-5">
@@ -142,9 +159,56 @@ export default function TabInformacion({ empresa, onChange }: TabInformacionProp
         })}
       </div>
 
-      <p className="text-[11.5px]" style={{ color: '#B0A898' }}>
-        Portal público: <code style={{ color: '#64748B' }}>/{empresa.tenant_slug}/certificados</code>
-      </p>
+      <div
+        className="rounded-xl p-4 space-y-4"
+        style={{ background: '#FAFAF8', border: '1px solid #EEECE6' }}
+      >
+        <h4
+          className="text-sm font-semibold"
+          style={{ color: '#0D0E12' }}
+        >
+          Enlaces del cliente
+        </h4>
+
+        <div>
+          
+
+          <div className="flex gap-2">
+           
+          <CopyLinkCard
+              label="Inscripción"
+              value={links.inscripcion}
+            />
+          </div>
+        </div>
+
+        <div>
+       
+
+          <div className="flex gap-2">
+            
+
+         <CopyLinkCard
+              label="Validación de certificados"
+              value={links.validacion}
+            />
+          </div>
+          
+        </div>
+
+        <div>
+         
+
+          <div className="flex gap-2">
+          
+              <CopyLinkCard
+              label="Login interno"
+              value={links.login}
+            />
+          
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

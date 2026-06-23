@@ -217,7 +217,7 @@ export default function CertificacionesLogin({ tenantId, tenant }: LoginProps) {
                     htmlFor="email" 
                     className="block text-sm font-medium text-gray-900"
                   >
-                    Correo Electrónico
+                    Usuario o correo
                   </label>
                   <div className="relative group">
                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -225,7 +225,7 @@ export default function CertificacionesLogin({ tenantId, tenant }: LoginProps) {
                     </div>
                     <input
                       id="email"
-                      type="email"
+                      type="text"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       className="block w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-900 hover:border-gray-400 transition-colors text-base"

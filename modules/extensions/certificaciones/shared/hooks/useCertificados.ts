@@ -52,13 +52,13 @@ export function useValidarCertificado() {
   const [error, setError] = useState<string | null>(null);
   const [buscado, setBuscado] = useState(false);
 
-  const validar = async (codigo: string) => {
-    if (!codigo.trim()) return;
+  const validar = async (empresa: string, codigo: string) => {
+    if (!codigo.trim() || !empresa) return;
     setLoading(true);
     setError(null);
     setBuscado(true);
     try {
-      const data = await certificadosApi.validar(codigo.trim().toUpperCase());
+      const data = await certificadosApi.validar(empresa, codigo.trim().toUpperCase());
       setResultado(data);
     } catch {
       setResultado(null);

@@ -2,13 +2,18 @@ import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, Plus, Layers, Loader2, AlertCircle, Users, Calendar, Clock,
-  ChevronRight, GraduationCap, ClipboardList,
+  ChevronRight, GraduationCap, ClipboardList, Link2, Ban, RefreshCw, Trash2,
 } from '@/components/ui/icon';
 import { useProgramas } from '../../shared/hooks/useProgramas';
 import { useGrupos }    from '../../shared/hooks/useGrupos';
+import { useConfirm }   from '../../shared/hooks/useConfirm';
 import GrupoForm, { DIAS_CORTO } from '../../shared/components/GrupoForm';
 import UnidadesEditor from '../../shared/components/UnidadesEditor';
+import CopyLinkButton from '../../shared/components/CopyLinkButton';
 import type { CreateGrupoDto, Grupo } from '../../shared/types';
+
+/** Base pública de links para compartir (inscripción / validación). */
+const publicBase = (empresa: string) => `${window.location.origin}/${empresa}/certificados`;
 
 const fmt = (d: string | Date) => {
   if (!d) return '—';
@@ -26,7 +31,7 @@ function fmtHorario(g: { dias_semana?: string | null; hora_inicio?: string | nul
 }
 
 /* ── Fila de aula ───────────────────────────────────────────────── */
-function AulaRow({ aula, onVerInscritos, isLast }: { aula: Grupo; onVerInscritos: (g: Grupo) => void; isLast: boolean }) {
+function AulaRow({ aula, empresa, onVerInscritos, onToggleActivo, onEliminar, isLast }: { aula: Grupo; empresa: string; onVerInscritos: (g: Grupo) => void; onToggleActivo: (g: Grupo) => void; onEliminar: (g: Grupo) => void; isLast: boolean }) {
   return (
     <div
       className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-4 transition-colors"
@@ -65,6 +70,8 @@ function AulaRow({ aula, onVerInscritos, isLast }: { aula: Grupo; onVerInscritos
           }>
           {aula.activo ? 'Activo' : 'Inactivo'}
         </span>
+        {/* Link directo de inscripción a ESTA aula (para mandar al alumno) */}
+        <CopyLinkButton url={`${publicBase(empresa)}?grupo=${aula.id}`} compact />
         <button
           onClick={() => onVerInscritos(aula)}
           className="flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-xl transition-all"
@@ -73,6 +80,26 @@ function AulaRow({ aula, onVerInscritos, isLast }: { aula: Grupo; onVerInscritos
           onMouseLeave={e => { e.currentTarget.style.background = '#EFF6FF'; e.currentTarget.style.color = '#2563EB'; }}
         >
           <Users size={12} /> Inscritos <ChevronRight size={11} />
+        </button>
+        {/* Archivar / reactivar aula (soft-delete) */}
+        <button
+          onClick={() => onToggleActivo(aula)}
+          className="flex items-center justify-center w-8 h-8 rounded-xl transition-all flex-shrink-0"
+          style={aula.activo
+            ? { background: '#FEF2F2', color: '#B91C1C', border: '1px solid #FECACA' }
+            : { background: '#F0FDF4', color: '#15803D', border: '1px solid #BBF7D0' }}
+          title={aula.activo ? 'Desactivar aula' : 'Activar aula'}
+        >
+          {aula.activo ? <Ban size={13} /> : <RefreshCw size={13} />}
+        </button>
+        {/* Borrar aula */}
+        <button
+          onClick={() => onEliminar(aula)}
+          className="flex items-center justify-center w-8 h-8 rounded-xl transition-all flex-shrink-0"
+          style={{ background: '#FEF2F2', color: '#B91C1C', border: '1px solid #FECACA' }}
+          title="Borrar aula"
+        >
+          <Trash2 size={13} />
         </button>
       </div>
     </div>
@@ -85,8 +112,9 @@ export default function AdminProgramaDetalle() {
   const navigate = useNavigate();
   const pid = Number(programaId);
 
-  const { programas, loading: progLoading, update } = useProgramas(empresa!);
-  const { grupos, loading: gruposLoading, error, create } = useGrupos(empresa!);
+  const { programas, loading: progLoading, update, setActivo: setActivoPrograma, eliminar: eliminarPrograma } = useProgramas(empresa!, true);
+  const { grupos, loading: gruposLoading, error, create, setActivo: setActivoGrupo, eliminar: eliminarGrupo } = useGrupos(empresa!, true);
+  const confirm = useConfirm();
 
   const [tab,       setTab]       = useState<'aulas' | 'evaluacion'>('aulas');
   const [showForm,  setShowForm]  = useState(false);
@@ -97,6 +125,62 @@ export default function AdminProgramaDetalle() {
   const aulas    = grupos.filter(g => g.programa_id === pid);
 
   const volver = () => navigate(`/${empresa}/certificados/panel/programas`);
+
+  const handleToggleAula = async (g: Grupo) => {
+    const desactivar = !!g.activo;
+    const ok = await confirm({
+      title: desactivar ? 'Desactivar aula' : 'Activar aula',
+      message: desactivar
+        ? `"${g.nombre_grupo}" se desactivará (no se borra) y dejará de aparecer en inscripción. Podrás activarla cuando quieras.`
+        : `"${g.nombre_grupo}" volverá a estar activa.`,
+      confirmText: desactivar ? 'Desactivar' : 'Activar',
+      variant: desactivar ? 'danger' : undefined,
+    });
+    if (!ok) return;
+    try { await setActivoGrupo(g.id, !g.activo); }
+    catch (e: unknown) { setSaveError((e as Error).message); }
+  };
+
+  const handleEliminarAula = async (g: Grupo) => {
+    const ok = await confirm({
+      title: 'Borrar aula',
+      message: `Se BORRARÁ "${g.nombre_grupo}" y sus inscripciones, notas y certificados emitidos (se devuelve el cupo). No se puede deshacer.`,
+      confirmText: 'Borrar definitivamente',
+      variant: 'danger',
+    });
+    if (!ok) return;
+    try { await eliminarGrupo(g.id); }
+    catch (e: unknown) { setSaveError((e as Error).message); }
+  };
+
+  const handleEliminarPrograma = async () => {
+    if (!programa) return;
+    const ok = await confirm({
+      title: 'Borrar programa',
+      message: `Se BORRARÁ "${programa.nombre}" y todo lo suyo (aulas, inscripciones, notas y certificados emitidos; se devuelve el cupo). No se puede deshacer.`,
+      confirmText: 'Borrar definitivamente',
+      variant: 'danger',
+    });
+    if (!ok) return;
+    try { await eliminarPrograma(programa.id); volver(); }
+    catch (e: unknown) { setSaveError((e as Error).message); }
+  };
+
+  const handleTogglePrograma = async () => {
+    if (!programa) return;
+    const desactivar = !!programa.activo;
+    const ok = await confirm({
+      title: desactivar ? 'Desactivar programa' : 'Activar programa',
+      message: desactivar
+        ? `"${programa.nombre}" se desactivará (no se borra). Dejará de aparecer en la inscripción pública. Podrás activarlo cuando quieras.`
+        : `"${programa.nombre}" volverá a estar activo.`,
+      confirmText: desactivar ? 'Desactivar' : 'Activar',
+      variant: desactivar ? 'danger' : undefined,
+    });
+    if (!ok) return;
+    try { await setActivoPrograma(programa.id, !programa.activo); }
+    catch (e: unknown) { setSaveError((e as Error).message); }
+  };
 
   const handleCreate = async (data: CreateGrupoDto) => {
     setSaving(true); setSaveError(null);
@@ -174,6 +258,56 @@ export default function AdminProgramaDetalle() {
             <p className="text-[12px] mt-1.5 truncate" style={{ color: '#9CA3AF' }}>{programa!.descripcion}</p>
           )}
         </div>
+
+        {/* Archivar / reactivar el programa (soft-delete) */}
+        <button
+          onClick={handleTogglePrograma}
+          className="flex items-center gap-1.5 text-[12px] font-semibold px-3 py-2 rounded-xl flex-shrink-0 transition-all"
+          style={programa!.activo
+            ? { background: '#FEF2F2', color: '#B91C1C', border: '1px solid #FECACA' }
+            : { background: '#F0FDF4', color: '#15803D', border: '1px solid #BBF7D0' }}
+          title={programa!.activo ? 'Desactivar programa' : 'Activar programa'}
+        >
+          {programa!.activo ? <Ban size={13} /> : <RefreshCw size={13} />}
+          {programa!.activo ? 'Desactivar' : 'Activar'}
+        </button>
+        <button
+          onClick={handleEliminarPrograma}
+          className="flex items-center gap-1.5 text-[12px] font-semibold px-3 py-2 rounded-xl flex-shrink-0 transition-all"
+          style={{ background: '#FEF2F2', color: '#B91C1C', border: '1px solid #FECACA' }}
+          title="Borrar programa"
+        >
+          <Trash2 size={13} /> Borrar
+        </button>
+      </div>
+
+      {/* Compartir: links listos para mandar al cliente/alumno */}
+      <div className="bg-white rounded-2xl p-5 space-y-3" style={{ border: '1px solid #EEECE6' }}>
+        <div className="flex items-center gap-2">
+          <Link2 size={15} style={{ color: '#C9962C' }} />
+          <h3 className="text-[13px] font-bold" style={{ color: '#0D0E12' }}>Links para compartir</h3>
+        </div>
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: '#9CA3AF' }}>
+            Inscripción a este programa
+          </p>
+          <CopyLinkButton
+            url={`${publicBase(empresa!)}?programa=${programa!.id}`}
+            label="Copiar link de inscripción"
+          />
+          <p className="text-[11px] mt-1.5" style={{ color: '#B0A898' }}>
+            Mándaselo al alumno: abre la inscripción con este programa ya elegido.
+          </p>
+        </div>
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: '#9CA3AF' }}>
+            Validar un certificado
+          </p>
+          <CopyLinkButton
+            url={`${publicBase(empresa!)}/validar`}
+            label="Copiar link de validación"
+          />
+        </div>
       </div>
 
       {/* Pestañas */}
@@ -237,7 +371,7 @@ export default function AdminProgramaDetalle() {
           {!gruposLoading && aulas.length > 0 && (
             <div className="bg-white rounded-2xl overflow-hidden" style={{ border: '1px solid #EEECE6' }}>
               {aulas.map((a, i) => (
-                <AulaRow key={a.id} aula={a} onVerInscritos={handleVerInscritos} isLast={i === aulas.length - 1} />
+                <AulaRow key={a.id} aula={a} empresa={empresa!} onVerInscritos={handleVerInscritos} onToggleActivo={handleToggleAula} onEliminar={handleEliminarAula} isLast={i === aulas.length - 1} />
               ))}
             </div>
           )}

@@ -8,8 +8,16 @@ const opts = (empresa: string) => ({
 });
 
 export const participantesApi = {
-  list: (empresa: string) =>
-    api.get<Participante[]>('/api/certificados/participantes', opts(empresa)),
+  list: (empresa: string, incluirInactivos = false) =>
+    api.get<Participante[]>(`/api/certificados/participantes${incluirInactivos ? '?todos=1' : ''}`, opts(empresa)),
+
+  /** Archiva (false) o reactiva (true) un estudiante. */
+  setActivo: (empresa: string, id: number, activo: boolean) =>
+    api.patch<Participante>(`/api/certificados/participantes/${id}/activo`, { activo }, opts(empresa)),
+
+  /** Borra el estudiante y sus inscripciones (falla 409 si tiene certificados emitidos). */
+  eliminar: (empresa: string, id: number) =>
+    api.delete<void>(`/api/certificados/participantes/${id}`, opts(empresa)),
 
   get: (empresa: string, id: number) =>
     api.get<Participante>(`/api/certificados/participantes/${id}`, opts(empresa)),
@@ -23,4 +31,8 @@ export const participantesApi = {
 
   create: (empresa: string, data: CreateParticipanteDto) =>
     api.post<Participante>('/api/certificados/participantes', data, opts(empresa)),
+
+  /** Edita los datos de un estudiante. */
+  update: (empresa: string, id: number, data: Partial<CreateParticipanteDto>) =>
+    api.patch<Participante>(`/api/certificados/participantes/${id}`, data, opts(empresa)),
 };

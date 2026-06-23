@@ -96,14 +96,14 @@ export default function AdminLogin() {
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
                   <label className="block text-[11px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: '#374151' }}>
-                    Correo electrónico
+                    Usuario o correo
                   </label>
                   <div className="relative">
                     <Mail size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: '#B0A898' }} />
                     <input
-                      type="email" required value={correo}
+                      type="text" required value={correo}
                       onChange={e => setCorreo(e.target.value)}
-                      placeholder="operador@empresa.com"
+                      placeholder="usuario o correo@empresa.com"
                       className="vx-input vx-input-icon"
                     />
                   </div>

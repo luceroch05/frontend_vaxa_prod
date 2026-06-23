@@ -1,14 +1,28 @@
 import { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useParams } from 'react-router-dom';
-import { Plus, Search, X, Loader2, UserPlus, CheckCircle, AlertCircle, Users } from '@/components/ui/icon';
+import { Plus, Search, X, Loader2, UserPlus, CheckCircle, AlertCircle, Users, Trash2, Pencil } from '@/components/ui/icon';
+import { useConfirm } from '../../shared/hooks/useConfirm';
 import { participantesApi } from '../../shared/api/participantes.api';
 import { inscripcionesApi } from '../../shared/api/inscripciones.api';
 import { useCatalogos } from '../../shared/hooks/useCatalogos';
-import { useProgramas } from '../../shared/hooks/useProgramas';
 import { useGrupos } from '../../shared/hooks/useGrupos';
 import { usePagination } from '../../shared/hooks/usePagination';
 import Pagination from '../../shared/components/Pagination';
+import ProgramaGrupoPicker from '../../shared/components/ProgramaGrupoPicker';
+import PhoneField from '../../shared/components/PhoneField';
+import { isPossiblePhoneNumber } from 'libphonenumber-js';
 import type { Participante } from '../../shared/types';
+
+/** Regla de validación del N.° de documento según el tipo (igual que la inscripción pública). */
+function getDocRule(codigo?: string): { max: number; numeric: boolean; hint: string } {
+  const c = (codigo ?? '').toUpperCase();
+  if (c.includes('DNI'))                            return { max: 8,  numeric: true,  hint: '8 dígitos' };
+  if (c.includes('RUC'))                            return { max: 11, numeric: true,  hint: '11 dígitos' };
+  if (c.includes('CE') || c.includes('EXTRANJER')) return { max: 12, numeric: false, hint: 'hasta 12 caracteres' };
+  if (c.includes('PAS'))                            return { max: 12, numeric: false, hint: 'hasta 12 caracteres' };
+  return { max: 20, numeric: false, hint: 'hasta 20 caracteres' };
+}
 
 /* ── Modal: Inscribir alumno ─────────────────────────────────── */
 function InscribirModal({ empresa, onClose, onDone }: {
@@ -17,7 +31,6 @@ function InscribirModal({ empresa, onClose, onDone }: {
   onDone: () => void;
 }) {
   const { catalogos } = useCatalogos(empresa);
-  const { programas }  = useProgramas(empresa);
   const { grupos }     = useGrupos(empresa);
 
   const tiposDoc = catalogos?.tipos_documento ?? [];
@@ -29,7 +42,6 @@ function InscribirModal({ empresa, onClose, onDone }: {
   const [apellidos, setApellidos] = useState('');
   const [email,     setEmail]     = useState('');
   const [telefono,  setTelefono]  = useState('');
-  const [programaId, setProgramaId] = useState<number>(0);
   const [grupoId,    setGrupoId]    = useState<number>(0);
 
   const [yaRegistrado, setYaRegistrado] = useState(false);
@@ -40,7 +52,10 @@ function InscribirModal({ empresa, onClose, onDone }: {
 
   useEffect(() => { if (tipoDoc === 0 && dniId) setTipoDoc(dniId); }, [dniId, tipoDoc]);
 
-  const gruposDelPrograma = grupos.filter(g => g.programa_id === programaId);
+  // Regla de documento según el tipo elegido (límite de dígitos y si es solo numérico).
+  const docRule = getDocRule(tiposDoc.find(t => t.id === tipoDoc)?.codigo);
+  const sanitizeDoc = (raw: string, rule = docRule) =>
+    (rule.numeric ? raw.replace(/\D/g, '') : raw.replace(/[^a-zA-Z0-9]/g, '')).slice(0, rule.max);
 
   // Busca por número de documento (sin filtrar por tipo, así lo encuentra siempre) y autocompleta.
   const doLookup = useCallback(async (documento: string) => {
@@ -70,6 +85,10 @@ function InscribirModal({ empresa, onClose, onDone }: {
     if (!doc.trim() || !nombres.trim() || !apellidos.trim() || !grupoId) {
       setError('Completa documento, nombres, apellidos y grupo.'); return;
     }
+    // Valida el teléfono según el país (solo si se ingresó y es editable).
+    if (!yaRegistrado && telefono && !isPossiblePhoneNumber(telefono)) {
+      setError('El número de teléfono está incompleto para el país seleccionado.'); return;
+    }
     setSaving(true); setError(null); setOkMsg(null);
     try {
       await inscripcionesApi.inscribir(empresa, {
@@ -89,8 +108,8 @@ function InscribirModal({ empresa, onClose, onDone }: {
     } finally { setSaving(false); }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4"
       style={{ background: 'rgba(13,14,18,0.45)', backdropFilter: 'blur(4px)' }}
       onMouseDown={onClose}>
       <div className="w-full max-w-[480px] bg-white rounded-2xl overflow-hidden"
@@ -98,7 +117,7 @@ function InscribirModal({ empresa, onClose, onDone }: {
         onMouseDown={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid #EEECE6' }}>
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: '#F5F3FF', color: '#7C3AED' }}>
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: '#FBF7EC', color: '#C9962C' }}>
               <UserPlus size={15} />
             </div>
             <p className="text-[15px] font-bold" style={{ color: '#0D0E12' }}>Inscribir alumno</p>
@@ -122,16 +141,26 @@ function InscribirModal({ empresa, onClose, onDone }: {
 
           {/* Documento */}
           <div className="flex gap-2">
-            <select value={tipoDoc} onChange={e => setTipoDoc(+e.target.value)} className="vx-input" style={{ maxWidth: 110 }} disabled={yaRegistrado}>
+            <select value={tipoDoc}
+              onChange={e => {
+                const id = +e.target.value;
+                const rule = getDocRule(tiposDoc.find(t => t.id === id)?.codigo);
+                setTipoDoc(id);
+                setDoc(d => sanitizeDoc(d, rule));   // re-aplica el límite al cambiar de tipo
+              }}
+              className="vx-input" style={{ maxWidth: 110 }} disabled={yaRegistrado}>
               {tiposDoc.map(t => <option key={t.id} value={t.id}>{t.codigo}</option>)}
             </select>
             <input value={doc}
-              onChange={e => { setDoc(e.target.value); setYaRegistrado(false); }}
+              inputMode={docRule.numeric ? 'numeric' : 'text'}
+              maxLength={docRule.max}
+              onChange={e => { setDoc(sanitizeDoc(e.target.value)); setYaRegistrado(false); }}
               placeholder="N° de documento (se busca solo)" className="vx-input flex-1" autoFocus />
             {buscando && (
-              <span className="flex items-center px-2 flex-shrink-0"><Loader2 size={15} className="animate-spin" style={{ color: '#7C3AED' }} /></span>
+              <span className="flex items-center px-2 flex-shrink-0"><Loader2 size={15} className="animate-spin" style={{ color: '#C9962C' }} /></span>
             )}
           </div>
+          {!yaRegistrado && <p className="text-[11px]" style={{ color: '#B0A898' }}>{docRule.hint}</p>}
           {yaRegistrado && (
             <p className="text-[11.5px] flex items-center gap-1" style={{ color: '#15803D' }}>
               <CheckCircle size={12} /> Estudiante ya registrado — datos autocompletados (no editables).
@@ -148,9 +177,26 @@ function InscribirModal({ empresa, onClose, onDone }: {
                   <input value={apellidos} onChange={e => setApellidos(e.target.value)} readOnly={yaRegistrado} style={roStyle} placeholder="Apellidos" className="vx-input" />
                 </div>
                 {/* Contacto */}
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 gap-2 items-start">
                   <input value={email} onChange={e => setEmail(e.target.value)} readOnly={yaRegistrado} style={roStyle} placeholder="Email (opcional)" className="vx-input" />
-                  <input value={telefono} onChange={e => setTelefono(e.target.value)} readOnly={yaRegistrado} style={roStyle} placeholder="Teléfono (opcional)" className="vx-input" />
+                  {yaRegistrado ? (
+                    <input value={telefono} readOnly style={roStyle} placeholder="Teléfono (opcional)" className="vx-input" />
+                  ) : (
+                    <div>
+                      <PhoneField value={telefono} onChange={setTelefono} />
+                      {telefono && (
+                        isPossiblePhoneNumber(telefono) ? (
+                          <p className="flex items-center gap-1 text-[11px] mt-1" style={{ color: '#15803D' }}>
+                            <CheckCircle size={11} className="flex-shrink-0" /> Número completo
+                          </p>
+                        ) : (
+                          <p className="flex items-center gap-1 text-[11px] mt-1" style={{ color: '#DC2626' }}>
+                            <AlertCircle size={11} className="flex-shrink-0" /> Faltan dígitos para el país
+                          </p>
+                        )
+                      )}
+                    </div>
+                  )}
                 </div>
               </>
             );
@@ -158,31 +204,135 @@ function InscribirModal({ empresa, onClose, onDone }: {
 
           <div className="h-px my-1" style={{ background: '#F0EEE9' }} />
 
-          {/* Programa / Grupo */}
+          {/* Programa / Grupo — mismo selector buscable que la inscripción pública */}
+          <ProgramaGrupoPicker grupos={grupos} value={grupoId} onChange={setGrupoId} />
+        </div>
+
+        <div className="flex items-center justify-end gap-2.5 px-5 py-4" style={{ borderTop: '1px solid #EEECE6' }}>
+          <button onClick={onClose} className="px-4 py-2 text-[13px] font-semibold rounded-xl"
+            style={{ color: '#4B5563', border: '1px solid rgba(15,24,41,0.12)' }}>Cancelar</button>
+          <button onClick={submit} disabled={saving} className="vx-btn vx-btn-primary px-4 py-2">
+            {saving ? <Loader2 size={14} className="animate-spin" /> : <UserPlus size={14} />}
+            Inscribir
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+/* ── Modal: Editar estudiante ────────────────────────────────── */
+function EditarModal({ empresa, participante, onClose, onDone }: {
+  empresa: string;
+  participante: Participante;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const { catalogos } = useCatalogos(empresa);
+  const tiposDoc = catalogos?.tipos_documento ?? [];
+
+  const [tipoDoc,   setTipoDoc]   = useState<number>(participante.tipo_documento_id);
+  const [doc,       setDoc]       = useState(participante.numero_documento);
+  const [nombres,   setNombres]   = useState(participante.nombres);
+  const [apellidos, setApellidos] = useState(participante.apellidos);
+  const [email,     setEmail]     = useState(participante.email ?? '');
+  const [telefono,  setTelefono]  = useState(participante.telefono ?? '');
+  const [saving,    setSaving]    = useState(false);
+  const [error,     setError]     = useState<string | null>(null);
+
+  const docRule = getDocRule(tiposDoc.find(t => t.id === tipoDoc)?.codigo);
+  const sanitizeDoc = (raw: string, rule = docRule) =>
+    (rule.numeric ? raw.replace(/\D/g, '') : raw.replace(/[^a-zA-Z0-9]/g, '')).slice(0, rule.max);
+
+  const submit = async () => {
+    if (!doc.trim() || !nombres.trim() || !apellidos.trim()) { setError('Completa documento, nombres y apellidos.'); return; }
+    if (telefono && !isPossiblePhoneNumber(telefono)) { setError('El teléfono está incompleto para el país.'); return; }
+    setSaving(true); setError(null);
+    try {
+      await participantesApi.update(empresa, participante.id, {
+        tipo_documento_id: tipoDoc,
+        numero_documento: doc.trim(),
+        nombres: nombres.trim(),
+        apellidos: apellidos.trim(),
+        email: email.trim() || undefined,
+        telefono: telefono.trim() || undefined,
+      });
+      onDone();
+      onClose();
+    } catch (e: unknown) { setError((e as Error).message); }
+    finally { setSaving(false); }
+  };
+
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+      style={{ background: 'rgba(13,14,18,0.45)', backdropFilter: 'blur(4px)' }}
+      onMouseDown={onClose}>
+      <div className="w-full max-w-[480px] bg-white rounded-2xl overflow-hidden"
+        style={{ border: '1px solid rgba(15,24,41,0.08)', boxShadow: '0 20px 60px -12px rgba(13,14,18,0.35)' }}
+        onMouseDown={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid #EEECE6' }}>
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: '#FBF7EC', color: '#C9962C' }}>
+              <Pencil size={15} />
+            </div>
+            <p className="text-[15px] font-bold" style={{ color: '#0D0E12' }}>Editar estudiante</p>
+          </div>
+          <button onClick={onClose} className="p-1 rounded-lg hover:bg-[#F5F4F0]" style={{ color: '#B0A898' }}><X size={16} /></button>
+        </div>
+
+        <div className="p-5 space-y-3">
+          {error && (
+            <div className="flex items-center gap-2 text-[12.5px] px-3 py-2 rounded-xl"
+              style={{ background: '#FEF2F2', border: '1px solid #FECACA', color: '#B91C1C' }}>
+              <AlertCircle size={13} /> {error}
+            </div>
+          )}
+
+          {/* Documento */}
+          <div className="flex gap-2">
+            <select value={tipoDoc}
+              onChange={e => { const id = +e.target.value; const rule = getDocRule(tiposDoc.find(t => t.id === id)?.codigo); setTipoDoc(id); setDoc(d => sanitizeDoc(d, rule)); }}
+              className="vx-input" style={{ maxWidth: 110 }}>
+              {tiposDoc.map(t => <option key={t.id} value={t.id}>{t.codigo}</option>)}
+            </select>
+            <input value={doc} inputMode={docRule.numeric ? 'numeric' : 'text'} maxLength={docRule.max}
+              onChange={e => setDoc(sanitizeDoc(e.target.value))}
+              placeholder="N° de documento" className="vx-input flex-1" />
+          </div>
+          <p className="text-[11px]" style={{ color: '#B0A898' }}>{docRule.hint}</p>
+
+          {/* Nombres / Apellidos */}
           <div className="grid grid-cols-2 gap-2">
-            <select value={programaId} onChange={e => { setProgramaId(+e.target.value); setGrupoId(0); }} className="vx-input">
-              <option value={0} disabled>Programa…</option>
-              {programas.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
-            </select>
-            <select value={grupoId} onChange={e => setGrupoId(+e.target.value)} className="vx-input" disabled={!programaId}>
-              <option value={0} disabled>Grupo…</option>
-              {gruposDelPrograma.map(g => <option key={g.id} value={g.id}>{g.nombre_grupo}</option>)}
-            </select>
+            <input value={nombres} onChange={e => setNombres(e.target.value)} placeholder="Nombres" className="vx-input" />
+            <input value={apellidos} onChange={e => setApellidos(e.target.value)} placeholder="Apellidos" className="vx-input" />
+          </div>
+
+          {/* Contacto */}
+          <div className="grid grid-cols-2 gap-2 items-start">
+            <input value={email} onChange={e => setEmail(e.target.value)} placeholder="Email (opcional)" className="vx-input" />
+            <div>
+              <PhoneField value={telefono} onChange={setTelefono} />
+              {telefono && !isPossiblePhoneNumber(telefono) && (
+                <p className="flex items-center gap-1 text-[11px] mt-1" style={{ color: '#DC2626' }}>
+                  <AlertCircle size={11} className="flex-shrink-0" /> Faltan dígitos para el país
+                </p>
+              )}
+            </div>
           </div>
         </div>
 
         <div className="flex items-center justify-end gap-2.5 px-5 py-4" style={{ borderTop: '1px solid #EEECE6' }}>
           <button onClick={onClose} className="px-4 py-2 text-[13px] font-semibold rounded-xl"
             style={{ color: '#4B5563', border: '1px solid rgba(15,24,41,0.12)' }}>Cancelar</button>
-          <button onClick={submit} disabled={saving}
-            className="flex items-center gap-1.5 px-4 py-2 text-[13px] font-semibold rounded-xl text-white"
-            style={{ background: '#7C3AED' }}>
-            {saving ? <Loader2 size={14} className="animate-spin" /> : <UserPlus size={14} />}
-            Inscribir
+          <button onClick={submit} disabled={saving} className="vx-btn vx-btn-primary px-4 py-2">
+            {saving ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle size={14} />}
+            Guardar cambios
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -194,6 +344,8 @@ export default function AdminEstudiantes() {
   const [error,   setError]   = useState<string | null>(null);
   const [busqueda, setBusqueda] = useState('');
   const [modal, setModal] = useState(false);
+  const [editar, setEditar] = useState<Participante | null>(null);
+  const confirm = useConfirm();
 
   const cargar = useCallback(() => {
     setLoading(true);
@@ -205,6 +357,18 @@ export default function AdminEstudiantes() {
   }, [empresa]);
 
   useEffect(cargar, [cargar]);
+
+  const handleEliminar = async (p: Participante) => {
+    const ok = await confirm({
+      title: 'Borrar estudiante',
+      message: `Se BORRARÁ a ${p.nombres} ${p.apellidos} y sus inscripciones, notas y certificados emitidos (se devuelve el cupo). No se puede deshacer.`,
+      confirmText: 'Borrar definitivamente',
+      variant: 'danger',
+    });
+    if (!ok) return;
+    try { await participantesApi.eliminar(empresa!, p.id); cargar(); }
+    catch (e: unknown) { setError((e as Error).message); }
+  };
 
   const q = busqueda.trim().toLowerCase();
   const filtrados = participantes.filter(p =>
@@ -259,18 +423,36 @@ export default function AdminEstudiantes() {
 
       {!loading && filtrados.length > 0 && (
         <div className="bg-white rounded-2xl overflow-hidden" style={{ border: '1px solid #EEECE6' }}>
-          <div className="hidden sm:grid grid-cols-[120px_1fr_1fr_120px] px-5 py-3" style={{ background: '#FAFAF8', borderBottom: '1px solid #EEECE6' }}>
-            {['Documento', 'Nombre', 'Email', 'Teléfono'].map(h => (
-              <p key={h} className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: '#9CA3AF' }}>{h}</p>
+          <div className="hidden sm:grid grid-cols-[110px_1fr_1fr_110px_auto] px-5 py-3" style={{ background: '#FAFAF8', borderBottom: '1px solid #EEECE6' }}>
+            {['Documento', 'Nombre', 'Email', 'Teléfono', ''].map((h, i) => (
+              <p key={i} className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: '#9CA3AF' }}>{h}</p>
             ))}
           </div>
           {pageItems.map((p, idx) => (
-            <div key={p.id} className="flex flex-col sm:grid sm:grid-cols-[120px_1fr_1fr_120px] sm:items-center px-5 py-3"
+            <div key={p.id} className="flex flex-col sm:grid sm:grid-cols-[110px_1fr_1fr_110px_auto] sm:items-center px-5 py-3"
               style={{ borderBottom: idx < pageItems.length - 1 ? '1px solid #F5F4F0' : undefined }}>
               <p className="text-[13px] font-mono tabular-nums" style={{ color: '#4B5563' }}>{p.numero_documento}</p>
               <p className="text-[13px] font-semibold truncate" style={{ color: '#0D0E12' }}>{p.nombres} {p.apellidos}</p>
               <p className="text-[12.5px] truncate" style={{ color: '#6B7280' }}>{p.email || '—'}</p>
               <p className="text-[12.5px]" style={{ color: '#6B7280' }}>{p.telefono || '—'}</p>
+              <div className="flex items-center gap-2 justify-start sm:justify-end mt-2 sm:mt-0">
+                <button
+                  onClick={() => setEditar(p)}
+                  className="flex items-center gap-1.5 text-[12px] font-semibold px-2.5 py-1.5 rounded-lg transition-all"
+                  style={{ background: '#EFF6FF', color: '#2563EB', border: '1px solid #BFDBFE' }}
+                  title="Editar estudiante"
+                >
+                  <Pencil size={12} /> Editar
+                </button>
+                <button
+                  onClick={() => handleEliminar(p)}
+                  className="flex items-center justify-center w-8 h-8 rounded-lg transition-all"
+                  style={{ background: '#FEF2F2', color: '#B91C1C', border: '1px solid #FECACA' }}
+                  title="Borrar estudiante"
+                >
+                  <Trash2 size={12} />
+                </button>
+              </div>
             </div>
           ))}
         </div>
@@ -282,6 +464,7 @@ export default function AdminEstudiantes() {
       )}
 
       {modal && <InscribirModal empresa={empresa!} onClose={() => setModal(false)} onDone={cargar} />}
+      {editar && <EditarModal empresa={empresa!} participante={editar} onClose={() => setEditar(null)} onDone={cargar} />}
     </div>
   );
 }

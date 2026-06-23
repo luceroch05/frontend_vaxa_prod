@@ -6,6 +6,9 @@ import { planesApi, type Plan } from '../../shared/api/planes.api';
 
 const MES = ['', 'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 const sol = (n: number) => `S/ ${n.toFixed(2)}`;
+/** Precio del certificado adicional = proporcional al plan (precio mensual ÷ cupo). */
+const adicionalProporcional = (precioMensual: number, cupo: number) =>
+  cupo > 0 ? Math.round((precioMensual / cupo) * 100) / 100 : 0;
 
 export default function AdminPlan() {
   const { empresa } = useParams<{ empresa: string }>();
@@ -80,7 +83,7 @@ export default function AdminPlan() {
           {consumo.adicionales > 0 && (
             <p className="text-[12.5px] mt-3 px-3 py-2 rounded-xl" style={{ background: '#FFFBEB', border: '1px solid #FDE68A', color: '#92400E' }}>
               Llevas <b>{consumo.adicionales}</b> certificado{consumo.adicionales === 1 ? '' : 's'} excedente{consumo.adicionales === 1 ? '' : 's'} este mes:
-              <b> {sol(consumo.monto_adicional)}</b> adicionales (a {sol(plan.precio_certificado_adicional)} c/u).
+              <b> {sol(consumo.monto_adicional)}</b> adicionales (a {sol(adicionalProporcional(plan.precio_mensual, plan.limite_certificados_mes))} c/u).
             </p>
           )}
         </div>
@@ -103,7 +106,11 @@ export default function AdminPlan() {
                 <p className="text-[12px] mt-1" style={{ color: '#64748B' }}>
                   {p.limite_certificados_mes ? `${p.limite_certificados_mes} certificados/mes` : 'A medida'}
                 </p>
-                <p className="text-[11.5px] mt-0.5" style={{ color: '#9CA3AF' }}>Adicional {sol(p.precio_certificado_adicional)} c/u</p>
+                <p className="text-[11.5px] mt-0.5" style={{ color: '#9CA3AF' }}>
+                  {p.limite_certificados_mes > 0
+                    ? <>Adicional {sol(adicionalProporcional(p.precio_mensual, p.limite_certificados_mes))} c/u</>
+                    : <>Cupo a medida</>}
+                </p>
                 <div className="mt-2 space-y-1">
                   {p.permite_diseno     && <Feat txt="Diseño personalizado" />}
                   {p.permite_subdominio && <Feat txt="Dominio propio" />}

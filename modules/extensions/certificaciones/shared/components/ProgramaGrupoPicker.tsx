@@ -11,6 +11,8 @@ interface Props {
   grupos: Grupo[];
   value: number;                  // grupo_id seleccionado
   onChange: (grupoId: number) => void;
+  /** Programa preseleccionado (cuando se llega por un link compartido ?programa=ID). */
+  initialProgramaId?: number;
 }
 
 /**
@@ -19,14 +21,14 @@ interface Props {
  *  2) elegir uno de sus GRUPOS activos (radio), mostrando su horario
  *     (cuándo empieza, qué días y a qué hora) en vez del nombre del grupo.
  */
-export default function ProgramaGrupoPicker({ grupos, value, onChange }: Props) {
+export default function ProgramaGrupoPicker({ grupos, value, onChange, initialProgramaId }: Props) {
   // Programas únicos a partir de los grupos disponibles.
   const programas = Array.from(
     new Map(grupos.map(g => [g.programa_id, { id: g.programa_id, nombre: g.programa_nombre }])).values()
   );
 
   const grupoSel = grupos.find(g => g.id === value);
-  const [programaId, setProgramaId] = useState<number>(grupoSel?.programa_id ?? 0);
+  const [programaId, setProgramaId] = useState<number>(grupoSel?.programa_id ?? initialProgramaId ?? 0);
 
   const [open, setOpen]   = useState(false);
   const [query, setQuery] = useState('');

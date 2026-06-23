@@ -19,13 +19,17 @@ import { VAXA_CONFIG } from '../../shared/constants';
 import { creditosAdminApi, type PlanCatalogo } from '../../shared/api/creditos.admin.api';
 import { AlertCircle, CheckCircle } from '@/components/ui/icon';
 
-/** Ciclos de contrato (catálogo fijo: id 1/2/3). */
+/** Ciclos de contrato (catálogo fijo: id 1/2/3).
+ *  meses_pago = mensualidades que se cobran · meses_vigencia = meses de servicio. */
 const CICLOS = [
-  { id: 1, label: 'Mensual' },
-  { id: 2, label: 'Semestral (paga 5, recibe 6)' },
-  { id: 3, label: 'Anual (paga 10, recibe 12)' },
+  { id: 1, label: 'Mensual',                      corto: 'Mensual',   mesesPago: 1,  mesesVigencia: 1 },
+  { id: 2, label: 'Semestral (paga 5, recibe 6)', corto: 'Semestral', mesesPago: 5,  mesesVigencia: 6 },
+  { id: 3, label: 'Anual (paga 10, recibe 12)',   corto: 'Anual',     mesesPago: 10, mesesVigencia: 12 },
 ];
 const sol = (n: number) => `S/ ${n.toFixed(2)}`;
+/** Precio del certificado adicional = proporcional al plan (precio mensual ÷ cupo). */
+const adicionalProporcional = (precioMensual: number, cupo: number) =>
+  cupo > 0 ? Math.round((precioMensual / cupo) * 100) / 100 : 0;
 
 // Configuración específica del sistema de certificaciones
 const CERTIFICACIONES_CONFIG = {
@@ -166,6 +170,9 @@ export default function RegistrarEmpresaCertificaciones({
   if (!usuario) {
     return null;
   }
+
+  // Ciclo de pago elegido (define cuántas mensualidades se cobran y la vigencia).
+  const cicloSel = CICLOS.find((c) => c.id === cicloId) ?? CICLOS[0];
 
   return (
     <div className="min-h-screen" style={{ background: '#F5F4F0' }}>
@@ -454,9 +461,18 @@ export default function RegistrarEmpresaCertificaciones({
                       {plan.limite_certificados_mes ? `${plan.limite_certificados_mes} certificados/mes` : 'Cupo a medida'}
                     </p>
                     <p className="text-[11.5px] mt-0.5" style={{ color: '#9CA3AF' }}>
-                      Adicional {sol(plan.precio_certificado_adicional)} c/u
+                      {plan.limite_certificados_mes > 0
+                        ? <>Adicional {sol(adicionalProporcional(plan.precio_mensual, plan.limite_certificados_mes))} c/u</>
+                        : <>Cupo a medida</>}
                       {plan.setup_inicial > 0 && <> · setup {sol(plan.setup_inicial)}</>}
                     </p>
+                    {/* Total según el ciclo elegido (semestral/anual) */}
+                    {cicloId !== 1 && plan.precio_mensual > 0 && (
+                      <p className="text-[11.5px] mt-1 font-semibold" style={{ color: '#059669' }}>
+                        {cicloSel.corto}: {sol(plan.precio_mensual * cicloSel.mesesPago)}
+                        <span className="font-normal" style={{ color: '#9CA3AF' }}> · {cicloSel.mesesVigencia} meses</span>
+                      </p>
+                    )}
                   </label>
                 );
               })}
@@ -469,6 +485,29 @@ export default function RegistrarEmpresaCertificaciones({
                 {CICLOS.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
               </select>
             </div>
+
+            {/* Total a pagar según el plan elegido + el ciclo elegido */}
+            {(() => {
+              const p = planes.find((x) => x.id === planId);
+              if (!p || !p.precio_mensual) return null;
+              const total  = p.precio_mensual * cicloSel.mesesPago;
+              const ahorro = p.precio_mensual * (cicloSel.mesesVigencia - cicloSel.mesesPago);
+              return (
+                <div className="mt-3 rounded-xl px-4 py-3" style={{ background: '#ECFDF5', border: '1px solid #A7F3D0' }}>
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="text-[12.5px] font-semibold" style={{ color: '#065F46' }}>
+                      {p.nombre} · {cicloSel.corto}
+                    </span>
+                    <span className="text-[20px] font-bold" style={{ color: '#047857' }}>{sol(total)}</span>
+                  </div>
+                  <p className="text-[11.5px] mt-1" style={{ color: '#059669' }}>
+                    Pagas {cicloSel.mesesPago} mensualidad{cicloSel.mesesPago !== 1 ? 'es' : ''} y recibes <b>{cicloSel.mesesVigencia} meses</b> de servicio
+                    {ahorro > 0 && <> · ahorras <b>{sol(ahorro)}</b></>}.
+                    {p.setup_inicial > 0 && <> Setup inicial aparte: {sol(p.setup_inicial)}.</>}
+                  </p>
+                </div>
+              );
+            })()}
 
             {/* Qué incluye el plan elegido + campos que pide (dominio, etc.) */}
             {(() => {

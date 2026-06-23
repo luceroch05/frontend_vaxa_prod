@@ -8,8 +8,16 @@ const opts = (empresa: string) => ({
 });
 
 export const gruposApi = {
-  list: (empresa: string) =>
-    api.get<Grupo[]>('/api/certificados/grupos', opts(empresa)),
+  list: (empresa: string, incluirInactivos = false) =>
+    api.get<Grupo[]>(`/api/certificados/grupos${incluirInactivos ? '?todos=1' : ''}`, opts(empresa)),
+
+  /** Archiva (false) o reactiva (true) un aula. */
+  setActivo: (empresa: string, id: number, activo: boolean) =>
+    api.patch<Grupo>(`/api/certificados/grupos/${id}/activo`, { activo }, opts(empresa)),
+
+  /** Borra el aula y sus inscripciones (falla 409 si tiene certificados emitidos). */
+  eliminar: (empresa: string, id: number) =>
+    api.delete<void>(`/api/certificados/grupos/${id}`, opts(empresa)),
 
   get: (empresa: string, id: number) =>
     api.get<Grupo>(`/api/certificados/grupos/${id}`, opts(empresa)),

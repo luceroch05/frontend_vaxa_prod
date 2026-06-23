@@ -208,7 +208,7 @@ export default function UsuariosSistemasVaxa({ tenantId }: UsuariosSistemasVaxaP
                 <input value={form.nombres} onChange={(e) => set('nombres', e.target.value)} placeholder="Nombres" required className="sv-input" />
                 <input value={form.apellidos} onChange={(e) => set('apellidos', e.target.value)} placeholder="Apellidos" required className="sv-input" />
               </div>
-              <input type="email" value={form.correo} onChange={(e) => set('correo', e.target.value)} placeholder="Correo" required className="sv-input" />
+              <input type="text" value={form.correo} onChange={(e) => set('correo', e.target.value)} placeholder="Usuario o correo" required className="sv-input" />
               <div className="grid grid-cols-2 gap-3">
                 <input type="text" value={form.contrasena} onChange={(e) => set('contrasena', e.target.value)}
                   placeholder={editando ? 'Nueva contraseña (opcional)' : 'Contraseña (mín. 6)'} required={!editando} className="sv-input" />

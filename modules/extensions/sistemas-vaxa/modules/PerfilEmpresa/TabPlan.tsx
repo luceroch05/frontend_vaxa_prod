@@ -21,6 +21,9 @@ const CICLOS = [
 
 const MES = ['', 'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 const sol = (n: number) => `S/ ${n.toFixed(2)}`;
+/** Precio del certificado adicional = proporcional al plan (precio mensual ÷ cupo). */
+const adicionalProporcional = (precioMensual: number, cupo: number) =>
+  cupo > 0 ? Math.round((precioMensual / cupo) * 100) / 100 : 0;
 
 export default function TabPlan({ empresa, onChange }: TabPlanProps) {
   const [estado, setEstado]   = useState<EstadoPlanEmpresa | null>(null);
@@ -148,7 +151,9 @@ export default function TabPlan({ empresa, onChange }: TabPlanProps) {
         {planSel && (
           <div className="mt-3 text-[12.5px] rounded-xl px-3.5 py-2.5" style={{ background: '#FAFAF8', border: '1px solid #EEECE6', color: '#475569' }}>
             <b>{planSel.nombre}</b>: hasta <b>{planSel.limite_certificados_mes || '—'}</b> certificados/mes ·
-            adicional <b>{sol(planSel.precio_certificado_adicional)}</b> c/u
+            {planSel.limite_certificados_mes > 0
+              ? <> adicional <b>{sol(adicionalProporcional(planSel.precio_mensual, planSel.limite_certificados_mes))}</b> c/u</>
+              : <> cupo a medida</>}
             {planSel.setup_inicial > 0 && <> · setup <b>{sol(planSel.setup_inicial)}</b></>}
           </div>
         )}

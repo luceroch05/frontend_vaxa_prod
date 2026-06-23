@@ -12,6 +12,6 @@ export {
   // Certificados
   GraduationCap, BookOpen, ClipboardList, UserCheck, UserPlus, FileBadge,
   QrCode, Layers, Menu, Home, ChevronLeft, MoreVertical, AlertTriangle,
-  BadgeCheck, Pencil, Ban, PrinterIcon,
+  BadgeCheck, Pencil, Ban, PrinterIcon, Copy, Link2,
 } from './lucide';
 export type { LucideIcon } from './lucide';

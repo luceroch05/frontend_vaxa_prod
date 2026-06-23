@@ -36,6 +36,19 @@ export function useInscripciones(empresa: string, grupoId?: number) {
     return actualizada;
   };
 
+  /** Aprueba/cambia el estado de varias inscripciones a la vez y refresca la lista. */
+  const cambiarEstadoMasivo = async (ids: number[], estado_id: number) => {
+    const { actualizadas } = await inscripcionesApi.cambiarEstadoMasivo(empresa, ids, estado_id);
+    await fetchAll();
+    return actualizadas;
+  };
+
+  /** Borra una inscripción (falla si ya tiene certificado emitido). */
+  const eliminar = async (id: number) => {
+    await inscripcionesApi.eliminar(empresa, id);
+    setInscripciones(prev => prev.filter(i => i.id !== id));
+  };
+
   const inscribirParticipante = async (
     participanteData: { tipo_documento_id: number; numero_documento: string; nombres: string; apellidos: string; email?: string },
     grupo_id: number
@@ -44,5 +57,5 @@ export function useInscripciones(empresa: string, grupoId?: number) {
     return create({ participante_id: participante.id, grupo_id });
   };
 
-  return { inscripciones, loading, error, create, cambiarEstado, inscribirParticipante, refetch: fetchAll };
+  return { inscripciones, loading, error, create, cambiarEstado, cambiarEstadoMasivo, eliminar, inscribirParticipante, refetch: fetchAll };
 }

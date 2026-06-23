@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef, FormEvent } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { CheckCircle, Loader2, AlertCircle, UserPlus } from '@/components/ui/icon';
 import { isPossiblePhoneNumber, parsePhoneNumber } from 'libphonenumber-js';
 import { publicApi } from '../../shared/api/public.api';
 import BrandRow from '../../shared/components/BrandRow';
+import BrandAside from '../../shared/components/BrandAside';
 import PhoneField from '../../shared/components/PhoneField';
 import ProgramaGrupoPicker from '../../shared/components/ProgramaGrupoPicker';
 import { aTituloNombre } from '../../shared/utils/text';
@@ -46,6 +47,11 @@ function SectionLabel({ n, children }: { n: number; children: string }) {
 
 export default function PublicRegistro() {
   const { empresa } = useParams<{ empresa: string }>();
+  const [searchParams] = useSearchParams();
+  // Link compartido por la empresa: ?programa=ID preselecciona el programa,
+  // ?grupo=ID preselecciona el aula concreta.
+  const programaParam = Number(searchParams.get('programa')) || undefined;
+  const grupoParam    = Number(searchParams.get('grupo')) || 0;
   const [paso,          setPaso]         = useState<Paso>('formulario');
   const [loading,       setLoading]      = useState(false);
   const [loadingData,   setLoadingData]  = useState(true);
@@ -56,7 +62,7 @@ export default function PublicRegistro() {
 
   const [form, setForm] = useState<RegistroPublicoDto>({
     tipo_documento_id: 0, numero_documento: '', nombres: '',
-    apellidos: '', email: '', telefono: '', grupo_id: 0,
+    apellidos: '', email: '', telefono: '', grupo_id: grupoParam,
   });
   const [yaRegistrado, setYaRegistrado] = useState(false);
   const [buscando,     setBuscando]     = useState(false);
@@ -200,11 +206,20 @@ export default function PublicRegistro() {
 
   /* ── Formulario ───────────────────────────────────────────── */
   return (
-    <div className="min-h-screen px-4 py-10" style={PAGE}>
-      <div className="max-w-2xl mx-auto">
-        <BrandRow />
+    <div className="min-h-screen px-4 sm:px-6 py-8 sm:py-10 flex items-start lg:items-center justify-center" style={PAGE}>
+      <div className="w-full max-w-[1180px] grid lg:grid-cols-[300px_1fr] gap-8 lg:gap-16 items-start lg:items-center">
 
-        <div className="rounded-[20px] p-6 lg:p-9 mt-6 page-enter" style={CARD}>
+        {/* Columna izquierda · logo de la institución (solo desktop) */}
+        <BrandAside subtitulo="INSCRIPCIÓN AL PROGRAMA" />
+
+        {/* Columna derecha · formulario */}
+        <div className="w-full max-w-2xl mx-auto">
+          {/* Marca compacta solo en móvil (en desktop está a la izquierda) */}
+          <div className="lg:hidden mb-4">
+            <BrandRow />
+          </div>
+
+        <div className="rounded-[20px] p-6 lg:p-9 page-enter" style={CARD}>
           <div className="mb-7">
             <h1 className="text-[24px] font-bold tracking-tight" style={{ color: '#0D0E12' }}>Inscripción al programa</h1>
             <p className="text-[13px] mt-1" style={{ color: '#9CA3AF' }}>Completa tus datos y elige el programa.</p>
@@ -220,7 +235,7 @@ export default function PublicRegistro() {
               {/* 1 · Programa */}
               <div>
                 <SectionLabel n={1}>Programa y horario</SectionLabel>
-                <ProgramaGrupoPicker grupos={grupos} value={form.grupo_id} onChange={id => set('grupo_id', id)} />
+                <ProgramaGrupoPicker grupos={grupos} value={form.grupo_id} onChange={id => set('grupo_id', id)} initialProgramaId={programaParam} />
                 {grupos.length === 0 && (
                   <p className="text-[12px] mt-1.5" style={{ color: '#C9962C' }}>No hay programas disponibles actualmente.</p>
                 )}
@@ -339,6 +354,7 @@ export default function PublicRegistro() {
             Verifícalo aquí
           </a>
         </p>
+        </div>
       </div>
     </div>
   );

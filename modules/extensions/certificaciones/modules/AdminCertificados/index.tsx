@@ -120,14 +120,19 @@ export default function AdminCertificados() {
 
   const [descargandoZip, setDescargandoZip] = useState(false);
 
-  /** Descarga en un ZIP todos los PDF de certificados del grupo seleccionado. */
+  /** Descarga en un ZIP exactamente los certificados EMITIDOS que estén filtrados
+   *  ahora mismo (por grupo, por nombre/documento, o cualquier combinación). */
   const handleDescargarZip = async () => {
-    if (grupoFilter === 'todos') return;
+    const ids = emitidosFiltrados.map(c => c.id);
+    if (ids.length === 0) return;
     setDescargandoZip(true);
     setErrorMsg(null);
     try {
-      const blob = await certificadosApi.descargarZipGrupo(empresa!, grupoFilter);
-      const nombre = grupos.find(g => g.id === grupoFilter)?.nombre_grupo ?? `grupo-${grupoFilter}`;
+      const blob = await certificadosApi.descargarZipIds(empresa!, ids);
+      // Nombre del archivo según el filtro activo, para que el cliente lo reconozca.
+      const nombre = grupoFilter !== 'todos'
+        ? (grupos.find(g => g.id === grupoFilter)?.nombre_grupo ?? `grupo-${grupoFilter}`)
+        : (busqueda.trim() ? busqueda.trim() : 'certificados');
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -442,17 +447,17 @@ export default function AdminCertificados() {
             {grupos.map(g => <option key={g.id} value={g.id}>{g.nombre_grupo}</option>)}
           </select>
 
-          {/* Descargar ZIP — solo en Emitidos y con un grupo elegido. */}
-          {tab === 'emitidos' && grupoFilter !== 'todos' && (
+          {/* Descargar ZIP — en Emitidos, de TODO lo que esté filtrado ahora mismo. */}
+          {tab === 'emitidos' && emitidosFiltrados.length > 0 && (
             <button
               onClick={handleDescargarZip}
               disabled={descargandoZip}
               className="flex items-center gap-1.5 px-3.5 rounded-xl text-[13px] font-semibold flex-shrink-0 transition-all"
               style={{ background: '#0D0E12', color: '#fff', opacity: descargandoZip ? 0.6 : 1 }}
-              title="Descargar todos los certificados del grupo en un ZIP"
+              title="Descargar en un ZIP los certificados filtrados"
             >
               {descargandoZip ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
-              ZIP
+              ZIP ({emitidosFiltrados.length})
             </button>
           )}
         </div>

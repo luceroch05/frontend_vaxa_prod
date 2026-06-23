@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Plus, BookOpen, Loader2, X, AlertCircle, ChevronRight } from '@/components/ui/icon';
+import { Plus, BookOpen, Loader2, X, AlertCircle, ChevronRight, Ban, RefreshCw, Trash2 } from '@/components/ui/icon';
 import { useProgramas }  from '../../shared/hooks/useProgramas';
 import { useCatalogos }  from '../../shared/hooks/useCatalogos';
+import { useConfirm }    from '../../shared/hooks/useConfirm';
 import { usePagination } from '../../shared/hooks/usePagination';
 import Pagination from '../../shared/components/Pagination';
 import type { CreateProgramaDto } from '../../shared/types';
@@ -148,10 +149,38 @@ function ProgramaForm({
 export default function AdminProgramas() {
   const { empresa } = useParams<{ empresa: string }>();
   const navigate    = useNavigate();
-  const { programas, loading, error, create } = useProgramas(empresa!);
+  const { programas, loading, error, create, setActivo, eliminar } = useProgramas(empresa!, true);
+  const confirm = useConfirm();
   const [showForm,   setShowForm]  = useState(false);
   const [saving,     setSaving]    = useState(false);
   const [saveError,  setSaveError] = useState<string | null>(null);
+
+  const toggleActivo = async (p: { id: number; nombre: string; activo: number }) => {
+    const desactivar = !!p.activo;
+    const ok = await confirm({
+      title: desactivar ? 'Desactivar programa' : 'Activar programa',
+      message: desactivar
+        ? `"${p.nombre}" se desactivará (no se borra). Dejará de aparecer en la inscripción pública. Podrás activarlo cuando quieras.`
+        : `"${p.nombre}" volverá a estar activo y disponible.`,
+      confirmText: desactivar ? 'Desactivar' : 'Activar',
+      variant: desactivar ? 'danger' : undefined,
+    });
+    if (!ok) return;
+    try { await setActivo(p.id, !p.activo); }
+    catch (e: unknown) { setSaveError((e as Error).message); }
+  };
+
+  const handleEliminar = async (p: { id: number; nombre: string }) => {
+    const ok = await confirm({
+      title: 'Borrar programa',
+      message: `Se BORRARÁ "${p.nombre}" y todo lo suyo (aulas, inscripciones, notas y certificados emitidos; se devuelve el cupo). Esta acción NO se puede deshacer.`,
+      confirmText: 'Borrar definitivamente',
+      variant: 'danger',
+    });
+    if (!ok) return;
+    try { await eliminar(p.id); }
+    catch (e: unknown) { setSaveError((e as Error).message); }
+  };
 
   const { page, setPage, totalPages, pageItems, startIndex, endIndex, total } =
     usePagination(programas, 10);
@@ -253,7 +282,7 @@ export default function AdminProgramas() {
         >
           {/* Table header */}
           <div
-            className="hidden sm:grid grid-cols-[1fr_140px_80px_70px_28px] px-5 py-3 border-b"
+            className="hidden sm:grid grid-cols-[1fr_140px_80px_70px_auto] px-5 py-3 border-b"
             style={{ background: '#FAFAF8', borderColor: 'rgba(15,24,41,0.07)' }}
           >
             {['Programa', 'Tipo', 'Horas', 'Estado'].map(h => (
@@ -267,7 +296,7 @@ export default function AdminProgramas() {
           {pageItems.map((p, idx) => (
             <div
               key={p.id}
-              className="flex flex-col sm:grid sm:grid-cols-[1fr_140px_80px_70px_28px] items-start sm:items-center px-5 py-4 transition-colors cursor-pointer"
+              className="flex flex-col sm:grid sm:grid-cols-[1fr_140px_80px_70px_auto] items-start sm:items-center px-5 py-4 transition-colors cursor-pointer"
               style={{ borderBottom: idx < pageItems.length - 1 ? '1px solid rgba(15,24,41,0.05)' : undefined }}
               onClick={() => abrirPrograma(p.id)}
               onMouseEnter={e => { e.currentTarget.style.background = '#F7F6F3'; }}
@@ -318,9 +347,28 @@ export default function AdminProgramas() {
                 </span>
               </div>
 
-              {/* Indicador de "entrar" */}
-              <div className="hidden sm:flex justify-end" title="Abrir programa">
-                <ChevronRight size={16} style={{ color: '#9CA3AF' }} />
+              {/* Acciones: archivar/reactivar + entrar */}
+              <div className="flex items-center gap-2 justify-end mt-2 sm:mt-0" onClick={e => e.stopPropagation()}>
+                <button
+                  onClick={() => toggleActivo(p)}
+                  className="flex items-center gap-1.5 text-[12px] font-semibold px-2.5 py-1.5 rounded-lg transition-all"
+                  style={p.activo
+                    ? { background: '#FEF2F2', color: '#B91C1C', border: '1px solid #FECACA' }
+                    : { background: '#F0FDF4', color: '#15803D', border: '1px solid #BBF7D0' }}
+                  title={p.activo ? 'Desactivar programa' : 'Activar programa'}
+                >
+                  {p.activo ? <Ban size={12} /> : <RefreshCw size={12} />}
+                  {p.activo ? 'Desactivar' : 'Activar'}
+                </button>
+                <button
+                  onClick={() => handleEliminar(p)}
+                  className="flex items-center justify-center w-8 h-8 rounded-lg transition-all"
+                  style={{ background: '#FEF2F2', color: '#B91C1C', border: '1px solid #FECACA' }}
+                  title="Borrar programa"
+                >
+                  <Trash2 size={12} />
+                </button>
+                <ChevronRight size={16} className="hidden sm:block" style={{ color: '#9CA3AF' }} />
               </div>
             </div>
           ))}

@@ -2,11 +2,12 @@ import { useState, useEffect } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import {
   ClipboardList, Loader2, AlertCircle, Search,
-  ChevronLeft, Users, UserCheck,
+  ChevronLeft, Users, UserCheck, Trash2,
 } from '@/components/ui/icon';
 import { useInscripciones } from '../../shared/hooks/useInscripciones';
 import { useGrupos }        from '../../shared/hooks/useGrupos';
 import { usePagination }    from '../../shared/hooks/usePagination';
+import { useConfirm }       from '../../shared/hooks/useConfirm';
 import { unidadesApi }      from '../../shared/api/unidades.api';
 import Pagination from '../../shared/components/Pagination';
 import NotasGrupo from './NotasGrupo';
@@ -35,9 +36,10 @@ function EstadoBadge({ estadoId }: { estadoId: number }) {
 }
 
 /* ── Inscripcion row ────────────────────────────────────────── */
-function InscripcionRow({ inscripcion, onCambiarEstado, isLast, tieneUnidades }: {
+function InscripcionRow({ inscripcion, onCambiarEstado, onEliminar, isLast, tieneUnidades }: {
   inscripcion: Inscripcion;
   onCambiarEstado: (id: number, estado: number) => void;
+  onEliminar: (i: Inscripcion) => void;
   isLast: boolean;
   /** true: programa con unidades (aprobación por notas) · false: sin unidades (manual) · null: desconocido */
   tieneUnidades: boolean | null;
@@ -51,12 +53,14 @@ function InscripcionRow({ inscripcion, onCambiarEstado, isLast, tieneUnidades }:
     finally { setRowLoading(false); }
   };
 
-  // Aprobado(3)/Desaprobado(4) solo son manuales cuando el programa NO tiene unidades.
-  // Si tiene unidades, los decide el sistema con las notas (no se ofrecen a mano).
+  // Aprobado(3)/Desaprobado(4) son manuales cuando el programa NO usa notas.
+  // Si tiene unidades, los decide el sistema con las notas. Mostramos la opción
+  // mientras no se confirme que tiene unidades (false o desconocido), y el backend
+  // igual rechaza con un mensaje claro si el programa realmente usa notas.
   // El estado actual siempre se incluye para que se muestre seleccionado.
   const opciones = [1, 2, 3, 4, 5, 6].filter(id =>
     id === inscripcion.estado_id ||
-    ((id === 3 || id === 4) ? tieneUnidades === false : true),
+    ((id === 3 || id === 4) ? tieneUnidades !== true : true),
   );
 
   return (
@@ -99,6 +103,15 @@ function InscripcionRow({ inscripcion, onCambiarEstado, isLast, tieneUnidades }:
             ))}
           </select>
           {rowLoading && <Loader2 size={13} className="animate-spin" style={{ color: '#9CA3AF' }} />}
+          <button
+            onClick={() => onEliminar(inscripcion)}
+            disabled={rowLoading}
+            className="flex items-center justify-center w-8 h-8 rounded-lg transition-all flex-shrink-0"
+            style={{ background: '#FEF2F2', color: '#B91C1C', border: '1px solid #FECACA' }}
+            title="Borrar inscripción"
+          >
+            <Trash2 size={13} />
+          </button>
         </div>
       </div>
     </div>
@@ -115,12 +128,15 @@ export default function AdminInscripciones() {
   const grupoNombre   = searchParams.get('nombre');
   const grupoId       = grupoIdParam ? Number(grupoIdParam) : undefined;
 
-  const { inscripciones, loading, error, cambiarEstado, refetch } = useInscripciones(empresa!, grupoId);
+  const { inscripciones, loading, error, cambiarEstado, cambiarEstadoMasivo, eliminar, refetch } = useInscripciones(empresa!, grupoId);
   const { grupos } = useGrupos(empresa!);
+  const confirm = useConfirm();
 
   const [filtroEstado, setFiltroEstado] = useState<number | 'todos'>('todos');
   const [busqueda,     setBusqueda]     = useState('');
   const [vista,        setVista]        = useState<'inscripciones' | 'notas'>('inscripciones');
+  const [aprobandoTodos, setAprobandoTodos] = useState(false);
+  const [accionError, setAccionError] = useState<string | null>(null);
 
   // ¿El programa del grupo seleccionado tiene unidades? → define si Aprobado/Desaprobado son manuales.
   const programaId = grupoId ? grupos.find(g => g.id === grupoId)?.programa_id : undefined;
@@ -135,8 +151,22 @@ export default function AdminInscripciones() {
   }, [empresa, programaId]);
 
   const handleCambiarEstado = async (id: number, estado: number) => {
+    setAccionError(null);
     try { await cambiarEstado(id, estado); }
-    catch (e: unknown) { alert((e as Error).message); }
+    catch (e: unknown) { setAccionError((e as Error).message); }
+  };
+
+  const handleEliminar = async (i: Inscripcion) => {
+    const ok = await confirm({
+      title: 'Borrar inscripción',
+      message: `Se BORRARÁ la inscripción de ${i.participante_nombre}${i.nombre_grupo ? ` en ${i.nombre_grupo}` : ''} y sus notas. Si tiene certificado emitido, también se borrará y se te devolverá el cupo. Esta acción no se puede deshacer.`,
+      confirmText: 'Borrar definitivamente',
+      variant: 'danger',
+    });
+    if (!ok) return;
+    setAccionError(null);
+    try { await eliminar(i.id); }
+    catch (e: unknown) { setAccionError((e as Error).message); }
   };
 
   const handleGrupoChange = (val: string) => {
@@ -164,11 +194,40 @@ export default function AdminInscripciones() {
     }))
     .filter(r => r.count > 0);
 
+  // Candidatos a aprobación masiva: aún no aprobados (Inscrito=1, En curso=2),
+  // dentro de lo filtrado. Pensado para programas por asistencia (sin notas).
+  const candidatosAprobar = filtradas.filter(i => i.estado_id === 1 || i.estado_id === 2);
+
+  const handleAprobarTodos = async () => {
+    const ids = candidatosAprobar.map(i => i.id);
+    if (!ids.length) return;
+    const ok = await confirm({
+      title: `¿Aprobar ${ids.length} participante${ids.length !== 1 ? 's' : ''}?`,
+      message: 'Se marcarán como Aprobados y quedarán listos para emitir su certificado. Úsalo en programas por asistencia (sin notas).',
+      confirmText: `Sí, aprobar ${ids.length}`,
+    });
+    if (!ok) return;
+    setAprobandoTodos(true);
+    try { await cambiarEstadoMasivo(ids, 3); }
+    catch (e: unknown) { alert((e as Error).message); }
+    finally { setAprobandoTodos(false); }
+  };
+
   const { page, setPage, totalPages, pageItems, startIndex, endIndex, total } =
     usePagination(filtradas, 10);
 
   return (
     <div className="space-y-5 page-enter">
+      {/* Aviso de error de acción (en vez del alert del navegador) */}
+      {accionError && (
+        <div className="flex items-start gap-2.5 px-4 py-3 rounded-xl text-[13px]"
+          style={{ background: '#FEF2F2', border: '1px solid #FECACA', color: '#B91C1C' }}>
+          <AlertCircle size={15} className="flex-shrink-0 mt-0.5" />
+          <span className="flex-1">{accionError}</span>
+          <button onClick={() => setAccionError(null)} className="font-bold" style={{ color: '#B91C1C' }}>✕</button>
+        </div>
+      )}
+
       {/* Back — vuelve al programa del aula (las aulas viven dentro del programa) */}
       {grupoId && (
         <button
@@ -283,6 +342,33 @@ export default function AdminInscripciones() {
         </div>
       )}
 
+      {/* Aprobar a todos de golpe — para programas por asistencia (sin notas).
+          Se oculta si el programa usa notas (la aprobación va por las notas). */}
+      {!loading && tieneUnidades !== true && candidatosAprobar.length > 0 && (
+        <div
+          className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3 rounded-2xl"
+          style={{ background: '#F0FDF4', border: '1px solid #BBF7D0' }}
+        >
+          <div className="flex items-start gap-2.5">
+            <UserCheck size={16} style={{ color: '#15803D', marginTop: 1, flexShrink: 0 }} />
+            <p className="text-[13px]" style={{ color: '#15803D' }}>
+              <span className="font-bold">{candidatosAprobar.length}</span> sin aprobar
+              {grupoId ? ' en este grupo' : ' (todos los grupos)'}.
+              ¿Programa por asistencia? Apruébalos a todos de una vez.
+            </p>
+          </div>
+          <button
+            onClick={handleAprobarTodos}
+            disabled={aprobandoTodos}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-semibold flex-shrink-0 transition-all"
+            style={{ background: '#15803D', color: '#fff', opacity: aprobandoTodos ? 0.6 : 1 }}
+          >
+            {aprobandoTodos ? <Loader2 size={14} className="animate-spin" /> : <UserCheck size={14} />}
+            Aprobar todos ({candidatosAprobar.length})
+          </button>
+        </div>
+      )}
+
       {/* Loading / Error */}
       {loading && <div className="flex justify-center py-16" style={{ color: '#D1D5DB' }}><Loader2 size={22} className="animate-spin" /></div>}
       {error && (
@@ -318,6 +404,7 @@ export default function AdminInscripciones() {
               key={i.id}
               inscripcion={i}
               onCambiarEstado={handleCambiarEstado}
+              onEliminar={handleEliminar}
               isLast={idx === pageItems.length - 1}
               tieneUnidades={tieneUnidades}
             />

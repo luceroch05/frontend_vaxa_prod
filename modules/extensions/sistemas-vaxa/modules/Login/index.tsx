@@ -82,10 +82,10 @@ export default function LoginSistemasVaxa({ tenantId, tenant }: LoginProps) {
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-[11px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: '#374151' }}>Email</label>
+                <label className="block text-[11px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: '#374151' }}>Usuario o correo</label>
                 <div className="relative">
                   <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-[15px] h-[15px] pointer-events-none" style={{ color: '#B0A898' }} />
-                  <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="admin@vaxa.com" required className="sv-input" style={{ paddingLeft: '2.5rem' }} />
+                  <input type="text" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="usuario o admin@vaxa.com" required className="sv-input" style={{ paddingLeft: '2.5rem' }} />
                 </div>
               </div>
 

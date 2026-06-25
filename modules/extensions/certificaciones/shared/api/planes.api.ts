@@ -10,10 +10,14 @@ export interface Plan {
   id: number;
   slug: string;
   nombre: string;
-  precio_mensual: number;
-  limite_certificados_mes: number;
+  precio_mensual: number;            // = mantenimiento mensual
+  implementacion: number;            // pago único de activación
+  mantenimiento_mensual: number;
+  creditos_incluidos: number;        // certificados que incluye el plan (0 = ilimitado)
+  usuarios_incluidos: number;        // 0 = ilimitado
+  limite_certificados_mes: number;   // (modelo viejo, ya no se usa)
   precio_certificado_adicional: number;
-  setup_inicial: number;
+  setup_inicial: number;             // = implementación
   permite_diseno: boolean;
   permite_subdominio: boolean;
   permite_api: boolean;
@@ -35,6 +39,8 @@ export interface ConsumoMes {
   restantes: number;        // cupo libre
 }
 
+export type EstadoCobranza = 'vigente' | 'por_vencer' | 'vencido';
+
 export interface EstadoPlan {
   plan: Plan | null;
   suscripcion: {
@@ -43,6 +49,9 @@ export interface EstadoPlan {
     estado: string;
     fecha_inicio: string;
     fecha_fin: string;
+    fecha_limite_pago: string;     // fecha máxima recomendada de pago (vence − días de aviso)
+    dias_para_vencer: number;      // días hasta el vencimiento (negativo si ya venció)
+    estado_cobranza: EstadoCobranza;
   } | null;
   consumo: ConsumoMes;
 }

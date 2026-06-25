@@ -9,6 +9,14 @@ const sol = (n: number) => `S/ ${n.toFixed(2)}`;
 /** Precio del certificado adicional = proporcional al plan (precio mensual ÷ cupo). */
 const adicionalProporcional = (precioMensual: number, cupo: number) =>
   cupo > 0 ? Math.round((precioMensual / cupo) * 100) / 100 : 0;
+const fmtFecha = (s: string) => new Date(`${s.slice(0, 10)}T00:00:00`).toLocaleDateString('es-PE', { day: '2-digit', month: 'long', year: 'numeric' });
+
+/** Estilo y texto del semáforo de cobranza. */
+const COBRANZA = {
+  vigente:    { bg: '#ECFDF5', bd: '#A7F3D0', fg: '#047857', label: 'Al día' },
+  por_vencer: { bg: '#FFFBEB', bd: '#FDE68A', fg: '#B45309', label: 'Por vencer' },
+  vencido:    { bg: '#FEF2F2', bd: '#FECACA', fg: '#B91C1C', label: 'Vencido' },
+} as const;
 
 export default function AdminPlan() {
   const { empresa } = useParams<{ empresa: string }>();
@@ -45,14 +53,22 @@ export default function AdminPlan() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Plan */}
         <div className="rounded-2xl p-6 text-white" style={{ background: 'linear-gradient(135deg, #0D0E12, #2A2D35)', boxShadow: '0 8px 24px rgba(13,14,18,0.25)' }}>
-          <div className="flex items-center gap-1.5 text-[12px] mb-2" style={{ color: 'rgba(255,255,255,0.85)' }}>
-            <CreditCard size={14} /> Tu plan
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-1.5 text-[12px]" style={{ color: 'rgba(255,255,255,0.85)' }}>
+              <CreditCard size={14} /> Tu plan
+            </div>
+            {suscripcion && (
+              <span className="text-[10.5px] font-bold px-2 py-0.5 rounded-full"
+                style={{ background: COBRANZA[suscripcion.estado_cobranza].bg, color: COBRANZA[suscripcion.estado_cobranza].fg }}>
+                {COBRANZA[suscripcion.estado_cobranza].label}
+              </span>
+            )}
           </div>
           <p className="text-[26px] font-bold leading-tight">{plan.nombre}</p>
           <p className="text-[13px] mt-1" style={{ color: 'rgba(255,255,255,0.85)' }}>{sol(plan.precio_mensual)} / mes</p>
           {suscripcion && (
             <p className="text-[12px] mt-3" style={{ color: 'rgba(255,255,255,0.75)' }}>
-              {suscripcion.ciclo} · vigente hasta {new Date(suscripcion.fecha_fin).toLocaleDateString('es-PE')}
+              {suscripcion.ciclo} · vigente hasta {fmtFecha(suscripcion.fecha_fin)}
             </p>
           )}
         </div>
@@ -89,6 +105,22 @@ export default function AdminPlan() {
         </div>
       </div>
 
+      {/* ── Aviso de pago / vencimiento ───────────────────────── */}
+      {suscripcion && suscripcion.estado_cobranza !== 'vigente' && (
+        <div className="rounded-2xl px-4 py-3.5 flex items-start gap-2.5"
+          style={{ background: COBRANZA[suscripcion.estado_cobranza].bg, border: `1px solid ${COBRANZA[suscripcion.estado_cobranza].bd}` }}>
+          <AlertCircle size={18} style={{ color: COBRANZA[suscripcion.estado_cobranza].fg, marginTop: 1 }} />
+          <div className="text-[12.5px]" style={{ color: COBRANZA[suscripcion.estado_cobranza].fg }}>
+            {suscripcion.estado_cobranza === 'vencido' ? (
+              <>Tu plan <b>venció</b> el {fmtFecha(suscripcion.fecha_fin)}. Realiza el pago para seguir emitiendo sin interrupciones — contacta a Vaxa.</>
+            ) : (
+              <>Tu plan vence el <b>{fmtFecha(suscripcion.fecha_fin)}</b>. Para renovar sin cortes, paga como máximo el <b>{fmtFecha(suscripcion.fecha_limite_pago)}</b>
+              {suscripcion.dias_para_vencer >= 0 && <> (faltan {suscripcion.dias_para_vencer} día{suscripcion.dias_para_vencer === 1 ? '' : 's'})</>}.</>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* ── Catálogo de planes ────────────────────────────────── */}
       <div>
         <p className="text-[13px] font-bold mb-3" style={{ color: '#0D0E12' }}>Planes disponibles</p>
@@ -102,15 +134,16 @@ export default function AdminPlan() {
                   <p className="text-[14px] font-bold" style={{ color: '#0D0E12' }}>{p.nombre}</p>
                   {actual && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: '#FEF3C7', color: '#B45309' }}>Actual</span>}
                 </div>
-                <p className="text-[20px] font-bold" style={{ color: '#0D0E12' }}>{sol(p.precio_mensual)}<span className="text-[12px] font-normal" style={{ color: '#9CA3AF' }}>/mes</span></p>
-                <p className="text-[12px] mt-1" style={{ color: '#64748B' }}>
-                  {p.limite_certificados_mes ? `${p.limite_certificados_mes} certificados/mes` : 'A medida'}
-                </p>
-                <p className="text-[11.5px] mt-0.5" style={{ color: '#9CA3AF' }}>
-                  {p.limite_certificados_mes > 0
-                    ? <>Adicional {sol(adicionalProporcional(p.precio_mensual, p.limite_certificados_mes))} c/u</>
-                    : <>Cupo a medida</>}
-                </p>
+                <p className="text-[20px] font-bold leading-none" style={{ color: '#0D0E12' }}>{sol(p.precio_mensual)}<span className="text-[12px] font-normal" style={{ color: '#9CA3AF' }}>/mes</span></p>
+                <p className="text-[10px] font-semibold uppercase tracking-wider mt-0.5" style={{ color: '#B0A898' }}>Mantenimiento</p>
+
+                {/* Desglose completo: implementación + certificados + adicional */}
+                <div className="rounded-xl px-3 py-2 mt-2 space-y-1" style={{ background: '#FAFAF8', border: '1px solid #EEECE6' }}>
+                  <Linea label="Implementación" valor={p.setup_inicial > 0 ? sol(p.setup_inicial) : 'Incluida'} />
+                  <Linea label="Certificados" valor={p.creditos_incluidos > 0 ? String(p.creditos_incluidos) : 'Ilimitados'} />
+                  <Linea label="Usuarios" valor={p.usuarios_incluidos > 0 ? String(p.usuarios_incluidos) : 'Ilimitados'} />
+                </div>
+
                 <div className="mt-2 space-y-1">
                   {p.permite_diseno     && <Feat txt="Diseño personalizado" />}
                   {p.permite_subdominio && <Feat txt="Dominio propio" />}
@@ -120,7 +153,10 @@ export default function AdminPlan() {
             );
           })}
         </div>
-        <p className="text-[12.5px] mt-3 flex items-center gap-1.5" style={{ color: '#9CA3AF' }}>
+        <p className="text-[11.5px] mt-3" style={{ color: '#9CA3AF' }}>
+          Implementación = pago único · Mantenimiento mensual · Certificados incluidos según el plan.
+        </p>
+        <p className="text-[12.5px] mt-1.5 flex items-center gap-1.5" style={{ color: '#9CA3AF' }}>
           <Sparkles size={13} style={{ color: '#D97706' }} /> ¿Quieres cambiar de plan? Contacta a Vaxa.
         </p>
       </div>
@@ -133,5 +169,15 @@ function Feat({ txt }: { txt: string }) {
     <p className="flex items-center gap-1.5 text-[11.5px]" style={{ color: '#15803D' }}>
       <CheckCircle size={12} /> {txt}
     </p>
+  );
+}
+
+/** Fila etiqueta · valor del desglose de precios del plan. */
+function Linea({ label, valor }: { label: string; valor: string }) {
+  return (
+    <div className="flex items-baseline justify-between gap-2 text-[12px] min-w-0">
+      <span className="whitespace-nowrap" style={{ color: '#64748B' }}>{label}</span>
+      <span className="font-semibold tabular-nums text-right truncate" style={{ color: '#0D0E12' }}>{valor}</span>
+    </div>
   );
 }

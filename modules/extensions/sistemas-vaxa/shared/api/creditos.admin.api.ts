@@ -15,6 +15,7 @@ export interface EmpresaCreditos {
   tenant_slug: string;
   dominio: string | null;
   ruc: string | null;
+  tipo_doc?: string;        // cat.06: '6' RUC · '1' DNI · '4' CE · '7' pasaporte
   logo_url: string | null;
   activo: number;
   creditos_disponibles: number;
@@ -32,15 +33,19 @@ export interface MovimientoCredito {
   created_at: string;
 }
 
-/** ── Planes (modelo de suscripción) ────────────────────────── */
+/** ── Planes (modelo créditos + mantenimiento) ──────────────── */
 export interface PlanCatalogo {
   id: number;
   slug: string;
   nombre: string;
-  precio_mensual: number;
-  limite_certificados_mes: number;
+  precio_mensual: number;          // = mantenimiento mensual
+  implementacion: number;          // pago único de activación
+  mantenimiento_mensual: number;
+  creditos_incluidos: number;
+  usuarios_incluidos: number;      // 0 = ilimitado
+  limite_certificados_mes: number; // legado (ya no se usa)
   precio_certificado_adicional: number;
-  setup_inicial: number;
+  setup_inicial: number;           // = implementación
   permite_diseno: boolean;
   permite_subdominio: boolean;
   permite_api: boolean;
@@ -50,14 +55,72 @@ export interface PlanCatalogo {
   muestra_pdf_publico: boolean;
 }
 
+/** Saldo de créditos de la empresa. */
+export interface CreditosSaldo {
+  disponibles: number;
+  asignados: number;
+  consumidos: number;
+}
+
+export type EstadoCobranza = 'vigente' | 'por_vencer' | 'vencido';
+
+export interface SuscripcionEmpresa {
+  id: number; ciclo: string; estado: string;
+  fecha_inicio: string; fecha_fin: string;
+  fecha_limite_pago: string;     // fecha máxima recomendada de pago (vence − días de aviso)
+  dias_para_vencer: number;      // días hasta el vencimiento (negativo si ya venció)
+  estado_cobranza: EstadoCobranza;
+}
+
 export interface EstadoPlanEmpresa {
   plan: (PlanCatalogo & { muestra_pdf_publico: boolean }) | null;
-  suscripcion: { id: number; ciclo: string; estado: string; fecha_inicio: string; fecha_fin: string } | null;
+  suscripcion: SuscripcionEmpresa | null;
   consumo: {
     anio: number; mes: number;
     incluidos: number; emitidos: number; adicionales: number;
     monto_adicional: number; restantes: number;
   };
+  creditos: CreditosSaldo;
+}
+
+/** Fila del control de cobranza (una por empresa). */
+export interface VencimientoEmpresa {
+  empresa_id: number;
+  razon_social: string;
+  tenant_slug: string;
+  activo: boolean;
+  plan: string | null;
+  ciclo: string | null;
+  precio_mensual: number | null;
+  fecha_inicio: string | null;
+  fecha_fin: string | null;
+  ultimo_pago: string | null;
+  cobranza: { fecha_limite_pago: string; dias_para_vencer: number; estado_cobranza: EstadoCobranza } | null;
+}
+
+export interface MarcarPagadoDto {
+  monto?: number;
+  fecha_pago?: string;          // 'YYYY-MM-DD'
+  comprobante_tipo_id?: number; // 1 ninguno · 2 boleta · 3 factura
+  comprobante_numero?: string;
+  emitir_comprobante?: boolean; // emitir factura electrónica a SUNAT al registrar el pago
+  renovar?: boolean;            // false en la primera venta (no extiende la vigencia ya otorgada)
+}
+
+/** Una fila del historial de pagos. */
+export interface PagoHist {
+  id: number;
+  concepto: string;
+  monto: number;
+  moneda: string;
+  estado: string;
+  comprobante_tipo: string;
+  comprobante_numero: string | null;
+  referencia_niubiz: string | null;
+  fecha: string | null;
+  cpe_id: number | null;          // comprobante electrónico vinculado
+  cpe_numero: string | null;      // F001-3
+  cpe_estado: string | null;      // ACEPTADO / RECHAZADO...
 }
 
 export interface UsuarioEmpresa {
@@ -77,6 +140,7 @@ export interface CrearEmpresaDto {
   tenant_slug?: string;
   dominio?: string;
   ruc?: string;
+  tipo_doc?: string;    // cat.06: '6' RUC (default) · '1' DNI · '4' CE · '7' pasaporte
   logo?: string;
   plan_id?: number;     // plan con el que arranca (default: Básico)
   ciclo_id?: number;    // ciclo de facturación (default: mensual)
@@ -171,5 +235,39 @@ export const creditosAdminApi = {
   recargarCupo: (empresaId: number, cantidad: number) =>
     api.post<{ agregados: number; precio_unitario: number; monto: number }>(
       `/api/admin/empresas/${empresaId}/recargar-cupo`, { cantidad }, opts(),
+    ),
+
+  /** Control de cobranza: todas las empresas con su vencimiento y semáforo. */
+  listCobranza: () =>
+    api.get<VencimientoEmpresa[]>('/api/admin/cobranza', opts()),
+
+  /** Marca el ciclo como pagado y renueva el vencimiento. Devuelve el estado del plan. */
+  marcarPagado: (empresaId: number, dto: MarcarPagadoDto = {}) =>
+    api.post<EstadoPlanEmpresa>(`/api/admin/empresas/${empresaId}/marcar-pagado`, dto, opts()),
+
+  /** Historial de pagos de una empresa. */
+  listPagos: (empresaId: number) =>
+    api.get<PagoHist[]>(`/api/admin/empresas/${empresaId}/pagos`, opts()),
+
+  /** Emite la factura electrónica de un pago (plan o certificados adicionales). */
+  facturarPago: (pagoId: number) =>
+    api.post<{ id: number; numero: string; estado: string; estado_nombre: string; sunat_resp_desc: string | null }>(
+      `/api/admin/pagos/${pagoId}/comprobante`, {}, opts(),
+    ),
+
+  /** Registra una venta con líneas libres (estilo comprobante). */
+  registrarVenta: (empresaId: number, dto: {
+    items: Array<{ descripcion: string; cantidad: number; precioUnitario: number; creditos?: number; renueva?: boolean }>;
+    descuento?: { tipo: 'monto' | 'pct'; valor: number };
+    tipo_comprobante?: '01' | '03' | 'NV';
+  }) =>
+    api.post<{ comprobante: { numero: string; estado: string; estado_nombre: string; sunat_resp_desc: string | null }; descuento: number; total: number; creditosAgregados: number }>(
+      `/api/admin/empresas/${empresaId}/venta`, dto, opts(),
+    ),
+
+  /** Verifica un RUC en SUNAT (dato público) → razón social + estado/condición. */
+  consultarRuc: (ruc: string) =>
+    api.get<{ ruc: string; razonSocial: string; estado?: string; condicion?: string; direccion?: string }>(
+      `/api/admin/consulta/ruc/${encodeURIComponent(ruc)}`, opts(),
     ),
 };

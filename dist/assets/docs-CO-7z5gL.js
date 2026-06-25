@@ -1,0 +1,1 @@
+const r={6:{max:11,numeric:!0,label:"RUC"},1:{max:8,numeric:!0,label:"DNI"},4:{max:12,numeric:!1,label:"Carné ext."},7:{max:12,numeric:!1,label:"Pasaporte"},0:{max:0,numeric:!1,label:"Sin documento"}};function c(l,n){const e=r[n]??r[6];let a=e.numeric?l.replace(/\D/g,""):l.replace(/\s/g,"");return e.max>0&&(a=a.slice(0,e.max)),a}export{r as D,c as s};

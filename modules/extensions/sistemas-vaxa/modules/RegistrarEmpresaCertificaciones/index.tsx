@@ -17,6 +17,7 @@ import {
 import HeaderSistemasVaxa from '../../shared/components/HeaderSistemasVaxa';
 import { VAXA_CONFIG } from '../../shared/constants';
 import { creditosAdminApi, type PlanCatalogo } from '../../shared/api/creditos.admin.api';
+import { DOC_RULES, sanitizeDoc } from '../../shared/docs';
 import { AlertCircle, CheckCircle } from '@/components/ui/icon';
 
 /** Ciclos de contrato (catálogo fijo: id 1/2/3).
@@ -53,7 +54,8 @@ interface FormData {
   nombre: string;
   slug: string;
   dominio: string;
-  ruc: string;
+  tipoDoc: string;   // cat.06: '6' RUC · '1' DNI · '4' CE · '7' pasaporte
+  ruc: string;       // número de documento (genérico)
   email: string;
   telefono: string;
   direccion: string;
@@ -76,11 +78,14 @@ export default function RegistrarEmpresaCertificaciones({
   const [planes, setPlanes] = useState<PlanCatalogo[]>([]);
   const [planId, setPlanId] = useState<number>(0);
   const [cicloId, setCicloId] = useState<number>(1);
+  const [verificandoRuc, setVerificandoRuc] = useState(false);
+  const [rucMsg, setRucMsg] = useState<{ ok: boolean; texto: string } | null>(null);
 
   const [formData, setFormData] = useState<FormData>({
     nombre: '',
     slug: '',
     dominio: '',
+    tipoDoc: '6',
     ruc: '',
     email: '',
     telefono: '',
@@ -125,6 +130,21 @@ export default function RegistrarEmpresaCertificaciones({
     }));
   };
 
+  // Verifica el RUC en SUNAT (dato público) y autocompleta razón social + dirección.
+  const verificarRuc = async () => {
+    const ruc = formData.ruc.trim();
+    if (!ruc) { setRucMsg({ ok: false, texto: 'Ingresa el RUC primero.' }); return; }
+    setVerificandoRuc(true); setRucMsg(null);
+    try {
+      const info = await creditosAdminApi.consultarRuc(ruc);
+      setFormData((prev) => ({ ...prev, nombre: info.razonSocial, direccion: info.direccion || prev.direccion }));
+      const det = [info.estado, info.condicion].filter(Boolean).join(' · ');
+      setRucMsg({ ok: true, texto: `✓ ${info.razonSocial}${det ? ` (${det})` : ''}` });
+    } catch (e) {
+      setRucMsg({ ok: false, texto: `${(e as Error).message} Puedes escribir la razón social a mano.` });
+    } finally { setVerificandoRuc(false); }
+  };
+
   const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -156,10 +176,13 @@ export default function RegistrarEmpresaCertificaciones({
         tenant_slug: formData.slug || undefined,   // si vacío, el backend lo genera del nombre
         dominio: formData.dominio || undefined,
         ruc: formData.ruc || undefined,
+        tipo_doc: formData.tipoDoc,
         logo: logoPreview || undefined,            // data URL base64 del logo subido
         plan_id: planId || undefined,
         ciclo_id: cicloId,
       });
+      // No se emite ningún comprobante al registrar. La factura/boleta se hace
+      // manualmente desde Facturación Electrónica.
       navigate(`/${tenantId}/certificaciones/empresa/${empresa.id}`);
     } catch (err) {
       setError((err as Error).message);
@@ -308,17 +331,54 @@ export default function RegistrarEmpresaCertificaciones({
 
               <div>
                 <label className="block text-[11px] font-semibold uppercase tracking-wider text-gray-600 mb-1.5">
-                  RUC / NIF *
+                  Documento *
                 </label>
-                <input
-                  type="text"
-                  name="ruc"
-                  value={formData.ruc}
-                  onChange={handleChange}
-                  required
-                  placeholder="20123456789"
-                  className="sv-input"
-                />
+                <div className="flex gap-2">
+                  <select
+                    name="tipoDoc"
+                    value={formData.tipoDoc}
+                    onChange={(e) => {
+                      const t = e.target.value;
+                      setFormData((prev) => ({ ...prev, tipoDoc: t, ruc: sanitizeDoc(prev.ruc, t) }));
+                      setRucMsg(null);
+                    }}
+                    className="sv-input"
+                    style={{ width: 110 }}
+                  >
+                    <option value="6">RUC</option>
+                    <option value="1">DNI</option>
+                    <option value="4">CE</option>
+                    <option value="7">Pasaporte</option>
+                  </select>
+                  <input
+                    type="text"
+                    name="ruc"
+                    value={formData.ruc}
+                    onChange={(e) => { setFormData((prev) => ({ ...prev, ruc: sanitizeDoc(e.target.value, prev.tipoDoc) })); setRucMsg(null); }}
+                    inputMode={DOC_RULES[formData.tipoDoc]?.numeric ? 'numeric' : 'text'}
+                    maxLength={DOC_RULES[formData.tipoDoc]?.max || 15}
+                    required
+                    placeholder={formData.tipoDoc === '6' ? '20123456789' : formData.tipoDoc === '1' ? '12345678' : 'N° de documento'}
+                    className="sv-input flex-1"
+                  />
+                  {formData.tipoDoc === '6' && (
+                    <button
+                      type="button"
+                      onClick={verificarRuc}
+                      disabled={verificandoRuc || !formData.ruc.trim()}
+                      className="sv-btn sv-btn-ghost px-3 whitespace-nowrap disabled:opacity-50"
+                      style={{ border: '1px solid #EEECE6' }}
+                    >
+                      {verificandoRuc ? 'Verificando…' : 'Verificar'}
+                    </button>
+                  )}
+                </div>
+                {rucMsg && (
+                  <p className="text-[11.5px] mt-1.5" style={{ color: rucMsg.ok ? '#15803D' : '#B45309' }}>{rucMsg.texto}</p>
+                )}
+                {formData.tipoDoc !== '6' && (
+                  <p className="text-[11.5px] mt-1.5" style={{ color: '#9CA3AF' }}>Con DNI/CE solo se emiten boletas (desde Facturación). La factura requiere RUC.</p>
+                )}
               </div>
 
               <div>
@@ -446,8 +506,9 @@ export default function RegistrarEmpresaCertificaciones({
               Plan de Suscripción
             </h2>
             <p className="text-sm text-gray-600 mb-6">
-              El plan define el <span className="font-semibold text-emerald-600">cupo mensual</span> de certificados.
-              Al pasarlo, cada certificado adicional se cobra aparte.
+              El plan define el <span className="font-semibold text-emerald-600">mantenimiento</span>, la implementación,
+              los <span className="font-semibold text-emerald-600">créditos incluidos</span> y el límite de usuarios.
+              Cada certificado consume 1 crédito; se recargan con paquetes.
             </p>
 
             {/* Tarjetas de plan (reales de la BD) */}
@@ -462,22 +523,19 @@ export default function RegistrarEmpresaCertificaciones({
                     <input type="radio" name="plan" value={plan.id} checked={sel} onChange={() => setPlanId(plan.id)} className="sr-only" />
                     <h3 className="text-[14px] font-bold mb-1" style={{ color: '#0D0E12' }}>{plan.nombre}</h3>
                     <div className="mb-2">
-                      <span className="text-[22px] font-bold" style={{ color: '#0D0E12' }}>{sol(plan.precio_mensual)}</span>
-                      <span className="text-[12px]" style={{ color: '#9CA3AF' }}>/mes</span>
+                      <span className="text-[22px] font-bold" style={{ color: '#0D0E12' }}>{sol(plan.mantenimiento_mensual)}</span>
+                      <span className="text-[12px]" style={{ color: '#9CA3AF' }}>/mes mant.</span>
                     </div>
-                    <p className="text-[12px]" style={{ color: '#64748B' }}>
-                      {plan.limite_certificados_mes ? `${plan.limite_certificados_mes} certificados/mes` : 'Cupo a medida'}
+                    <p className="text-[12px] font-semibold" style={{ color: '#059669' }}>
+                      {plan.creditos_incluidos > 0 ? `${plan.creditos_incluidos} créditos incluidos` : 'Créditos a medida'}
                     </p>
                     <p className="text-[11.5px] mt-0.5" style={{ color: '#9CA3AF' }}>
-                      {plan.limite_certificados_mes > 0
-                        ? <>Adicional {sol(adicionalProporcional(plan.precio_mensual, plan.limite_certificados_mes))} c/u</>
-                        : <>Cupo a medida</>}
-                      {plan.setup_inicial > 0 && <> · setup {sol(plan.setup_inicial)}</>}
+                      Implementación {sol(plan.implementacion)} · {plan.usuarios_incluidos === 0 ? '∞' : plan.usuarios_incluidos} usuario{plan.usuarios_incluidos === 1 ? '' : 's'}
                     </p>
-                    {/* Total según el ciclo elegido (semestral/anual) */}
-                    {cicloId !== 1 && plan.precio_mensual > 0 && (
+                    {/* Mantenimiento total según el ciclo elegido (semestral/anual) */}
+                    {cicloId !== 1 && plan.mantenimiento_mensual > 0 && (
                       <p className="text-[11.5px] mt-1 font-semibold" style={{ color: '#059669' }}>
-                        {cicloSel.corto}: {sol(plan.precio_mensual * cicloSel.mesesPago)}
+                        {cicloSel.corto}: {sol(plan.mantenimiento_mensual * cicloSel.mesesPago)}
                         <span className="font-normal" style={{ color: '#9CA3AF' }}> · {cicloSel.mesesVigencia} meses</span>
                       </p>
                     )}
@@ -494,24 +552,25 @@ export default function RegistrarEmpresaCertificaciones({
               </select>
             </div>
 
-            {/* Total a pagar según el plan elegido + el ciclo elegido */}
+            {/* Total inicial: implementación + mantenimiento del ciclo */}
             {(() => {
               const p = planes.find((x) => x.id === planId);
-              if (!p || !p.precio_mensual) return null;
-              const total  = p.precio_mensual * cicloSel.mesesPago;
-              const ahorro = p.precio_mensual * (cicloSel.mesesVigencia - cicloSel.mesesPago);
+              if (!p) return null;
+              const mantTotal = p.mantenimiento_mensual * cicloSel.mesesPago;
+              const ahorro    = p.mantenimiento_mensual * (cicloSel.mesesVigencia - cicloSel.mesesPago);
+              const totalInicial = p.implementacion + mantTotal;
               return (
                 <div className="mt-3 rounded-xl px-4 py-3" style={{ background: '#ECFDF5', border: '1px solid #A7F3D0' }}>
                   <div className="flex items-baseline justify-between gap-3">
                     <span className="text-[12.5px] font-semibold" style={{ color: '#065F46' }}>
-                      {p.nombre} · {cicloSel.corto}
+                      {p.nombre} · {cicloSel.corto} (primera venta)
                     </span>
-                    <span className="text-[20px] font-bold" style={{ color: '#047857' }}>{sol(total)}</span>
+                    <span className="text-[20px] font-bold" style={{ color: '#047857' }}>{sol(totalInicial)}</span>
                   </div>
                   <p className="text-[11.5px] mt-1" style={{ color: '#059669' }}>
-                    Pagas {cicloSel.mesesPago} mensualidad{cicloSel.mesesPago !== 1 ? 'es' : ''} y recibes <b>{cicloSel.mesesVigencia} meses</b> de servicio
-                    {ahorro > 0 && <> · ahorras <b>{sol(ahorro)}</b></>}.
-                    {p.setup_inicial > 0 && <> Setup inicial aparte: {sol(p.setup_inicial)}.</>}
+                    Implementación <b>{sol(p.implementacion)}</b> + mantenimiento {cicloSel.mesesPago} mes{cicloSel.mesesPago !== 1 ? 'es' : ''} <b>{sol(mantTotal)}</b>
+                    {ahorro > 0 && <> · ahorras <b>{sol(ahorro)}</b> ({cicloSel.mesesVigencia} meses de servicio)</>}.
+                    {' '}Incluye <b>{p.creditos_incluidos} créditos</b>.
                   </p>
                 </div>
               );
@@ -565,6 +624,12 @@ export default function RegistrarEmpresaCertificaciones({
                 </div>
               );
             })()}
+          </div>
+
+          {/* El comprobante (factura/boleta) NO se emite al registrar: se hace
+              manualmente desde Facturación Electrónica. */}
+          <div className="mb-6 px-4 py-3 rounded-xl text-[12.5px]" style={{ background: '#F0F9FF', border: '1px solid #BAE6FD', color: '#0369A1' }}>
+            Al registrar <b>no se emite ningún comprobante</b>. La factura o boleta se emite luego desde <b>Facturación Electrónica</b>.
           </div>
 
           {error && (

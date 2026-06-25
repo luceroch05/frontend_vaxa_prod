@@ -7,6 +7,7 @@ import {
   Search, Plus, Building2, Eye, Loader2, AlertCircle, AlertTriangle, Trash2, CheckCircle, RefreshCw,
 } from '@/components/ui/icon';
 import HeaderSistemasVaxa from '../../shared/components/HeaderSistemasVaxa';
+import BotonVolver from '../../shared/components/BotonVolver';
 import { VAXA_CONFIG } from '../../shared/constants';
 import { authStorage } from '@/lib/auth';
 import { ApiError } from '@/lib/api/client';
@@ -110,6 +111,8 @@ export default function EmpresasCertificaciones({ tenantId }: Props) {
       />
 
       <main className="max-w-5xl mx-auto px-5 sm:px-6 lg:px-8 py-7">
+        <BotonVolver to={`/${tenantId}/certificaciones`} />
+
         <div className="mb-5 flex items-end justify-between gap-4 page-enter">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] mb-1" style={{ color: '#059669' }}>Certificaciones</p>

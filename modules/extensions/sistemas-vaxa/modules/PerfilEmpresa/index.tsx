@@ -4,10 +4,11 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { TenantConfig } from '@/lib/tenants';
 import {
-  ArrowLeft, Building2, Users, CreditCard, Info, Loader2, AlertCircle,
+  Building2, Users, CreditCard, Info, Loader2, AlertCircle,
   Trash2, RefreshCw, AlertTriangle, CheckCircle,
 } from '@/components/ui/icon';
 import HeaderSistemasVaxa from '../../shared/components/HeaderSistemasVaxa';
+import BotonVolver from '../../shared/components/BotonVolver';
 import { VAXA_CONFIG } from '../../shared/constants';
 import { authStorage } from '@/lib/auth';
 import { ApiError } from '@/lib/api/client';
@@ -96,14 +97,7 @@ export default function PerfilEmpresa({ tenantId, empresaId }: PerfilEmpresaProp
       />
 
       <main className="max-w-5xl mx-auto px-5 sm:px-6 lg:px-8 py-7">
-        <button
-          onClick={() => navigate(`/${tenantId}/certificaciones/empresas`)}
-          className="flex items-center gap-1.5 mb-5 text-[13px] font-medium transition-colors group"
-          style={{ color: '#64748B' }}
-        >
-          <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
-          Volver a empresas
-        </button>
+        <BotonVolver to={`/${tenantId}/certificaciones/empresas`}>Volver a empresas</BotonVolver>
 
         {loading ? (
           <div className="flex justify-center py-20" style={{ color: '#D1D5DB' }}><Loader2 className="w-6 h-6 animate-spin" /></div>

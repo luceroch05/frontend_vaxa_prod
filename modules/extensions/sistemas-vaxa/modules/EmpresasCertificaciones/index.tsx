@@ -183,7 +183,7 @@ export default function EmpresasCertificaciones({ tenantId }: Props) {
         ) : (
           <div className="sv-card overflow-hidden page-enter stagger-2">
             {/* Encabezado de tabla */}
-            <div className="hidden sm:grid items-center px-5 py-3 gap-3" style={{ gridTemplateColumns: '1fr auto auto auto auto', borderBottom: '1px solid #F2F0EA' }}>
+            <div className="hidden sm:grid items-center px-5 py-3 gap-3" style={{ gridTemplateColumns: '1fr 80px 96px 80px 64px', borderBottom: '1px solid #F2F0EA' }}>
               <span className="text-[10.5px] font-semibold uppercase tracking-wider" style={{ color: '#B0A898' }}>Empresa</span>
               <span className="text-[10.5px] font-semibold uppercase tracking-wider text-center w-20" style={{ color: '#B0A898' }}>Créditos</span>
               <span className="text-[10.5px] font-semibold uppercase tracking-wider text-center w-24" style={{ color: '#B0A898' }}>Consumidos</span>
@@ -192,11 +192,12 @@ export default function EmpresasCertificaciones({ tenantId }: Props) {
             </div>
 
             {filtradas.map((e, idx) => {
-              const bajo = e.creditos_disponibles <= 0, medio = e.creditos_disponibles > 0 && e.creditos_disponibles <= 10;
+              const ilim = !!e.ilimitado;
+              const bajo = !ilim && e.creditos_disponibles <= 0, medio = !ilim && e.creditos_disponibles > 0 && e.creditos_disponibles <= 10;
               return (
                 <div key={e.id}
                   className="grid items-center px-5 py-3.5 gap-3 cursor-pointer group transition-colors"
-                  style={{ gridTemplateColumns: '1fr auto auto auto auto', borderBottom: idx < filtradas.length - 1 ? '1px solid #F5F4F0' : undefined }}
+                  style={{ gridTemplateColumns: '1fr 80px 96px 80px 64px', borderBottom: idx < filtradas.length - 1 ? '1px solid #F5F4F0' : undefined }}
                   onClick={() => navigate(`/${tenantId}/certificaciones/empresa/${e.id}`)}
                   onMouseEnter={(ev) => { ev.currentTarget.style.background = '#FAFAF8'; }}
                   onMouseLeave={(ev) => { ev.currentTarget.style.background = 'transparent'; }}>
@@ -217,11 +218,12 @@ export default function EmpresasCertificaciones({ tenantId }: Props) {
                   </div>
                   <div className="w-20 text-center">
                     <span className="inline-flex items-center justify-center min-w-[2.5rem] px-2.5 py-1 rounded-lg text-[12.5px] font-bold"
-                      style={{ background: bajo ? '#FEF2F2' : medio ? '#FFFBEB' : '#F0FDF4', color: bajo ? '#DC2626' : medio ? '#D97706' : '#15803D' }}>
-                      {e.creditos_disponibles}
+                      style={{ background: ilim ? '#ECFDF5' : bajo ? '#FEF2F2' : medio ? '#FFFBEB' : '#F0FDF4', color: ilim ? '#047857' : bajo ? '#DC2626' : medio ? '#D97706' : '#15803D' }}
+                      title={ilim ? 'Plan ilimitado' : undefined}>
+                      {ilim ? '∞' : e.creditos_disponibles}
                     </span>
                   </div>
-                  <div className="w-24 text-center text-[13px] font-semibold tabular-nums" style={{ color: '#64748B' }}>{e.creditos_consumidos}</div>
+                  <div className="w-24 text-center text-[13px] font-semibold tabular-nums" style={{ color: '#64748B' }} title={ilim ? 'Emitidos (plan ilimitado)' : undefined}>{e.creditos_consumidos}</div>
                   <div className="w-20 text-center">
                     <span className="inline-flex px-2.5 py-1 rounded-lg text-[10.5px] font-semibold"
                       style={e.activo ? { background: '#ECFDF5', color: '#059669' } : { background: '#F3F4F6', color: '#6B7280' }}>

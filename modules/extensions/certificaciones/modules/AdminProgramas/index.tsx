@@ -176,7 +176,7 @@ export default function AdminProgramas() {
   const handleEliminar = async (p: { id: number; nombre: string }) => {
     const ok = await confirm({
       title: 'Borrar programa',
-      message: `Se BORRARÁ "${p.nombre}" y todo lo suyo (aulas, inscripciones, notas y certificados emitidos; se devuelve el cupo). Esta acción NO se puede deshacer.`,
+      message: `Se BORRARÁ "${p.nombre}" y todo lo suyo (aulas, inscripciones, notas y certificados emitidos; se devuelven los créditos). Esta acción NO se puede deshacer.`,
       confirmText: 'Borrar definitivamente',
       variant: 'danger',
     });
@@ -285,7 +285,7 @@ export default function AdminProgramas() {
         >
           {/* Table header */}
           <div
-            className="hidden sm:grid grid-cols-[1fr_140px_80px_70px_auto] px-5 py-3 border-b"
+            className="hidden sm:grid grid-cols-[1fr_140px_80px_70px_200px] px-5 py-3 border-b"
             style={{ background: '#FAFAF8', borderColor: 'rgba(15,24,41,0.07)' }}
           >
             {['Programa', 'Tipo', 'Horas', 'Estado'].map(h => (
@@ -299,7 +299,7 @@ export default function AdminProgramas() {
           {pageItems.map((p, idx) => (
             <div
               key={p.id}
-              className="flex flex-col sm:grid sm:grid-cols-[1fr_140px_80px_70px_auto] items-start sm:items-center px-5 py-4 transition-colors cursor-pointer"
+              className="flex flex-col sm:grid sm:grid-cols-[1fr_140px_80px_70px_200px] items-start sm:items-center px-5 py-4 transition-colors cursor-pointer"
               style={{ borderBottom: idx < pageItems.length - 1 ? '1px solid rgba(15,24,41,0.05)' : undefined }}
               onClick={() => abrirPrograma(p.id)}
               onMouseEnter={e => { e.currentTarget.style.background = '#F7F6F3'; }}

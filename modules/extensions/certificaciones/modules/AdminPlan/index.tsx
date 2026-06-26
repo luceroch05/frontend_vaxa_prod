@@ -1,15 +1,25 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { CreditCard, Loader2, CheckCircle, AlertCircle, Sparkles } from '@/components/ui/icon';
+import { CreditCard, Loader2, CheckCircle, AlertCircle, Sparkles, Package, MessageCircle, Clock } from '@/components/ui/icon';
 import { usePlan } from '../../shared/hooks/usePlan';
-import { planesApi, type Plan } from '../../shared/api/planes.api';
+import { planesApi, PAQUETES_CREDITOS, type Plan, type MovimientoCredito } from '../../shared/api/planes.api';
 
-const MES = ['', 'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+/** Contacto de Vaxa para solicitar la recarga (la compra es manual por ahora). */
+const VAXA_WA = '51974280156';
+
 const sol = (n: number) => `S/ ${n.toFixed(2)}`;
-/** Precio del certificado adicional = proporcional al plan (precio mensual ÷ cupo). */
-const adicionalProporcional = (precioMensual: number, cupo: number) =>
-  cupo > 0 ? Math.round((precioMensual / cupo) * 100) / 100 : 0;
 const fmtFecha = (s: string) => new Date(`${s.slice(0, 10)}T00:00:00`).toLocaleDateString('es-PE', { day: '2-digit', month: 'long', year: 'numeric' });
+/** Fecha + hora corta para el historial de movimientos. */
+const fmtFechaHora = (s: string) => new Date(s).toLocaleString('es-PE', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+/** Etiqueta legible por tipo de movimiento de crédito. */
+const MOV_LABEL: Record<MovimientoCredito['tipo'], string> = {
+  asignacion: 'Créditos del plan',
+  recarga:    'Recarga de créditos',
+  consumo:    'Emisión de certificado',
+  devolucion: 'Devolución (certificado eliminado)',
+  ajuste:     'Ajuste',
+};
 
 /** Estilo y texto del semáforo de cobranza. */
 const COBRANZA = {
@@ -22,10 +32,19 @@ export default function AdminPlan() {
   const { empresa } = useParams<{ empresa: string }>();
   const { estado, loading } = usePlan();
   const [catalogo, setCatalogo] = useState<Plan[]>([]);
+  const [movimientos, setMovimientos] = useState<MovimientoCredito[]>([]);
 
   useEffect(() => {
     planesApi.catalogo(empresa!).then(setCatalogo).catch(() => setCatalogo([]));
+    planesApi.movimientos(empresa!).then(setMovimientos).catch(() => setMovimientos([]));
   }, [empresa]);
+
+  // El saldo del provider cambia al emitir/eliminar; recargar el historial al vuelo.
+  const saldoActual = estado?.creditos?.disponibles;
+  useEffect(() => {
+    if (saldoActual === undefined) return;
+    planesApi.movimientos(empresa!).then(setMovimientos).catch(() => { /* deja el último historial */ });
+  }, [empresa, saldoActual]);
 
   if (loading) {
     return <div className="flex justify-center py-20" style={{ color: '#D1D5DB' }}><Loader2 size={24} className="animate-spin" /></div>;
@@ -43,9 +62,12 @@ export default function AdminPlan() {
     );
   }
 
-  const { plan, suscripcion, consumo } = estado;
-  const pct = consumo.incluidos > 0 ? Math.min((consumo.emitidos / consumo.incluidos) * 100, 100) : 0;
-  const sinCupo = consumo.restantes <= 0;
+  const { plan, suscripcion, creditos } = estado;
+  const ilimitado = creditos.ilimitado;
+  // Avance del saldo consumido sobre el total histórico asignado.
+  const pct = creditos.asignados > 0 ? Math.min((creditos.consumidos / creditos.asignados) * 100, 100) : 0;
+  const sinCreditos = !ilimitado && creditos.disponibles <= 0;
+  const pocos = !ilimitado && !sinCreditos && creditos.disponibles <= 10;
 
   return (
     <div className="space-y-5 page-enter">
@@ -65,7 +87,7 @@ export default function AdminPlan() {
             )}
           </div>
           <p className="text-[26px] font-bold leading-tight">{plan.nombre}</p>
-          <p className="text-[13px] mt-1" style={{ color: 'rgba(255,255,255,0.85)' }}>{sol(plan.precio_mensual)} / mes</p>
+          <p className="text-[13px] mt-1" style={{ color: 'rgba(255,255,255,0.85)' }}>{sol(plan.mantenimiento_mensual || plan.precio_mensual)} / mes · mantenimiento</p>
           {suscripcion && (
             <p className="text-[12px] mt-3" style={{ color: 'rgba(255,255,255,0.75)' }}>
               {suscripcion.ciclo} · vigente hasta {fmtFecha(suscripcion.fecha_fin)}
@@ -73,22 +95,50 @@ export default function AdminPlan() {
           )}
         </div>
 
-        {/* Cupo del mes con barra */}
+        {/* Saldo de créditos con barra */}
         <div className="lg:col-span-2 rounded-2xl p-6" style={{ background: '#fff', border: '1px solid #EEECE6' }}>
+          {ilimitado ? (
+            /* Plan ilimitado (Corporativo): sin tope de certificados */
+            <>
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-[13px] font-bold" style={{ color: '#0D0E12' }}>Tus créditos</p>
+                <span className="text-[10.5px] font-bold px-2 py-0.5 rounded-full" style={{ background: '#ECFDF5', color: '#047857' }}>Ilimitado</span>
+              </div>
+              <div className="flex items-baseline gap-3">
+                <p className="text-[40px] font-bold leading-none" style={{ color: '#0D7C66' }}>∞</p>
+                <p className="text-[13px]" style={{ color: '#64748B' }}>certificados sin límite</p>
+              </div>
+              <div className="grid grid-cols-2 gap-3 mt-4">
+                {[
+                  { label: 'Emitidos en total', value: creditos.consumidos },
+                  { label: 'Plan', value: plan.nombre },
+                ].map(s => (
+                  <div key={s.label} className="rounded-xl p-3" style={{ background: '#FAFAF8', border: '1px solid #EEECE6' }}>
+                    <p className="text-[18px] font-bold leading-none truncate" style={{ color: '#0D0E12' }}>{s.value}</p>
+                    <p className="text-[10.5px] font-semibold uppercase tracking-wider mt-1.5" style={{ color: '#B0A898' }}>{s.label}</p>
+                  </div>
+                ))}
+              </div>
+              <p className="text-[12.5px] mt-3" style={{ color: '#9CA3AF' }}>
+                Tu plan <b>{plan.nombre}</b> no tiene límite de certificados: emite los que necesites sin gastar créditos.
+              </p>
+            </>
+          ) : (
+          <>
           <div className="flex items-center justify-between mb-3">
-            <p className="text-[13px] font-bold" style={{ color: '#0D0E12' }}>Cupo de {MES[consumo.mes]}</p>
-            <p className="text-[13px] font-semibold tabular-nums" style={{ color: sinCupo ? '#B45309' : '#15803D' }}>
-              {consumo.emitidos} / {consumo.incluidos}
+            <p className="text-[13px] font-bold" style={{ color: '#0D0E12' }}>Tus créditos</p>
+            <p className="text-[13px] font-semibold tabular-nums" style={{ color: sinCreditos ? '#B91C1C' : pocos ? '#B45309' : '#15803D' }}>
+              {creditos.consumidos} / {creditos.asignados} usados
             </p>
           </div>
           <div className="h-3 rounded-full overflow-hidden" style={{ background: '#F0EEE9' }}>
-            <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: sinCupo ? '#D97706' : '#15803D' }} />
+            <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: sinCreditos ? '#DC2626' : pocos ? '#D97706' : '#15803D' }} />
           </div>
           <div className="grid grid-cols-3 gap-3 mt-4">
             {[
-              { label: 'Disponibles', value: consumo.restantes, color: '#15803D' },
-              { label: 'Emitidos', value: consumo.emitidos, color: '#0D0E12' },
-              { label: 'Excedentes', value: consumo.adicionales, color: consumo.adicionales > 0 ? '#B45309' : '#0D0E12' },
+              { label: 'Disponibles', value: creditos.disponibles, color: sinCreditos ? '#B91C1C' : '#15803D' },
+              { label: 'Consumidos', value: creditos.consumidos, color: '#0D0E12' },
+              { label: 'Extra recargados', value: creditos.recargados, color: creditos.recargados > 0 ? '#0D7C66' : '#0D0E12' },
             ].map(s => (
               <div key={s.label} className="rounded-xl p-3" style={{ background: '#FAFAF8', border: '1px solid #EEECE6' }}>
                 <p className="text-[22px] font-bold leading-none tabular-nums" style={{ color: s.color }}>{s.value}</p>
@@ -96,11 +146,25 @@ export default function AdminPlan() {
               </div>
             ))}
           </div>
-          {consumo.adicionales > 0 && (
-            <p className="text-[12.5px] mt-3 px-3 py-2 rounded-xl" style={{ background: '#FFFBEB', border: '1px solid #FDE68A', color: '#92400E' }}>
-              Llevas <b>{consumo.adicionales}</b> certificado{consumo.adicionales === 1 ? '' : 's'} excedente{consumo.adicionales === 1 ? '' : 's'} este mes:
-              <b> {sol(consumo.monto_adicional)}</b> adicionales (a {sol(adicionalProporcional(plan.precio_mensual, plan.limite_certificados_mes))} c/u).
+          {/* Desglose del total asignado: cuánto vino del plan y cuánto es recarga extra. */}
+          <p className="text-[11.5px] mt-2.5" style={{ color: '#9CA3AF' }}>
+            De <b style={{ color: '#64748B' }}>{creditos.asignados}</b> créditos asignados: <b style={{ color: '#64748B' }}>{Math.max(creditos.asignados - creditos.recargados, 0)}</b> de tu plan
+            {creditos.recargados > 0 && <> + <b style={{ color: '#0D7C66' }}>{creditos.recargados}</b> recargados aparte</>}.
+          </p>
+          {sinCreditos ? (
+            <p className="text-[12.5px] mt-3 px-3 py-2 rounded-xl" style={{ background: '#FEF2F2', border: '1px solid #FECACA', color: '#B91C1C' }}>
+              Te quedaste <b>sin créditos</b>. No podrás emitir nuevos certificados hasta recargar. Contacta a Vaxa para comprar más créditos.
             </p>
+          ) : pocos ? (
+            <p className="text-[12.5px] mt-3 px-3 py-2 rounded-xl" style={{ background: '#FFFBEB', border: '1px solid #FDE68A', color: '#92400E' }}>
+              Te quedan pocos créditos (<b>{creditos.disponibles}</b>). Considera recargar con Vaxa para no quedarte sin emitir.
+            </p>
+          ) : (
+            <p className="text-[12.5px] mt-3" style={{ color: '#9CA3AF' }}>
+              Cada certificado emitido consume <b>1 crédito</b>. Los créditos no vencen mientras tu mantenimiento esté activo; si eliminas un certificado, el crédito se devuelve.
+            </p>
+          )}
+          </>
           )}
         </div>
       </div>
@@ -119,6 +183,79 @@ export default function AdminPlan() {
             )}
           </div>
         </div>
+      )}
+
+      {/* ── Recargar créditos (paquetes; la compra la activa Vaxa) — no aplica a planes ilimitados ── */}
+      {!ilimitado && (
+      <div className="rounded-2xl p-5" style={{ background: '#fff', border: '1px solid #EEECE6' }}>
+        <div className="flex items-center gap-2 mb-1">
+          <Package size={16} style={{ color: '#0D7C66' }} />
+          <p className="text-[13px] font-bold" style={{ color: '#0D0E12' }}>¿Necesitas más créditos?</p>
+        </div>
+        <p className="text-[12.5px] mb-4" style={{ color: '#9CA3AF' }}>
+          Elige un paquete y escríbenos para recargarlo. Se suman a tu saldo, son acumulables y no vencen.
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {PAQUETES_CREDITOS.map(pq => (
+            <a
+              key={pq.creditos}
+              href={`https://wa.me/${VAXA_WA}?text=${encodeURIComponent(`Hola Vaxa 👋, soy de "${empresa}" y quiero recargar el paquete de ${pq.creditos} créditos (${sol(pq.precio)}).`)}`}
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-xl p-4 flex flex-col transition-all hover:-translate-y-0.5"
+              style={{ background: '#FAFAF8', border: '1px solid #EEECE6' }}
+            >
+              <p className="text-[22px] font-bold leading-none tabular-nums" style={{ color: '#0D0E12' }}>{pq.creditos}</p>
+              <p className="text-[10.5px] font-semibold uppercase tracking-wider mt-1" style={{ color: '#B0A898' }}>créditos</p>
+              <p className="text-[14px] font-bold mt-2" style={{ color: '#0D7C66' }}>{sol(pq.precio)}</p>
+              <span className="mt-3 inline-flex items-center justify-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-lg"
+                style={{ background: '#25D366', color: '#04110C' }}>
+                <MessageCircle size={13} /> Solicitar
+              </span>
+            </a>
+          ))}
+        </div>
+        <p className="text-[11.5px] mt-3" style={{ color: '#9CA3AF' }}>
+          1 crédito = 1 certificado. La recarga la activa Vaxa al confirmar el pago (boleta o factura).
+        </p>
+      </div>
+      )}
+
+      {/* ── Historial de movimientos de créditos ──────────────── */}
+      {!ilimitado && (
+      <div className="rounded-2xl overflow-hidden" style={{ background: '#fff', border: '1px solid #EEECE6' }}>
+        <div className="flex items-center gap-2 px-5 py-3.5" style={{ borderBottom: '1px solid #F0EEE9' }}>
+          <Clock size={15} style={{ color: '#B0A898' }} />
+          <p className="text-[13px] font-bold" style={{ color: '#0D0E12' }}>Movimientos de créditos</p>
+        </div>
+        {movimientos.length === 0 ? (
+          <p className="text-[12.5px] text-center py-8" style={{ color: '#9CA3AF' }}>Aún no hay movimientos.</p>
+        ) : (
+          movimientos.map((m, idx) => {
+            const suma = m.cantidad > 0;
+            return (
+              <div
+                key={m.id}
+                className="flex items-center justify-between px-5 py-3 gap-3"
+                style={{ borderTop: idx === 0 ? undefined : '1px solid #F5F4F0' }}
+              >
+                <div className="min-w-0">
+                  <p className="text-[12.5px] font-semibold truncate" style={{ color: '#0D0E12' }}>
+                    {m.descripcion || MOV_LABEL[m.tipo]}
+                  </p>
+                  <p className="text-[11px] mt-0.5" style={{ color: '#9CA3AF' }}>{fmtFechaHora(m.created_at)}</p>
+                </div>
+                <div className="text-right flex-shrink-0">
+                  <p className="text-[14px] font-bold tabular-nums" style={{ color: suma ? '#15803D' : '#B91C1C' }}>
+                    {suma ? '+' : ''}{m.cantidad}
+                  </p>
+                  <p className="text-[10.5px] tabular-nums" style={{ color: '#B0A898' }}>saldo {m.saldo_resultante}</p>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
       )}
 
       {/* ── Catálogo de planes ────────────────────────────────── */}

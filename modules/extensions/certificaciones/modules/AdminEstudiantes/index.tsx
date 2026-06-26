@@ -370,7 +370,7 @@ export default function AdminEstudiantes() {
   const handleEliminar = async (p: Participante) => {
     const ok = await confirm({
       title: 'Borrar estudiante',
-      message: `Se BORRARÁ a ${p.nombres} ${p.apellidos} y sus inscripciones, notas y certificados emitidos (se devuelve el cupo). No se puede deshacer.`,
+      message: `Se BORRARÁ a ${p.nombres} ${p.apellidos} y sus inscripciones, notas y certificados emitidos (se devuelven los créditos). No se puede deshacer.`,
       confirmText: 'Borrar definitivamente',
       variant: 'danger',
     });
@@ -432,13 +432,13 @@ export default function AdminEstudiantes() {
 
       {!loading && filtrados.length > 0 && (
         <div className="bg-white rounded-2xl overflow-hidden" style={{ border: '1px solid #EEECE6' }}>
-          <div className="hidden sm:grid grid-cols-[110px_1fr_1fr_110px_auto] px-5 py-3" style={{ background: '#FAFAF8', borderBottom: '1px solid #EEECE6' }}>
+          <div className="hidden sm:grid grid-cols-[110px_1fr_1fr_110px_150px] px-5 py-3" style={{ background: '#FAFAF8', borderBottom: '1px solid #EEECE6' }}>
             {['Documento', 'Nombre', 'Email', 'Teléfono', ''].map((h, i) => (
               <p key={i} className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: '#9CA3AF' }}>{h}</p>
             ))}
           </div>
           {pageItems.map((p, idx) => (
-            <div key={p.id} className="flex flex-col sm:grid sm:grid-cols-[110px_1fr_1fr_110px_auto] sm:items-center px-5 py-3"
+            <div key={p.id} className="flex flex-col sm:grid sm:grid-cols-[110px_1fr_1fr_110px_150px] sm:items-center px-5 py-3"
               style={{ borderBottom: idx < pageItems.length - 1 ? '1px solid #F5F4F0' : undefined }}>
               <p className="text-[13px] font-mono tabular-nums" style={{ color: '#4B5563' }}>{p.numero_documento}</p>
               <p className="text-[13px] font-semibold truncate" style={{ color: '#0D0E12' }}>{p.nombres} {p.apellidos}</p>

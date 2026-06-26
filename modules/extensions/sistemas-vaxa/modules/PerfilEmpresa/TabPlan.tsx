@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { CreditCard, Loader2, AlertCircle, CheckCircle, Sparkles, Plus, FileText, X } from '@/components/ui/icon';
+import { CreditCard, Loader2, AlertCircle, CheckCircle, Sparkles, Plus, FileText, X, Package, Clock, Search } from '@/components/ui/icon';
 import {
-  creditosAdminApi, type EmpresaCreditos, type PlanCatalogo, type EstadoPlanEmpresa, type PagoHist,
+  creditosAdminApi, type EmpresaCreditos, type PlanCatalogo, type EstadoPlanEmpresa, type PagoHist, type MovimientoCredito,
 } from '../../shared/api/creditos.admin.api';
+import Pager from '../../shared/components/Pager';
 
 interface TabPlanProps {
   empresa: EmpresaCreditos;
@@ -21,6 +22,24 @@ const CICLOS = [
 ];
 
 const MES = ['', 'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+
+/** Paquetes de créditos con precio real (con descuento). El monto se cobra tal cual. */
+const PAQUETES = [
+  { creditos: 100, precio: 270 },
+  { creditos: 300, precio: 750 },
+  { creditos: 700, precio: 1500 },
+];
+
+/** Etiqueta legible por tipo de movimiento de crédito. */
+const MOV_LABEL: Record<MovimientoCredito['tipo'], string> = {
+  asignacion: 'Créditos del plan',
+  recarga:    'Recarga de créditos',
+  consumo:    'Emisión de certificado',
+  devolucion: 'Devolución (certificado eliminado)',
+  ajuste:     'Ajuste',
+};
+const fmtFechaHora = (s: string) => new Date(s).toLocaleString('es-PE', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+
 const sol = (n: number) => `S/ ${Number(n ?? 0).toFixed(2)}`;
 /** Precio del certificado adicional = proporcional al plan (precio mensual ÷ cupo). */
 const adicionalProporcional = (precioMensual: number, cupo: number) =>
@@ -45,22 +64,50 @@ export default function TabPlan({ empresa, onChange }: TabPlanProps) {
   const [cicloId, setCicloId] = useState<number>(1);
   const [saving, setSaving]   = useState(false);
 
-  // Recarga de certificados al mes en curso (cobro proporcional al plan).
+  // Recarga de créditos: cantidad libre (precio por crédito) o un paquete con descuento.
   const [recarga, setRecarga]       = useState<string>('');
+  const [paqueteSel, setPaqueteSel] = useState<number | null>(null);  // índice en PAQUETES (null = cantidad libre)
   const [recargando, setRecargando] = useState(false);
 
-  // Registro de pago del ciclo (renueva el vencimiento).
-  const [emitirFactura, setEmitirFactura]     = useState<boolean>(true);
+  // Confirmación del pago del ciclo (renueva el vencimiento; NO emite factura).
   const [pagando, setPagando]                 = useState(false);
   const [ventaModal, setVentaModal]           = useState(false);
 
-  // Historial de pagos.
+  // Historial de pagos (con filtro de texto + paginación).
   const [pagos, setPagos] = useState<PagoHist[]>([]);
   const [facturandoId, setFacturandoId] = useState<number | null>(null);
+  const [pagoBuscar, setPagoBuscar] = useState('');
+  const [pagoPage, setPagoPage] = useState(1);
   const cargarPagos = useCallback(async () => {
     try { setPagos(await creditosAdminApi.listPagos(empresa.id)); } catch { /* noop */ }
   }, [empresa.id]);
   useEffect(() => { cargarPagos(); }, [cargarPagos]);
+
+  // Historial de movimientos de créditos (ledger: asignación / recarga / consumo / devolución).
+  const [movs, setMovs] = useState<MovimientoCredito[]>([]);
+  const [movTipo, setMovTipo] = useState<'todos' | MovimientoCredito['tipo']>('todos');
+  const [movPage, setMovPage] = useState(1);
+  const cargarMovs = useCallback(async () => {
+    try { setMovs(await creditosAdminApi.movimientos(empresa.id)); } catch { /* noop */ }
+  }, [empresa.id]);
+  useEffect(() => { cargarMovs(); }, [cargarMovs]);
+
+  const POR_PAGINA = 8;
+  // Pagos filtrados por texto (concepto, detalle facturado o número de comprobante).
+  const pagosFiltrados = pagos.filter((p) => {
+    const q = pagoBuscar.trim().toLowerCase();
+    if (!q) return true;
+    return [p.concepto, p.detalle, p.cpe_numero, p.estado].some((v) => (v ?? '').toLowerCase().includes(q));
+  });
+  const pagoPages = Math.max(1, Math.ceil(pagosFiltrados.length / POR_PAGINA));
+  const pagoPageSafe = Math.min(pagoPage, pagoPages);
+  const pagosPagina = pagosFiltrados.slice((pagoPageSafe - 1) * POR_PAGINA, pagoPageSafe * POR_PAGINA);
+
+  // Movimientos filtrados por tipo.
+  const movsFiltrados = movs.filter((m) => movTipo === 'todos' || m.tipo === movTipo);
+  const movPages = Math.max(1, Math.ceil(movsFiltrados.length / POR_PAGINA));
+  const movPageSafe = Math.min(movPage, movPages);
+  const movsPagina = movsFiltrados.slice((movPageSafe - 1) * POR_PAGINA, movPageSafe * POR_PAGINA);
 
   // Emite la factura electrónica de un pago (plan o certificados adicionales).
   const facturarPago = async (pagoId: number) => {
@@ -108,19 +155,29 @@ export default function TabPlan({ empresa, onChange }: TabPlanProps) {
     finally { setSaving(false); }
   };
 
+  // Precio por crédito suelto (incluye IGV) — base de la cantidad libre.
+  const precioUnit = 2.70;
   // Validación: solo enteros positivos.
   const cantidadRecarga = Math.floor(Number(recarga));
   const recargaValida = Number.isFinite(cantidadRecarga) && cantidadRecarga > 0 && String(recarga).trim() !== '';
 
-  const recargar = async (ev: React.FormEvent) => {
-    ev.preventDefault();
-    if (!recargaValida || recargando) return;
+  // Paquete elegido (si hay) y monto/cantidad/validez efectivos de la recarga.
+  const paquete = paqueteSel != null ? PAQUETES[paqueteSel] : null;
+  const recargaCantidad = paquete ? paquete.creditos : cantidadRecarga;
+  const recargaMonto = paquete ? paquete.precio : (recargaValida ? precioUnit * cantidadRecarga : 0);
+  const puedeRecargar = paquete != null || recargaValida;
+
+  /** Recarga núcleo: `monto` opcional = precio de paquete (con descuento); si no, precio por crédito suelto. */
+  const doRecargar = async (cantidad: number, monto?: number) => {
+    if (recargando) return;
     setRecargando(true); setError(null); setOkMsg(null);
     try {
-      const r = await creditosAdminApi.recargarCupo(empresa.id, cantidadRecarga);
+      const r = await creditosAdminApi.recargarCupo(empresa.id, cantidad, monto);
       await cargar();
       await cargarPagos();
+      await cargarMovs();
       setRecarga('');
+      setPaqueteSel(null);
       setOkMsg(`Se agregaron ${r.agregados} créditos · se cobrará ${sol(r.monto)}`);
       onChange?.();
       setTimeout(() => setOkMsg(null), 3500);
@@ -128,16 +185,25 @@ export default function TabPlan({ empresa, onChange }: TabPlanProps) {
     finally { setRecargando(false); }
   };
 
+  const recargar = (ev: React.FormEvent) => {
+    ev.preventDefault();
+    if (!puedeRecargar) return;
+    doRecargar(recargaCantidad, paquete ? paquete.precio : undefined);
+  };
+
   const marcarPagado = async () => {
     if (pagando) return;
     setPagando(true); setError(null); setOkMsg(null);
     try {
+      // SOLO renueva el mes. NO registra pago (el único que registra pagos es
+      // "Nueva venta") ni emite factura.
       const est = await creditosAdminApi.marcarPagado(empresa.id, {
-        emitir_comprobante: emitirFactura,
+        emitir_comprobante: false,
+        registrar_pago: false,
       });
       setEstado(est);
       await cargarPagos();
-      setOkMsg(`Pago registrado · renueva hasta ${est.suscripcion ? fmtFecha(est.suscripcion.fecha_fin) : '—'}${emitirFactura ? ' · factura enviada a SUNAT (ver Facturación)' : ''}`);
+      setOkMsg(`Mantenimiento renovado hasta ${est.suscripcion ? fmtFecha(est.suscripcion.fecha_fin) : '—'}`);
       onChange?.();
       setTimeout(() => setOkMsg(null), 3500);
     } catch (e) { setError((e as Error).message); }
@@ -155,8 +221,6 @@ export default function TabPlan({ empresa, onChange }: TabPlanProps) {
   const cicloVigenteId = CICLOS.find((x) => x.label === estado?.suscripcion?.ciclo)?.id ?? 1;
   // Hay cambios si cambió el plan o el ciclo respecto a lo vigente.
   const planCambiado = planId !== (estado?.plan?.id ?? 0) || cicloId !== cicloVigenteId;
-  // Precio por crédito (incluye IGV) — base de los paquetes.
-  const precioUnit = 2.70;
 
   return (
     <div className="space-y-6">
@@ -178,7 +242,7 @@ export default function TabPlan({ empresa, onChange }: TabPlanProps) {
           <div className="text-white">
             <p className="text-[13.5px] font-bold">Registrar una venta</p>
             <p className="text-[11.5px]" style={{ color: 'rgba(255,255,255,0.7)' }}>
-              Mantenimiento + créditos + implementación, con descuento → factura, pago y renovación en un paso.
+              Mantenimiento + créditos + implementación, con descuento → emite la <b>factura</b>. La renovación del mes se hace aparte al confirmar el pago.
             </p>
           </div>
           <button type="button" onClick={() => setVentaModal(true)} className="sv-btn px-5 text-white flex-shrink-0"
@@ -212,6 +276,17 @@ export default function TabPlan({ empresa, onChange }: TabPlanProps) {
         </div>
 
         {/* Créditos disponibles */}
+        {cr?.ilimitado ? (
+          <div className="rounded-2xl p-5" style={{ background: '#ECFDF5', border: '1px solid #A7F3D0' }}>
+            <p className="text-[11px] font-semibold uppercase tracking-wider mb-2" style={{ color: '#9CA3AF' }}>
+              Créditos disponibles
+            </p>
+            <p className="text-[32px] font-bold leading-none" style={{ color: '#047857' }}>∞</p>
+            <p className="text-[12px] mt-2" style={{ color: '#047857' }}>
+              Plan ilimitado · emite sin tope
+            </p>
+          </div>
+        ) : (
         <div className="rounded-2xl p-5" style={{ background: (cr?.disponibles ?? 0) > 0 ? '#FAFAF8' : '#FFFBEB', border: `1px solid ${(cr?.disponibles ?? 0) > 0 ? '#EEECE6' : '#FDE68A'}` }}>
           <p className="text-[11px] font-semibold uppercase tracking-wider mb-2" style={{ color: '#9CA3AF' }}>
             Créditos disponibles
@@ -219,18 +294,37 @@ export default function TabPlan({ empresa, onChange }: TabPlanProps) {
           <p className="text-[32px] font-bold leading-none tabular-nums" style={{ color: (cr?.disponibles ?? 0) > 0 ? '#0D0E12' : '#B45309' }}>
             {cr?.disponibles ?? 0}
           </p>
-          <p className="text-[12px] mt-2" style={{ color: '#64748B' }}>
-            {(cr?.disponibles ?? 0) > 0 ? '1 crédito = 1 certificado' : 'Sin saldo · no puede emitir'}
-          </p>
+          {/* Conteo aparte: cuántos de los asignados son recarga extra (no del plan). */}
+          {(cr?.recargados ?? 0) > 0 ? (
+            <p className="text-[12px] mt-2" style={{ color: '#0D7C66' }}>
+              Incluye <b>{cr?.recargados}</b> crédito{(cr?.recargados ?? 0) === 1 ? '' : 's'} recargado{(cr?.recargados ?? 0) === 1 ? '' : 's'} aparte
+            </p>
+          ) : (
+            <p className="text-[12px] mt-2" style={{ color: '#64748B' }}>
+              {(cr?.disponibles ?? 0) > 0 ? '1 crédito = 1 certificado' : 'Sin saldo · no puede emitir'}
+            </p>
+          )}
         </div>
+        )}
 
-        {/* Créditos consumidos */}
+        {/* Consumo (en planes ilimitados no descuenta saldo pero SÍ se cuenta lo emitido) */}
         <div className="rounded-2xl p-5" style={{ background: '#FAFAF8', border: '1px solid #EEECE6' }}>
-          <p className="text-[11px] font-semibold uppercase tracking-wider mb-2" style={{ color: '#9CA3AF' }}>Créditos consumidos</p>
-          <p className="text-[32px] font-bold leading-none tabular-nums" style={{ color: '#0D0E12' }}>
-            {cr?.consumidos ?? 0}<span className="text-[18px]" style={{ color: '#9CA3AF' }}> / {cr?.asignados ?? 0}</span>
+          <p className="text-[11px] font-semibold uppercase tracking-wider mb-2" style={{ color: '#9CA3AF' }}>
+            {cr?.ilimitado ? 'Certificados emitidos' : 'Créditos consumidos'}
           </p>
-          <p className="text-[12px] mt-2" style={{ color: '#64748B' }}>certificados emitidos en total</p>
+          {cr?.ilimitado ? (
+            <>
+              <p className="text-[32px] font-bold leading-none tabular-nums" style={{ color: '#0D0E12' }}>{cr?.consumidos ?? 0}</p>
+              <p className="text-[12px] mt-2" style={{ color: '#64748B' }}>emitidos en total · sin tope</p>
+            </>
+          ) : (
+            <>
+              <p className="text-[32px] font-bold leading-none tabular-nums" style={{ color: '#0D0E12' }}>
+                {cr?.consumidos ?? 0}<span className="text-[18px]" style={{ color: '#9CA3AF' }}> / {cr?.asignados ?? 0}</span>
+              </p>
+              <p className="text-[12px] mt-2" style={{ color: '#64748B' }}>certificados emitidos en total</p>
+            </>
+          )}
         </div>
       </div>
 
@@ -252,29 +346,30 @@ export default function TabPlan({ empresa, onChange }: TabPlanProps) {
             </span>
           </div>
 
-          <label className="flex items-start gap-2.5 p-3 rounded-xl cursor-pointer select-none mb-3"
-            style={{ background: emitirFactura ? '#ECFDF5' : '#FAFAF8', border: `1px solid ${emitirFactura ? '#A7F3D0' : '#EEECE6'}` }}>
-            <input type="checkbox" checked={emitirFactura} onChange={(e) => setEmitirFactura(e.target.checked)} style={{ accentColor: '#059669', marginTop: 2 }} />
+          {/* La factura NO se emite aquí (controlado): se hace con "Nueva venta". */}
+          <div className="flex items-start gap-2.5 p-3 rounded-xl mb-3"
+            style={{ background: '#FAFAF8', border: '1px solid #EEECE6' }}>
+            <FileText className="w-4 h-4 flex-shrink-0" style={{ color: '#9CA3AF', marginTop: 1 }} />
             <span className="text-[12.5px]" style={{ color: '#374151' }}>
-              Emitir la <b>factura electrónica</b> a SUNAT automáticamente
+              ¿Aún no facturaste este mantenimiento? Emite la <b>factura</b> con <b>“Nueva venta”</b> (arriba).
               <span className="block text-[11px] mt-0.5" style={{ color: '#9CA3AF' }}>
-                El número (F001-…) lo asigna el sistema. Requiere RUC de la empresa.
+                Aquí solo confirmas el pago una vez que el cliente te pagó.
               </span>
             </span>
-          </label>
+          </div>
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <p className="text-[11.5px]" style={{ color: '#9CA3AF' }}>
-              Registra el pago y renueva el vencimiento un ciclo ({estado.suscripcion.ciclo.toLowerCase()}).
+              Solo renueva el vencimiento un ciclo ({estado.suscripcion.ciclo.toLowerCase()}). No registra un pago: ese se registra con “Nueva venta”.
             </p>
             <button type="button" onClick={marcarPagado} disabled={pagando} className="sv-btn sv-btn-primary px-5">
-              {pagando ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />} Registrar pago
+              {pagando ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />} Confirmar pago del mantenimiento
             </button>
           </div>
         </div>
       )}
 
-      {/* ── Recargar créditos (suma al saldo) ───────────────── */}
-      {estado?.plan && (
+      {/* ── Recargar créditos (suma al saldo) — no aplica a planes ilimitados ── */}
+      {estado?.plan && !cr?.ilimitado && (
         <form onSubmit={recargar} className="rounded-2xl p-5" style={{ background: '#fff', border: '1px solid #EEECE6' }}>
           <div className="flex items-center gap-2 mb-1">
             <Plus className="w-4 h-4" style={{ color: '#059669' }} />
@@ -282,25 +377,53 @@ export default function TabPlan({ empresa, onChange }: TabPlanProps) {
           </div>
           <p className="text-[12.5px] mb-4" style={{ color: '#9CA3AF' }}>
             Suma créditos al saldo de la empresa (acumulables, no vencen).
-            (<b style={{ color: '#64748B' }}>{sol(precioUnit)}</b> c/u).
+            Crédito suelto a <b style={{ color: '#64748B' }}>{sol(precioUnit)}</b> c/u, o un paquete con descuento.
           </p>
+
+          {/* Paquetes con descuento: seleccionar marca el paquete (recién se aplica con "Recargar") */}
+          <div className="mb-4">
+            <p className="text-[11px] font-semibold uppercase tracking-wider mb-2" style={{ color: '#374151' }}>Paquetes (precio con descuento)</p>
+            <div className="grid grid-cols-3 gap-2">
+              {PAQUETES.map((pq, i) => {
+                const sel = paqueteSel === i;
+                return (
+                  <button
+                    key={pq.creditos}
+                    type="button"
+                    disabled={recargando}
+                    onClick={() => { setPaqueteSel(sel ? null : i); setRecarga(''); }}
+                    className="rounded-xl p-3 text-left transition-all hover:-translate-y-0.5 disabled:opacity-50"
+                    style={{ background: sel ? '#ECFDF5' : '#FAFAF8', border: `1.5px solid ${sel ? '#059669' : '#EEECE6'}` }}
+                    title={`Paquete de ${pq.creditos} créditos por ${sol(pq.precio)}`}
+                  >
+                    <p className="text-[16px] font-bold leading-none tabular-nums" style={{ color: '#0D0E12' }}>{pq.creditos}</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider mt-0.5" style={{ color: '#B0A898' }}>créditos</p>
+                    <p className="text-[12.5px] font-bold mt-1.5" style={{ color: '#059669' }}>{sol(pq.precio)}</p>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           <div className="flex flex-wrap items-end gap-3">
             <div className="flex-1 min-w-[140px]">
-              <label className="block text-[11px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: '#374151' }}>Cantidad</label>
+              <label className="block text-[11px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: '#374151' }}>Cantidad libre</label>
               <input
                 type="number" min={1} step={1} value={recarga}
-                onChange={(e) => setRecarga(e.target.value)}
+                onChange={(e) => { setRecarga(e.target.value); setPaqueteSel(null); }}
                 placeholder="Ej. 50" className="sv-input w-full"
+                disabled={paquete != null}
               />
             </div>
             <div className="rounded-xl px-4 py-2.5" style={{ background: '#FAFAF8', border: '1px solid #EEECE6' }}>
               <p className="text-[10.5px] font-semibold uppercase tracking-wider" style={{ color: '#B0A898' }}>Total a cobrar</p>
-              <p className="text-[18px] font-bold tabular-nums" style={{ color: recargaValida ? '#059669' : '#9CA3AF' }}>
-                {sol(recargaValida ? precioUnit * cantidadRecarga : 0)}
+              <p className="text-[18px] font-bold tabular-nums" style={{ color: puedeRecargar ? '#059669' : '#9CA3AF' }}>
+                {sol(recargaMonto)}
               </p>
             </div>
-            <button type="submit" disabled={!recargaValida || recargando} className="sv-btn sv-btn-primary px-5">
+            <button type="submit" disabled={!puedeRecargar || recargando} className="sv-btn sv-btn-primary px-5">
               {recargando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />} Recargar
+              {paquete ? ` ${paquete.creditos}` : recargaValida ? ` ${cantidadRecarga}` : ''}
             </button>
           </div>
         </form>
@@ -349,30 +472,48 @@ export default function TabPlan({ empresa, onChange }: TabPlanProps) {
 
       {/* ── Historial de pagos ──────────────────────────────── */}
       <div className="rounded-2xl p-5" style={{ background: '#fff', border: '1px solid #EEECE6' }}>
-        <h3 className="text-[14px] font-bold mb-4" style={{ color: '#0D0E12' }}>Historial de pagos</h3>
+        <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
+          <h3 className="text-[14px] font-bold" style={{ color: '#0D0E12' }}>Historial de pagos</h3>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-[14px] h-[14px]" style={{ color: '#B0A898' }} />
+            <input
+              type="text" placeholder="Buscar concepto, detalle, N°…"
+              value={pagoBuscar} onChange={(e) => { setPagoBuscar(e.target.value); setPagoPage(1); }}
+              className="sv-input text-[12.5px]" style={{ paddingLeft: '2rem', height: 34, minWidth: 220 }}
+            />
+          </div>
+        </div>
         {pagos.length === 0 ? (
           <p className="text-[12.5px] py-6 text-center" style={{ color: '#B0A898' }}>Aún no hay pagos registrados.</p>
+        ) : pagosFiltrados.length === 0 ? (
+          <p className="text-[12.5px] py-6 text-center" style={{ color: '#B0A898' }}>Ningún pago coincide con “{pagoBuscar}”.</p>
         ) : (
+          <>
           <div className="overflow-x-auto">
             <table className="w-full text-[12.5px]">
               <thead>
                 <tr className="text-[10.5px] font-semibold uppercase tracking-wider" style={{ color: '#B0A898' }}>
                   <th className="text-left pb-2 pr-3">Fecha</th>
-                  <th className="text-left pb-2 pr-3">Concepto</th>
+                  <th className="text-left pb-2 pr-3">Concepto / Detalle</th>
                   <th className="text-right pb-2 pr-3">Monto</th>
                   <th className="text-left pb-2 pr-3">Comprobante</th>
                   <th className="text-left pb-2">Estado</th>
                 </tr>
               </thead>
               <tbody>
-                {pagos.map((p) => {
+                {pagosPagina.map((p) => {
                   const pag = p.estado.toLowerCase() === 'pagado';
                   return (
                     <tr key={p.id} style={{ borderTop: '1px solid #F2F0EA' }}>
-                      <td className="py-2.5 pr-3 tabular-nums" style={{ color: '#374151' }}>{p.fecha ? fmtFecha(p.fecha) : '—'}</td>
-                      <td className="py-2.5 pr-3" style={{ color: '#374151' }}>{p.concepto}</td>
-                      <td className="py-2.5 pr-3 text-right tabular-nums font-semibold" style={{ color: '#0D0E12' }}>{sol(p.monto)}</td>
-                      <td className="py-2.5 pr-3">
+                      <td className="py-2.5 pr-3 tabular-nums align-top" style={{ color: '#374151' }}>{p.fecha ? fmtFecha(p.fecha) : '—'}</td>
+                      <td className="py-2.5 pr-3 align-top" style={{ color: '#374151' }}>
+                        <span className="font-semibold" style={{ color: '#0D0E12' }}>{p.concepto}</span>
+                        {p.detalle && (
+                          <span className="block text-[11px] mt-0.5" style={{ color: '#9CA3AF' }}>{p.detalle}</span>
+                        )}
+                      </td>
+                      <td className="py-2.5 pr-3 text-right tabular-nums font-semibold align-top" style={{ color: '#0D0E12' }}>{sol(p.monto)}</td>
+                      <td className="py-2.5 pr-3 align-top">
                         {p.cpe_numero ? (
                           <span className="inline-flex items-center gap-1.5">
                             <span className="font-semibold tabular-nums" style={{ color: '#0D0E12' }}>{p.cpe_numero}</span>
@@ -391,7 +532,7 @@ export default function TabPlan({ empresa, onChange }: TabPlanProps) {
                           </button>
                         )}
                       </td>
-                      <td className="py-2.5">
+                      <td className="py-2.5 align-top">
                         <span className="text-[10.5px] font-bold px-2 py-0.5 rounded-full"
                           style={pag
                             ? { background: '#ECFDF5', color: '#047857' }
@@ -405,6 +546,64 @@ export default function TabPlan({ empresa, onChange }: TabPlanProps) {
               </tbody>
             </table>
           </div>
+          <Pager page={pagoPageSafe} pages={pagoPages} total={pagosFiltrados.length} onPage={setPagoPage} />
+          </>
+        )}
+      </div>
+
+      {/* ── Movimientos de créditos (ledger por empresa) ────── */}
+      <div className="rounded-2xl p-5" style={{ background: '#fff', border: '1px solid #EEECE6' }}>
+        <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
+          <div className="flex items-center gap-2">
+            <Clock className="w-4 h-4" style={{ color: '#B0A898' }} />
+            <h3 className="text-[14px] font-bold" style={{ color: '#0D0E12' }}>Movimientos de créditos</h3>
+          </div>
+          <select
+            value={movTipo}
+            onChange={(e) => { setMovTipo(e.target.value as typeof movTipo); setMovPage(1); }}
+            className="sv-input text-[12.5px]" style={{ height: 34, minWidth: 160 }}
+          >
+            <option value="todos">Todos los tipos</option>
+            <option value="recarga">Recargas</option>
+            <option value="consumo">Consumos (emisión)</option>
+            <option value="devolucion">Devoluciones</option>
+            <option value="asignacion">Asignaciones del plan</option>
+            <option value="ajuste">Ajustes</option>
+          </select>
+        </div>
+        {movs.length === 0 ? (
+          <p className="text-[12.5px] py-6 text-center" style={{ color: '#B0A898' }}>Aún no hay movimientos.</p>
+        ) : movsFiltrados.length === 0 ? (
+          <p className="text-[12.5px] py-6 text-center" style={{ color: '#B0A898' }}>No hay movimientos de ese tipo.</p>
+        ) : (
+          <>
+          <div className="overflow-x-auto">
+            <table className="w-full text-[12.5px]">
+              <thead>
+                <tr className="text-[10.5px] font-semibold uppercase tracking-wider" style={{ color: '#B0A898' }}>
+                  <th className="text-left pb-2 pr-3">Fecha</th>
+                  <th className="text-left pb-2 pr-3">Detalle</th>
+                  <th className="text-right pb-2 pr-3">Créditos</th>
+                  <th className="text-right pb-2">Saldo</th>
+                </tr>
+              </thead>
+              <tbody>
+                {movsPagina.map((m) => {
+                  const suma = m.cantidad > 0;
+                  return (
+                    <tr key={m.id} style={{ borderTop: '1px solid #F2F0EA' }}>
+                      <td className="py-2.5 pr-3 tabular-nums" style={{ color: '#374151' }}>{fmtFechaHora(m.created_at)}</td>
+                      <td className="py-2.5 pr-3" style={{ color: '#374151' }}>{m.descripcion || MOV_LABEL[m.tipo]}</td>
+                      <td className="py-2.5 pr-3 text-right tabular-nums font-bold" style={{ color: suma ? '#15803D' : '#B91C1C' }}>{suma ? '+' : ''}{m.cantidad}</td>
+                      <td className="py-2.5 text-right tabular-nums" style={{ color: '#64748B' }}>{m.saldo_resultante}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <Pager page={movPageSafe} pages={movPages} total={movsFiltrados.length} onPage={setMovPage} />
+          </>
         )}
       </div>
 
@@ -414,7 +613,7 @@ export default function TabPlan({ empresa, onChange }: TabPlanProps) {
           plan={estado.plan}
           ciclo={estado.suscripcion?.ciclo ?? 'Mensual'}
           onClose={() => setVentaModal(false)}
-          onDone={() => { setVentaModal(false); cargar(); cargarPagos(); onChange?.(); }}
+          onDone={() => { setVentaModal(false); cargar(); cargarPagos(); cargarMovs(); onChange?.(); }}
         />
       )}
     </div>
@@ -437,7 +636,9 @@ function NuevaVentaModal({ empresa, plan, ciclo, onClose, onDone }: {
 
   // Catálogo de productos sugeridos (rellenan la fila de agregar al elegirlos).
   const CATALOGO: Array<{ id: string; label: string; precio: number; creditos?: number; renueva?: boolean }> = [
-    { id: 'mant', label: `Mantenimiento ${plan.nombre} (${ciclo})`, precio: mantTotal, renueva: true },
+    // Mantenimiento: SOLO factura. NO renueva el mes — la renovación se hace al
+    // "Confirmar pago del mantenimiento" (decisión del usuario: factura primero, pago después).
+    { id: 'mant', label: `Mantenimiento ${plan.nombre} (${ciclo})`, precio: mantTotal },
     { id: 'impl', label: `Implementación ${plan.nombre}`, precio: plan.implementacion },
     { id: 'p100', label: 'Paquete 100 créditos', precio: 270, creditos: 100 },
     { id: 'p300', label: 'Paquete 300 créditos', precio: 750, creditos: 300 },
@@ -452,7 +653,8 @@ function NuevaVentaModal({ empresa, plan, ciclo, onClose, onDone }: {
   const [precio, setPrecio] = useState('');
   const [meta, setMeta]     = useState<{ creditos?: number; renueva?: boolean }>({});
 
-  const [tipoComp, setTipoComp] = useState<'01' | '03' | 'NV'>('01');
+  // Por defecto Nota de venta (NV), NO factura — pedido del usuario.
+  const [tipoComp, setTipoComp] = useState<'01' | '03' | 'NV'>('NV');
   const [descTipo, setDescTipo] = useState<'monto' | 'pct'>('pct');
   const [descVal, setDescVal]   = useState('');
   const [enviando, setEnviando] = useState(false);
@@ -611,8 +813,8 @@ function NuevaVentaModal({ empresa, plan, ciclo, onClose, onDone }: {
         </button>
         <p className="text-[11px] text-center mt-2" style={{ color: '#9CA3AF' }}>
           {esNotaVenta
-            ? 'Nota de venta interna (NO se declara a SUNAT). Registra el pago, suma créditos y renueva si corresponde.'
-            : 'Emite el comprobante a SUNAT, registra el pago, suma créditos y renueva si corresponde.'}
+            ? 'Nota de venta interna (NO se declara a SUNAT). Registra el pago y suma créditos. La renovación del mes se confirma aparte.'
+            : 'Emite el comprobante a SUNAT, registra el pago y suma créditos. La renovación del mes se confirma aparte.'}
         </p>
       </div>
     </div>,

@@ -76,9 +76,11 @@ export default function AdminCertificados() {
   const confirm = useConfirm();
   const navigate = useNavigate();
   const { certificados, loading, error, generar, anular, eliminar } = useCertificados(empresa!);
-  const { refetch: refrescarPlan } = usePlan();
+  const { estado: planEstado, refetch: refrescarPlan } = usePlan();
+  const planIlimitado = !!planEstado?.creditos?.ilimitado;
 
   const SIN_PLAN_MSG = 'Tu empresa no tiene un plan activo. Contacta a Vaxa para activar tu suscripción y emitir certificados.';
+  const SIN_CREDITOS_MSG = 'Tu empresa se quedó sin créditos. Cada certificado consume 1 crédito; contacta a Vaxa para recargar tu saldo y seguir emitiendo.';
 
   /** Si falta el diseño del programa, muestra un modal de advertencia con acceso a Configuración. */
   const avisarFaltaConfig = async (msg: string) => {
@@ -108,7 +110,8 @@ export default function AdminCertificados() {
 
   const [errorMsg,  setErrorMsg]  = useState<string | null>(null);
   const [okMsg,     setOkMsg]     = useState<string | null>(null);
-  const [sinPlanModal, setSinPlanModal] = useState(false);
+  // Modal de bloqueo de emisión: 'plan' (sin suscripción) o 'creditos' (saldo agotado).
+  const [bloqueoEmision, setBloqueoEmision] = useState<'plan' | 'creditos' | null>(null);
 
   const [preview,   setPreview]   = useState<{
     cert: Certificado & { empresa_nombre: string };
@@ -267,7 +270,7 @@ export default function AdminCertificados() {
     let done = 0;
     let errors = 0;
     let configMsg: string | null = null;
-    let sinPlan = false;
+    let bloqueo: 'plan' | 'creditos' | null = null;
     for (const id of ids) {
       try {
         await generar(id);
@@ -275,7 +278,8 @@ export default function AdminCertificados() {
         errors += 1;
         const raw = (e as Error).message;
         if (raw.startsWith('FALTA_CONFIG:') && !configMsg) configMsg = raw.replace('FALTA_CONFIG:', '').trim();
-        else if (raw.startsWith('SIN_PLAN')) { sinPlan = true; break; }  // sin suscripción: no tiene sentido seguir
+        else if (raw.startsWith('SIN_CREDITOS')) { bloqueo = 'creditos'; break; }  // saldo agotado: el resto también fallaría
+        else if (raw.startsWith('SIN_PLAN'))     { bloqueo = 'plan'; break; }       // sin suscripción: no tiene sentido seguir
       }
       done += 1;
       setBatchProgress({ done, total: ids.length, errors });
@@ -287,7 +291,7 @@ export default function AdminCertificados() {
 
     // Si el programa no tiene diseño, el motivo principal es ése → modal de advertencia.
     if (configMsg) { await avisarFaltaConfig(configMsg); return; }
-    if (sinPlan) { setSinPlanModal(true); return; }
+    if (bloqueo) { setBloqueoEmision(bloqueo); return; }
 
     if (errors === 0) {
       setOkMsg(`${done} certificados emitidos correctamente`);
@@ -572,9 +576,13 @@ export default function AdminCertificados() {
                   const n = ids.length;
                   const ok = await confirm({
                     title: n > 1 ? `¿Emitir ${n} certificados?` : '¿Emitir certificado?',
-                    message: n > 1
-                      ? `Se emitirán ${n} certificados y se descontarán ${n} créditos de tu saldo. Esta acción no se puede deshacer.`
-                      : 'Se emitirá el certificado y se descontará 1 crédito de tu saldo. Esta acción no se puede deshacer.',
+                    message: planIlimitado
+                      ? (n > 1
+                          ? `Se emitirán ${n} certificados. Tu plan es ilimitado: no se descuentan créditos. Esta acción no se puede deshacer.`
+                          : 'Se emitirá el certificado. Tu plan es ilimitado: no se descuentan créditos. Esta acción no se puede deshacer.')
+                      : (n > 1
+                          ? `Se emitirán ${n} certificados y se descontarán ${n} créditos de tu saldo. Esta acción no se puede deshacer.`
+                          : 'Se emitirá el certificado y se descontará 1 crédito de tu saldo. Esta acción no se puede deshacer.'),
                     confirmText: n > 1 ? `Sí, emitir ${n}` : 'Sí, emitir',
                   });
                   if (!ok) return;
@@ -608,12 +616,12 @@ export default function AdminCertificados() {
         document.body,
       )}
 
-      {/* ── Modal: sin créditos ──────────────────────────────── */}
-      {sinPlanModal && (
+      {/* ── Modal: emisión bloqueada (sin plan / sin créditos) ─── */}
+      {bloqueoEmision && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4"
           style={{ background: 'rgba(13,14,18,0.5)', backdropFilter: 'blur(4px)' }}
-          onMouseDown={() => setSinPlanModal(false)}
+          onMouseDown={() => setBloqueoEmision(null)}
         >
           <div
             className="w-full max-w-[420px] bg-white rounded-2xl p-7 text-center"
@@ -625,13 +633,13 @@ export default function AdminCertificados() {
               <AlertCircle size={30} style={{ color: '#DC2626' }} />
             </div>
             <h3 className="text-[20px] font-bold" style={{ color: '#0D0E12' }}>
-              Sin plan activo
+              {bloqueoEmision === 'creditos' ? 'Sin créditos' : 'Sin plan activo'}
             </h3>
             <p className="text-[14px] mt-2 leading-relaxed" style={{ color: '#6B7280' }}>
-              {SIN_PLAN_MSG}
+              {bloqueoEmision === 'creditos' ? SIN_CREDITOS_MSG : SIN_PLAN_MSG}
             </p>
             <button
-              onClick={() => setSinPlanModal(false)}
+              onClick={() => setBloqueoEmision(null)}
               className="w-full mt-6 py-3 rounded-xl text-[14px] font-semibold text-white"
               style={{ background: '#DC2626' }}
             >
@@ -918,7 +926,7 @@ function TablaEmitidos({
     <div className="space-y-4">
     <div className="bg-white rounded-2xl overflow-hidden" style={{ border: '1px solid #EEECE6' }}>
       <div className="hidden sm:grid px-5 py-3 gap-3" style={{
-        gridTemplateColumns: '1fr 200px 100px auto',
+        gridTemplateColumns: '1fr 200px 100px 160px',
         background: '#FAFAF8', borderBottom: '1px solid #EEECE6',
       }}>
         <p className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: '#9CA3AF' }}>Participante</p>
@@ -933,7 +941,7 @@ function TablaEmitidos({
             key={c.id}
             className="flex flex-col sm:grid sm:items-center px-5 py-3 gap-3 transition-colors"
             style={{
-              gridTemplateColumns: '1fr 200px 100px auto',
+              gridTemplateColumns: '1fr 200px 100px 160px',
               borderBottom: idx < pageItems.length - 1 ? '1px solid #F5F4F0' : undefined,
             }}
             onMouseEnter={e => (e.currentTarget.style.background = '#FAFAF8')}

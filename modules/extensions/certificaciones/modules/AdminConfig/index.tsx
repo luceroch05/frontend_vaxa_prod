@@ -4,6 +4,7 @@ import {
   Upload, Trash2, Loader2, ImageIcon, FileSignature,
   AlertCircle, Plus, X, Settings, CheckCircle, BookOpen,
   ChevronDown, ChevronUp, Search, Lock, Layers, Save,
+  ChevronLeft, ChevronRight,
 } from '@/components/ui/icon';
 import { useConfirm } from '../../shared/hooks/useConfirm';
 import { logosApi }  from '../../shared/api/logos.api';
@@ -204,20 +205,31 @@ function SeccionLogos({ empresa, onChanged }: { empresa: string; onChanged: () =
       {/* Grilla con altura limitada + scroll interno para que la sección no crezca de más */}
       {logos.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 overflow-y-auto pr-1" style={{ maxHeight: '20rem' }}>
-          {logosFiltrados.map(logo => (
-            <div key={logo.id} className="relative group rounded-xl overflow-hidden" style={{ border: '1px solid #EEECE6' }}>
+          {logosFiltrados.map(logo => {
+            const esDefault = !!logo.es_default;
+            return (
+            <div key={logo.id} className="relative group rounded-xl overflow-hidden" style={{ border: `1px solid ${esDefault ? '#A7F3D0' : '#EEECE6'}` }}>
               <img src={logo.imagen_logo} alt={logo.nombre ?? 'logo'} className="w-full h-20 object-contain p-2" style={{ background: '#FAFAF8' }} />
-              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                style={{ background: 'rgba(13,14,18,0.5)' }}>
-                <button onClick={() => handleDelete(logo.id)} className="p-1.5 rounded-lg" style={{ background: '#EF4444', color: '#fff' }}>
-                  <Trash2 size={12} />
-                </button>
-              </div>
+              {esDefault ? (
+                <span className="absolute top-1.5 left-1.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full"
+                  style={{ background: '#ECFDF5', color: '#047857', border: '1px solid #A7F3D0' }}
+                  title="Logo de la empresa: obligatorio en tu plan, no se puede eliminar">
+                  Obligatorio
+                </span>
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                  style={{ background: 'rgba(13,14,18,0.5)' }}>
+                  <button onClick={() => handleDelete(logo.id)} className="p-1.5 rounded-lg" style={{ background: '#EF4444', color: '#fff' }}>
+                    <Trash2 size={12} />
+                  </button>
+                </div>
+              )}
               {logo.nombre && (
                 <p className="text-[11px] px-2 py-1.5 truncate" style={{ color: '#9CA3AF', borderTop: '1px solid #F5F4F0' }}>{logo.nombre}</p>
               )}
             </div>
-          ))}
+            );
+          })}
           {logosFiltrados.length === 0 && (
             <p className="col-span-full text-center text-[13px] py-6" style={{ color: '#B0A898' }}>
               Sin resultados para “{busqueda}”
@@ -633,6 +645,11 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
 
   const grupoActivo = (progId: number) => grupoSelected[progId] ?? 0;
 
+  // Logo OBLIGATORIO de la empresa (planes Básico/Profesional): siempre va primero,
+  // no se puede quitar ni deseleccionar. El cliente agrega/ordena los suyos aparte.
+  const defaultLogo = logos.find(l => !!l.es_default) ?? null;
+  const defaultLogoId = defaultLogo?.id ?? null;
+
   /* Cargar config base (grupo_id=0) para cada programa, y lista de grupos con config propia */
   useEffect(() => {
     if (!programas.length) return;
@@ -682,21 +699,40 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
   };
 
   const toggleLogo = (progId: number, logoId: number) => {
+    if (logoId === defaultLogoId) return;   // el logo obligatorio no se quita ni se mueve
     const g = grupoActivo(progId);
     const c = cfg(progId, g);
+    // El default cuenta como 1 de los MAX_SEL. Solo cuentan logos que existen (sin fantasma).
+    const ocupados = c.logos.filter(id => id !== defaultLogoId && logos.some(l => l.id === id)).length + (defaultLogoId ? 1 : 0);
     if (c.logos.includes(logoId)) {
       setCfg(progId, g, { logos: c.logos.filter(id => id !== logoId) });
-    } else if (c.logos.length < MAX_SEL) {
+    } else if (ocupados < MAX_SEL) {
       setCfg(progId, g, { logos: [...c.logos, logoId] });
     }
+  };
+
+  /** Mueve un logo (incluido el obligatorio) una posición a la izq/der en el orden del cert. */
+  const moveLogo = (progId: number, logoId: number, dir: -1 | 1) => {
+    const g = grupoActivo(progId);
+    const c = cfg(progId, g);
+    const valid = c.logos.filter(id => logos.some(l => l.id === id));
+    const ordered = (defaultLogoId && !valid.includes(defaultLogoId)) ? [defaultLogoId, ...valid] : valid;
+    const i = ordered.indexOf(logoId);
+    const j = i + dir;
+    if (i < 0 || j < 0 || j >= ordered.length) return;
+    const next = [...ordered];
+    [next[i], next[j]] = [next[j], next[i]];
+    setCfg(progId, g, { logos: next });
   };
 
   const toggleFirma = (progId: number, firmaId: number) => {
     const g = grupoActivo(progId);
     const c = cfg(progId, g);
+    // Solo cuentan firmas que existen (ignora ids fantasma de firmas borradas).
+    const ocupadas = c.firmas.filter(id => firmas.some(f => f.id === id)).length;
     if (c.firmas.includes(firmaId)) {
       setCfg(progId, g, { firmas: c.firmas.filter(id => id !== firmaId) });
-    } else if (c.firmas.length < MAX_SEL) {
+    } else if (ocupadas < MAX_SEL) {
       setCfg(progId, g, { firmas: [...c.firmas, firmaId] });
     }
   };
@@ -717,11 +753,17 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
     const c = cfg(progId, g);
     setSaving(progId); setError(null); setSavedOk(null);
     try {
+      // Se guarda el ORDEN elegido (incluido dónde puso el obligatorio). Se limpian
+      // ids "fantasma" (logos/firmas borrados) y se garantiza que el default esté.
+      const validLogos = c.logos.filter(id => logos.some(l => l.id === id));
+      const logoIds = (defaultLogoId && !validLogos.includes(defaultLogoId))
+        ? [defaultLogoId, ...validLogos] : validLogos;
+      const firmaIds = c.firmas.filter(id => firmas.some(f => f.id === id));
       await configApi.upsert(empresa, progId, {
         plantilla_url:      c.plantilla_url || null,
         texto_personalizado: c.texto_personalizado || null,
-        logo_ids:  c.logos,
-        firma_ids: c.firmas,
+        logo_ids:  logoIds,
+        firma_ids: firmaIds,
         grupo_id:  g,
       });
       // Si guardamos para un grupo, refrescar lista de grupos con config
@@ -828,8 +870,17 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
         const g = grupoActivo(p.id);
         const c = cfg(p.id, g);
         const baseCfg = cfg(p.id, 0);                        // siempre referencia la del programa para los badges
-        const logosSel  = c.logos.length;
-        const firmasSel = c.firmas.length;
+        // Orden efectivo de logos: ids válidos (sin fantasma) con el obligatorio
+        // garantizado. Este array DEFINE el orden en el certificado (reordenable).
+        const validLogos = c.logos.filter(id => logos.some(l => l.id === id));
+        const orderedLogos = (defaultLogoId && !validLogos.includes(defaultLogoId))
+          ? [defaultLogoId, ...validLogos] : validLogos;
+        const clientLogos = orderedLogos.filter(id => id !== defaultLogoId);
+        const maxLogosCliente = MAX_SEL - (defaultLogo ? 1 : 0);
+        const logosSel  = clientLogos.length;     // solo lo que el cliente seleccionó
+        // Firmas que existen (ignora fantasma de firmas borradas).
+        const clientFirmas = c.firmas.filter(id => firmas.some(f => f.id === id));
+        const firmasSel = clientFirmas.length;
         const isExpanded = expandedId === p.id;
         const hasFondo   = !!baseCfg.plantilla_url;
         const hasTexto   = !!baseCfg.texto_personalizado?.trim();
@@ -837,8 +888,8 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
         const gruposProg = grupos.filter(gr => gr.programa_id === p.id);
         const gruposConCfgSet = gruposConCfg[p.id] ?? new Set();
         const grupoEsCustom = g !== 0 && gruposConCfgSet.has(g);
-        // Logos/firmas seleccionados (en orden) para la vista previa en vivo.
-        const selLogos  = c.logos.map(id => logos.find(l => l.id === id)).filter(Boolean) as Logo[];
+        // Logos/firmas seleccionados (en el orden definido) para la vista previa en vivo.
+        const selLogos  = orderedLogos.map(id => logos.find(l => l.id === id)).filter(Boolean) as Logo[];
         const selFirmas = c.firmas.map(id => firmas.find(f => f.id === id)).filter(Boolean) as Firma[];
 
         return (
@@ -866,7 +917,7 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
                   <span className="text-[11px]" style={{ color: '#9CA3AF' }}>{p.tipo_programa_nombre} · {p.horas_academicas}h</span>
                   {hasFondo  && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md" style={{ background: '#F0FDF4', color: '#15803D' }}>Fondo</span>}
                   {hasTexto  && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md" style={{ background: '#F5F3FF', color: '#7C3AED' }}>Texto</span>}
-                  {logosSel  > 0 && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md" style={{ background: '#EFF6FF', color: '#2563EB' }}>{logosSel} {logosSel === 1 ? 'logo' : 'logos'}</span>}
+                  {(logosSel + (defaultLogo ? 1 : 0)) > 0 && (() => { const t = logosSel + (defaultLogo ? 1 : 0); return <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md" style={{ background: '#EFF6FF', color: '#2563EB' }}>{t} {t === 1 ? 'logo' : 'logos'}</span>; })()}
                   {firmasSel > 0 && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md" style={{ background: '#FEF3C7', color: '#92400E' }}>{firmasSel} {firmasSel === 1 ? 'firma' : 'firmas'}</span>}
                   {totalConfig === 0 && <span className="text-[10px] italic" style={{ color: '#B0A898' }}>Sin configurar</span>}
                 </div>
@@ -1049,8 +1100,8 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
                   <p className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: '#374151' }}>
                     Logos
                   </p>
-                  <span className="text-[11px] font-medium" style={{ color: logosSel === MAX_SEL ? '#D97706' : '#9CA3AF' }}>
-                    {logosSel}/{MAX_SEL} seleccionados
+                  <span className="text-[11px] font-medium" style={{ color: logosSel >= maxLogosCliente ? '#D97706' : '#9CA3AF' }}>
+                    {logosSel}/{maxLogosCliente} seleccionados{defaultLogo ? ' · +1 obligatorio' : ''}
                   </span>
                 </div>
 
@@ -1075,37 +1126,84 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
                       {logos
                         .filter(l => !queryLogos || (l.nombre ?? '').toLowerCase().includes(queryLogos.toLowerCase()))
                         .map(logo => {
-                      const pos = c.logos.indexOf(logo.id) + 1; // 1-based, 0 = not selected
-                      const selected = pos > 0;
-                      const full = logosSel >= MAX_SEL && !selected;
+                      const esDef = !!logo.es_default;
+                      const selected = orderedLogos.includes(logo.id);
+                      const full = !esDef && logosSel >= maxLogosCliente && !selected;
                       return (
-                        <button
+                        <div
                           key={logo.id}
-                          type="button"
-                          onClick={() => !full && toggleLogo(p.id, logo.id)}
-                          disabled={full}
-                          className="relative rounded-xl overflow-hidden transition-all duration-150"
+                          onClick={() => { if (esDef || full) return; toggleLogo(p.id, logo.id); }}
+                          className="relative rounded-xl overflow-hidden transition-all duration-150 select-none"
                           style={{
-                            border: selected ? '2px solid #2563EB' : '1.5px solid #EEECE6',
+                            border: esDef ? '2px solid #10B981' : selected ? '2px solid #2563EB' : '1.5px solid #EEECE6',
                             opacity: full ? 0.4 : 1,
-                            cursor: full ? 'not-allowed' : 'pointer',
+                            cursor: esDef ? 'default' : full ? 'not-allowed' : 'pointer',
                           }}
-                          title={logo.nombre ?? undefined}
+                          title={esDef ? 'Logo de la empresa: obligatorio (no se puede quitar)' : (logo.nombre ?? undefined)}
                         >
-                          {selected && <PosicionBadge pos={pos} />}
+                          {selected && !esDef && (
+                            <span className="absolute top-1 left-1 z-10 w-4 h-4 rounded-full flex items-center justify-center text-[10px]"
+                              style={{ background: '#2563EB', color: '#fff' }}>✓</span>
+                          )}
+                          {esDef && (
+                            <span className="absolute top-1 right-1 z-10 text-[8px] font-bold px-1.5 py-0.5 rounded-full"
+                              style={{ background: '#ECFDF5', color: '#047857', border: '1px solid #A7F3D0' }}>
+                              Obligatorio
+                            </span>
+                          )}
                           <img src={logo.imagen_logo} alt={logo.nombre ?? 'logo'}
                             className="w-full h-16 object-contain p-1.5"
-                            style={{ background: selected ? '#EFF6FF' : '#FAFAF8' }} />
+                            style={{ background: esDef ? '#ECFDF5' : selected ? '#EFF6FF' : '#FAFAF8' }} />
                           {logo.nombre && (
                             <p className="text-[10px] px-1.5 py-1 truncate text-center"
-                              style={{ color: selected ? '#1D4ED8' : '#9CA3AF', borderTop: '1px solid #F5F4F0', background: selected ? '#EFF6FF' : '#fff' }}>
+                              style={{ color: esDef ? '#047857' : selected ? '#1D4ED8' : '#9CA3AF', borderTop: '1px solid #F5F4F0', background: esDef ? '#ECFDF5' : selected ? '#EFF6FF' : '#fff' }}>
                               {logo.nombre}
                             </p>
                           )}
-                        </button>
+                        </div>
                       );
                     })}
                     </div>
+
+                    {/* ── Orden en el certificado: tira con flechas SIEMPRE visibles ── */}
+                    {selLogos.length > 0 && (
+                      <div className="mt-3 rounded-xl p-3" style={{ background: '#FAFAF8', border: '1px solid #EEECE6' }}>
+                        <p className="text-[11px] font-semibold uppercase tracking-wider mb-2" style={{ color: '#374151' }}>
+                          Orden en el certificado
+                        </p>
+                        <div className="flex items-stretch gap-2 overflow-x-auto pb-1">
+                          {selLogos.map((logo, i) => {
+                            const esDef = !!logo.es_default;
+                            return (
+                              <div key={logo.id} className="flex-shrink-0 rounded-lg overflow-hidden" style={{ width: 96, background: '#fff', border: `1.5px solid ${esDef ? '#A7F3D0' : '#E5E7EB'}` }}>
+                                <div className="flex items-center justify-between px-1.5 py-1" style={{ background: esDef ? '#ECFDF5' : '#F8FAFC' }}>
+                                  <span className="text-[10px] font-bold" style={{ color: esDef ? '#047857' : '#475569' }}>#{i + 1}</span>
+                                  {esDef && <span className="text-[8px] font-bold" style={{ color: '#047857' }}>OBLIG.</span>}
+                                </div>
+                                <img src={logo.imagen_logo} alt={logo.nombre ?? 'logo'} className="w-full h-12 object-contain p-1" />
+                                <div className="flex items-center justify-between px-1 py-1" style={{ borderTop: '1px solid #F0EEE9' }}>
+                                  <button type="button" disabled={i === 0} onClick={() => moveLogo(p.id, logo.id, -1)}
+                                    className="w-6 h-6 rounded-md flex items-center justify-center"
+                                    style={{ border: '1px solid #E5E7EB', background: '#fff', opacity: i === 0 ? 0.3 : 1, cursor: i === 0 ? 'default' : 'pointer' }}
+                                    title="Mover a la izquierda">
+                                    <ChevronLeft size={14} style={{ color: '#374151' }} />
+                                  </button>
+                                  <button type="button" disabled={i === selLogos.length - 1} onClick={() => moveLogo(p.id, logo.id, 1)}
+                                    className="w-6 h-6 rounded-md flex items-center justify-center"
+                                    style={{ border: '1px solid #E5E7EB', background: '#fff', opacity: i === selLogos.length - 1 ? 0.3 : 1, cursor: i === selLogos.length - 1 ? 'default' : 'pointer' }}
+                                    title="Mover a la derecha">
+                                    <ChevronRight size={14} style={{ color: '#374151' }} />
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <p className="text-[10.5px] mt-1.5" style={{ color: '#9CA3AF' }}>
+                          Así saldrán de izquierda a derecha. Usa ◀ ▶ para moverlos (el obligatorio también).
+                        </p>
+                      </div>
+                    )}
                   </>
                 )}
               </div>
@@ -1145,7 +1243,7 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
                           f.cargo.toLowerCase().includes(queryFirmas.toLowerCase())
                         )
                         .map(firma => {
-                      const pos = c.firmas.indexOf(firma.id) + 1;
+                      const pos = clientFirmas.indexOf(firma.id) + 1;  // posición entre firmas existentes
                       const selected = pos > 0;
                       const full = firmasSel >= MAX_SEL && !selected;
                       return (

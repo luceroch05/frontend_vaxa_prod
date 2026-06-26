@@ -228,6 +228,7 @@ export interface Logo {
   empresa_id: number;
   nombre: string | null;
   imagen_logo: string;
+  es_default?: number | boolean;   // logo obligatorio de la empresa (no se elimina ni deselecciona)
   activo: number;
 }
 

@@ -143,7 +143,7 @@ export default function ImportarExcelModal({ empresa, aula, programaNombre, onCl
                 <span>
                   <span className="text-[13px] font-semibold" style={{ color: '#0D0E12' }}>Emitir el certificado al importar</span>
                   <span className="block text-[11.5px]" style={{ color: '#9CA3AF' }}>
-                    Gasta 1 de cupo por participante y requiere que el programa tenga diseño de certificado configurado.
+                    Gasta 1 crédito por participante y requiere que el programa tenga diseño de certificado configurado.
                     Si lo desmarcas, solo quedan inscritos.
                   </span>
                 </span>

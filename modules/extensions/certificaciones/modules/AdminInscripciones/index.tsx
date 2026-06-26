@@ -159,7 +159,7 @@ export default function AdminInscripciones() {
   const handleEliminar = async (i: Inscripcion) => {
     const ok = await confirm({
       title: 'Borrar inscripción',
-      message: `Se BORRARÁ la inscripción de ${i.participante_nombre}${i.nombre_grupo ? ` en ${i.nombre_grupo}` : ''} y sus notas. Si tiene certificado emitido, también se borrará y se te devolverá el cupo. Esta acción no se puede deshacer.`,
+      message: `Se BORRARÁ la inscripción de ${i.participante_nombre}${i.nombre_grupo ? ` en ${i.nombre_grupo}` : ''} y sus notas. Si tiene certificado emitido, también se borrará y se te devolverá el crédito. Esta acción no se puede deshacer.`,
       confirmText: 'Borrar definitivamente',
       variant: 'danger',
     });

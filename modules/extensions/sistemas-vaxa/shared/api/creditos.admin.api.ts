@@ -21,6 +21,7 @@ export interface EmpresaCreditos {
   creditos_disponibles: number;
   creditos_asignados_total: number;
   creditos_consumidos: number;
+  ilimitado?: boolean;      // plan ilimitado (Corporativo): saldo sin tope
 }
 
 export interface MovimientoCredito {
@@ -60,6 +61,8 @@ export interface CreditosSaldo {
   disponibles: number;
   asignados: number;
   consumidos: number;
+  recargados: number;   // total comprado aparte (recargas); el resto vino del plan
+  ilimitado: boolean;   // plan ilimitado (Corporativo): emite sin tope
 }
 
 export type EstadoCobranza = 'vigente' | 'por_vencer' | 'vencido';
@@ -105,6 +108,7 @@ export interface MarcarPagadoDto {
   comprobante_numero?: string;
   emitir_comprobante?: boolean; // emitir factura electrónica a SUNAT al registrar el pago
   renovar?: boolean;            // false en la primera venta (no extiende la vigencia ya otorgada)
+  registrar_pago?: boolean;     // false = SOLO renueva, no inserta pago (el pago lo registra "Nueva venta")
 }
 
 /** Una fila del historial de pagos. */
@@ -121,6 +125,7 @@ export interface PagoHist {
   cpe_id: number | null;          // comprobante electrónico vinculado
   cpe_numero: string | null;      // F001-3
   cpe_estado: string | null;      // ACEPTADO / RECHAZADO...
+  detalle: string | null;         // líneas facturadas: "Implementación · Mantenimiento…"
 }
 
 export interface UsuarioEmpresa {
@@ -231,10 +236,12 @@ export const creditosAdminApi = {
   asignarPlan: (empresaId: number, plan_id: number, ciclo_id: number) =>
     api.post<EstadoPlanEmpresa>(`/api/admin/empresas/${empresaId}/plan`, { plan_id, ciclo_id }, opts()),
 
-  /** Recarga `cantidad` certificados al mes en curso (cobro proporcional al plan). */
-  recargarCupo: (empresaId: number, cantidad: number) =>
+  /** Recarga `cantidad` créditos al saldo. `monto` opcional: precio total del paquete (con descuento). */
+  recargarCupo: (empresaId: number, cantidad: number, monto?: number) =>
     api.post<{ agregados: number; precio_unitario: number; monto: number }>(
-      `/api/admin/empresas/${empresaId}/recargar-cupo`, { cantidad }, opts(),
+      `/api/admin/empresas/${empresaId}/recargar-cupo`,
+      monto != null ? { cantidad, monto } : { cantidad },
+      opts(),
     ),
 
   /** Control de cobranza: todas las empresas con su vencimiento y semáforo. */

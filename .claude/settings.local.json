@@ -154,7 +154,9 @@
       "Bash(\"/c/Program Files/MySQL/MySQL Server 9.7/bin/mysql.exe\" -u root -padmin vaxa -e \"SHOW COLUMNS FROM empresas LIKE 'tipo_doc';\")",
       "Bash(tar -czf /c/Users/Lucero/Desktop/backend-dist.tar.gz dist)",
       "Bash(VITE_API_URL=https://vaxasys.com npm run build)",
-      "Bash(tar -czf /c/Users/Lucero/Desktop/frontend-dist.tar.gz dist)"
+      "Bash(tar -czf /c/Users/Lucero/Desktop/frontend-dist.tar.gz dist)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)"
     ],
     "deny": [],
     "ask": []

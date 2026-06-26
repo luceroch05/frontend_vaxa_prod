@@ -335,7 +335,8 @@ function EmitirModal({ empresas, onClose, onDone }: {
   const [precio, setPrecio] = useState('');
   const [meta, setMeta]     = useState<{ creditos?: number; renueva?: boolean }>({});
 
-  const [tipoComp, setTipoComp] = useState<'01' | '03' | 'NV'>('01');  // factura | boleta | nota de venta
+  // Por defecto Nota de venta (NV), NO factura — pedido del usuario.
+  const [tipoComp, setTipoComp] = useState<'01' | '03' | 'NV'>('NV');  // factura | boleta | nota de venta
   // Cliente: empresa registrada o persona con DNI (solo boleta/NV). Factura siempre empresa.
   const [clienteModo, setClienteModo] = useState<'empresa' | 'dni'>('empresa');
   const [docTipo, setDocTipo] = useState('1');   // cat.06: 1 DNI · 4 CE · 0 sin doc

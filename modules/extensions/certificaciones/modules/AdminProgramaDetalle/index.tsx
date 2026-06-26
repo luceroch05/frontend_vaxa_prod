@@ -157,7 +157,7 @@ export default function AdminProgramaDetalle() {
   const handleEliminarAula = async (g: Grupo) => {
     const ok = await confirm({
       title: 'Borrar aula',
-      message: `Se BORRARÁ "${g.nombre_grupo}" y sus inscripciones, notas y certificados emitidos (se devuelve el cupo). No se puede deshacer.`,
+      message: `Se BORRARÁ "${g.nombre_grupo}" y sus inscripciones, notas y certificados emitidos (se devuelven los créditos). No se puede deshacer.`,
       confirmText: 'Borrar definitivamente',
       variant: 'danger',
     });
@@ -170,7 +170,7 @@ export default function AdminProgramaDetalle() {
     if (!programa) return;
     const ok = await confirm({
       title: 'Borrar programa',
-      message: `Se BORRARÁ "${programa.nombre}" y todo lo suyo (aulas, inscripciones, notas y certificados emitidos; se devuelve el cupo). No se puede deshacer.`,
+      message: `Se BORRARÁ "${programa.nombre}" y todo lo suyo (aulas, inscripciones, notas y certificados emitidos; se devuelven los créditos). No se puede deshacer.`,
       confirmText: 'Borrar definitivamente',
       variant: 'danger',
     });

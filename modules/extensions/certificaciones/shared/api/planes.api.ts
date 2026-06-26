@@ -41,6 +41,15 @@ export interface ConsumoMes {
 
 export type EstadoCobranza = 'vigente' | 'por_vencer' | 'vencido';
 
+/** Saldo de créditos de la empresa (modelo créditos + mantenimiento). */
+export interface CreditosSaldo {
+  disponibles: number;   // saldo actual para emitir (cada certificado consume 1)
+  asignados: number;     // total histórico asignado (incluidos del plan + recargas)
+  consumidos: number;    // asignados − disponibles
+  recargados: number;    // total comprado aparte (recargas); el resto vino del plan
+  ilimitado: boolean;    // plan ilimitado (Corporativo): emite sin tope, no se bloquea
+}
+
 export interface EstadoPlan {
   plan: Plan | null;
   suscripcion: {
@@ -53,8 +62,27 @@ export interface EstadoPlan {
     dias_para_vencer: number;      // días hasta el vencimiento (negativo si ya venció)
     estado_cobranza: EstadoCobranza;
   } | null;
-  consumo: ConsumoMes;
+  consumo: ConsumoMes;             // (modelo viejo de cupo mensual; informativo)
+  creditos: CreditosSaldo;         // saldo real que controla la emisión
 }
+
+/** Un movimiento del saldo de créditos (ledger). */
+export interface MovimientoCredito {
+  id: number;
+  tipo: 'asignacion' | 'recarga' | 'consumo' | 'devolucion' | 'ajuste';
+  cantidad: number;              // +N suma al saldo, −N lo descuenta
+  saldo_resultante: number;      // saldo después del movimiento
+  certificado_id: number | null;
+  descripcion: string | null;
+  created_at: string;
+}
+
+/** Paquetes de recarga (precios reales; la compra es manual: el cliente contacta a Vaxa). */
+export const PAQUETES_CREDITOS = [
+  { creditos: 100, precio: 270 },
+  { creditos: 300, precio: 750 },
+  { creditos: 700, precio: 1500 },
+] as const;
 
 export const planesApi = {
   /** Catálogo de planes disponibles. */
@@ -64,4 +92,8 @@ export const planesApi = {
   /** Plan vigente + consumo del mes de la empresa. */
   estado: (empresa: string) =>
     api.get<EstadoPlan>('/api/certificados/planes/estado', opts(empresa)),
+
+  /** Historial de movimientos de créditos (más recientes primero). */
+  movimientos: (empresa: string, limit = 50) =>
+    api.get<MovimientoCredito[]>(`/api/certificados/creditos/movimientos?limit=${limit}`, opts(empresa)),
 };

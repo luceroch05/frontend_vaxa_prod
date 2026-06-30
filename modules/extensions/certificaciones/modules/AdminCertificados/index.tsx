@@ -11,6 +11,7 @@ import { useGrupos }        from '../../shared/hooks/useGrupos';
 import { usePagination }    from '../../shared/hooks/usePagination';
 import { useConfirm }        from '../../shared/hooks/useConfirm';
 import { usePlan }           from '../../shared/hooks/usePlan';
+import { useEsAdmin }        from '../../shared/hooks/useEsAdmin';
 import Pagination from '../../shared/components/Pagination';
 import { configApi } from '../../shared/api/config.api';
 import { certificadosApi } from '../../shared/api/certificados.api';
@@ -76,6 +77,7 @@ export default function AdminCertificados() {
   const confirm = useConfirm();
   const navigate = useNavigate();
   const { certificados, loading, error, generarLote, anular, eliminar } = useCertificados(empresa!);
+  const esAdmin = useEsAdmin();   // ADMISION no puede anular ni eliminar certificados
   const { estado: planEstado, refetch: refrescarPlan } = usePlan();
   const planIlimitado = !!planEstado?.creditos?.ilimitado;
 
@@ -513,12 +515,13 @@ export default function AdminCertificados() {
           apiBase={apiBase}
           onVerPDF={handleVerPDF}
           onAnular={handleAnular}
+          esAdmin={esAdmin}
         />
       )}
 
       {/* ═══════════ TAB: ANULADOS ═══════════ */}
       {!loading && tab === 'anulados' && (
-        <TablaAnulados items={anuladosFiltrados} eliminando={eliminando} onEliminar={handleEliminar} />
+        <TablaAnulados items={anuladosFiltrados} eliminando={eliminando} onEliminar={handleEliminar} esAdmin={esAdmin} />
       )}
 
       {/* ── Preview PDF ──────────────────────────────────────── */}
@@ -910,6 +913,7 @@ function TablaEmitidos({
   apiBase,
   onVerPDF,
   onAnular,
+  esAdmin,
 }: {
   items: Certificado[];
   anulando: number | null;
@@ -917,6 +921,7 @@ function TablaEmitidos({
   apiBase: string;
   onVerPDF: (c: Certificado) => void;
   onAnular: (id: number) => void;
+  esAdmin: boolean;
 }) {
   const { page, setPage, totalPages, pageItems, startIndex, endIndex, total } =
     usePagination(items, 15);
@@ -1010,7 +1015,8 @@ function TablaEmitidos({
                 </a>
               )}
 
-              {/* Anular */}
+              {/* Anular — solo ADMINISTRADOR */}
+              {esAdmin && (
               <button
                 onClick={() => onAnular(c.id)}
                 disabled={anulando === c.id}
@@ -1020,6 +1026,7 @@ function TablaEmitidos({
               >
                 {anulando === c.id ? <Loader2 size={12} className="animate-spin" /> : <Ban size={12} />}
               </button>
+              )}
             </div>
           </div>
         ))}
@@ -1042,11 +1049,12 @@ function TablaEmitidos({
 
 /* ── Anulados ──────────────────────────────────────────────── */
 function TablaAnulados({
-  items, eliminando, onEliminar,
+  items, eliminando, onEliminar, esAdmin,
 }: {
   items: Certificado[];
   eliminando: number | null;
   onEliminar: (id: number) => void;
+  esAdmin: boolean;
 }) {
   const { page, setPage, totalPages, pageItems, startIndex, endIndex, total } =
     usePagination(items, 15);
@@ -1082,6 +1090,7 @@ function TablaAnulados({
               style={{ background: '#FEF2F2', color: '#B91C1C', border: '1px solid #FECACA' }}>
               {c.estado_nombre}
             </span>
+            {esAdmin && (
             <button
               onClick={() => onEliminar(c.id)}
               disabled={eliminando === c.id}
@@ -1092,6 +1101,7 @@ function TablaAnulados({
               {eliminando === c.id ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
               Eliminar
             </button>
+            )}
           </div>
         ))}
       </div>

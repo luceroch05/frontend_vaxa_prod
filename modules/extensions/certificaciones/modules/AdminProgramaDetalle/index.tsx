@@ -8,6 +8,7 @@ import { useProgramas } from '../../shared/hooks/useProgramas';
 import { useGrupos }    from '../../shared/hooks/useGrupos';
 import { useConfirm }   from '../../shared/hooks/useConfirm';
 import { usePlan }      from '../../shared/hooks/usePlan';
+import { useEsAdmin }   from '../../shared/hooks/useEsAdmin';
 import GrupoForm, { DIAS_CORTO } from '../../shared/components/GrupoForm';
 import UnidadesEditor from '../../shared/components/UnidadesEditor';
 import CopyLinkButton from '../../shared/components/CopyLinkButton';
@@ -33,7 +34,7 @@ function fmtHorario(g: { dias_semana?: string | null; hora_inicio?: string | nul
 }
 
 /* ── Fila de aula ───────────────────────────────────────────────── */
-function AulaRow({ aula, empresa, puedeImportar, onVerInscritos, onImportar, onToggleActivo, onEliminar, isLast }: { aula: Grupo; empresa: string; puedeImportar: boolean; onVerInscritos: (g: Grupo) => void; onImportar: (g: Grupo) => void; onToggleActivo: (g: Grupo) => void; onEliminar: (g: Grupo) => void; isLast: boolean }) {
+function AulaRow({ aula, empresa, puedeImportar, esAdmin, onVerInscritos, onImportar, onToggleActivo, onEliminar, isLast }: { aula: Grupo; empresa: string; puedeImportar: boolean; esAdmin: boolean; onVerInscritos: (g: Grupo) => void; onImportar: (g: Grupo) => void; onToggleActivo: (g: Grupo) => void; onEliminar: (g: Grupo) => void; isLast: boolean }) {
   return (
     <div
       className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-4 transition-colors"
@@ -96,7 +97,9 @@ function AulaRow({ aula, empresa, puedeImportar, onVerInscritos, onImportar, onT
             <FileSpreadsheet size={12} /> Importar
           </button>
         )}
-        {/* Archivar / reactivar aula (soft-delete) */}
+        {/* Archivar / reactivar / borrar aula — solo ADMINISTRADOR */}
+        {esAdmin && (
+        <>
         <button
           onClick={() => onToggleActivo(aula)}
           className="flex items-center justify-center w-8 h-8 rounded-xl transition-all flex-shrink-0"
@@ -107,7 +110,6 @@ function AulaRow({ aula, empresa, puedeImportar, onVerInscritos, onImportar, onT
         >
           {aula.activo ? <Ban size={13} /> : <RefreshCw size={13} />}
         </button>
-        {/* Borrar aula */}
         <button
           onClick={() => onEliminar(aula)}
           className="flex items-center justify-center w-8 h-8 rounded-xl transition-all flex-shrink-0"
@@ -116,6 +118,8 @@ function AulaRow({ aula, empresa, puedeImportar, onVerInscritos, onImportar, onT
         >
           <Trash2 size={13} />
         </button>
+        </>
+        )}
       </div>
     </div>
   );
@@ -133,6 +137,8 @@ export default function AdminProgramaDetalle() {
   const { estado } = usePlan();
   // La importación por Excel es función de plan (Profesional o superior).
   const puedeImportar = !!estado?.plan?.permite_carga_masiva;
+  // ADMISION no puede editar/archivar/eliminar programas ni aulas.
+  const esAdmin = useEsAdmin();
 
   const [tab,       setTab]       = useState<'aulas' | 'evaluacion'>('aulas');
   const [showForm,  setShowForm]  = useState(false);
@@ -280,7 +286,9 @@ export default function AdminProgramaDetalle() {
           )}
         </div>
 
-        {/* Archivar / reactivar el programa (soft-delete) */}
+        {/* Archivar / reactivar / borrar el programa — solo ADMINISTRADOR */}
+        {esAdmin && (
+        <>
         <button
           onClick={handleTogglePrograma}
           className="flex items-center gap-1.5 text-[12px] font-semibold px-3 py-2 rounded-xl flex-shrink-0 transition-all"
@@ -300,6 +308,8 @@ export default function AdminProgramaDetalle() {
         >
           <Trash2 size={13} /> Borrar
         </button>
+        </>
+        )}
       </div>
 
       {/* Compartir: links listos para mandar al cliente/alumno */}
@@ -392,7 +402,7 @@ export default function AdminProgramaDetalle() {
           {!gruposLoading && aulas.length > 0 && (
             <div className="bg-white rounded-2xl overflow-hidden" style={{ border: '1px solid #EEECE6' }}>
               {aulas.map((a, i) => (
-                <AulaRow key={a.id} aula={a} empresa={empresa!} puedeImportar={puedeImportar} onVerInscritos={handleVerInscritos} onImportar={setImportAula} onToggleActivo={handleToggleAula} onEliminar={handleEliminarAula} isLast={i === aulas.length - 1} />
+                <AulaRow key={a.id} aula={a} empresa={empresa!} puedeImportar={puedeImportar} esAdmin={esAdmin} onVerInscritos={handleVerInscritos} onImportar={setImportAula} onToggleActivo={handleToggleAula} onEliminar={handleEliminarAula} isLast={i === aulas.length - 1} />
               ))}
             </div>
           )}

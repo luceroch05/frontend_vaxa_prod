@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useParams } from 'react-router-dom';
 import { Plus, Search, X, Loader2, UserPlus, CheckCircle, AlertCircle, Users, Trash2, Pencil } from '@/components/ui/icon';
 import { useConfirm } from '../../shared/hooks/useConfirm';
+import { useEsAdmin } from '../../shared/hooks/useEsAdmin';
 import { participantesApi } from '../../shared/api/participantes.api';
 import { inscripcionesApi } from '../../shared/api/inscripciones.api';
 import { useCatalogos } from '../../shared/hooks/useCatalogos';
@@ -348,6 +349,7 @@ function EditarModal({ empresa, participante, onClose, onDone }: {
 /* ── Page ───────────────────────────────────────────────────── */
 export default function AdminEstudiantes() {
   const { empresa } = useParams<{ empresa: string }>();
+  const esAdmin = useEsAdmin();   // ADMISION puede editar pero no eliminar estudiantes
   const [participantes, setParticipantes] = useState<Participante[]>([]);
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState<string | null>(null);
@@ -453,6 +455,7 @@ export default function AdminEstudiantes() {
                 >
                   <Pencil size={12} /> Editar
                 </button>
+                {esAdmin && (
                 <button
                   onClick={() => handleEliminar(p)}
                   className="flex items-center justify-center w-8 h-8 rounded-lg transition-all"
@@ -461,6 +464,7 @@ export default function AdminEstudiantes() {
                 >
                   <Trash2 size={12} />
                 </button>
+                )}
               </div>
             </div>
           ))}

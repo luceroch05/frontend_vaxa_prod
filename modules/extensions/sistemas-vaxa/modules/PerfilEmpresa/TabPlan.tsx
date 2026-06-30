@@ -183,7 +183,7 @@ export default function TabPlan({ empresa, onChange }: TabPlanProps) {
       await cargarMovs();
       setRecarga('');
       setPaqueteSel(null);
-      setOkMsg(`Se agregaron ${r.agregados} créditos · se cobrará ${sol(r.monto)}`);
+      setOkMsg(`Se agregaron ${r.agregados} créditos al saldo (valor ref. ${sol(r.monto)}). El cobro se registra aparte en "Nueva venta".`);
       onChange?.();
       setTimeout(() => setOkMsg(null), 3500);
     } catch (e) { setError((e as Error).message); }
@@ -426,7 +426,7 @@ export default function TabPlan({ empresa, onChange }: TabPlanProps) {
               />
             </div>
             <div className="rounded-xl px-4 py-2.5" style={{ background: '#FAFAF8', border: '1px solid #EEECE6' }}>
-              <p className="text-[10.5px] font-semibold uppercase tracking-wider" style={{ color: '#B0A898' }}>Total a cobrar</p>
+              <p className="text-[10.5px] font-semibold uppercase tracking-wider" style={{ color: '#B0A898' }}>Valor referencial</p>
               <p className="text-[18px] font-bold tabular-nums" style={{ color: puedeRecargar ? '#059669' : '#9CA3AF' }}>
                 {sol(recargaMonto)}
               </p>
@@ -659,6 +659,9 @@ function NuevaVentaModal({ empresa, plan, ciclo, onClose, onDone }: {
     { id: 'p100', label: 'Paquete 100 créditos', precio: 270, creditos: 100 },
     { id: 'p300', label: 'Paquete 300 créditos', precio: 750, creditos: 300 },
     { id: 'p700', label: 'Paquete 700 créditos', precio: 1500, creditos: 700 },
+    // Usuarios adicionales (Tarifario 2026): S/50 activación única + S/5/mes.
+    { id: 'usr-act', label: 'Activación usuario adicional', precio: 50 },
+    { id: 'usr-mant', label: `Mantenimiento usuario adicional (${ciclo})`, precio: Math.round(5 * meses * 100) / 100 },
   ];
 
   const [lineas, setLineas] = useState<LineaVenta[]>([]);

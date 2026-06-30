@@ -4,16 +4,21 @@ import { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Plus, User, Mail, Loader2, AlertCircle, X, Edit, Trash2 } from '@/components/ui/icon';
 import {
-  creditosAdminApi, type EmpresaCreditos, type UsuarioEmpresa, type Rol,
+  creditosAdminApi, type EmpresaCreditos, type UsuarioEmpresa, type Rol, type EstadoPlanEmpresa,
 } from '../../shared/api/creditos.admin.api';
 
 interface TabUsuariosProps { empresa: EmpresaCreditos; }
 
 const VACIO = { nombres: '', apellidos: '', correo: '', contrasena: '', rol_id: '' as number | '', activo: true };
 
+/** Precio del usuario adicional (Tarifario 2026): S/50 activación única + S/5/mes. */
+const USUARIO_EXTRA = { activacion: 50, mensual: 5 };
+const sol = (n: number) => `S/ ${n.toFixed(2)}`;
+
 export default function TabUsuarios({ empresa }: TabUsuariosProps) {
   const [usuarios, setUsuarios] = useState<UsuarioEmpresa[] | null>(null);
   const [roles, setRoles] = useState<Rol[]>([]);
+  const [estado, setEstado] = useState<EstadoPlanEmpresa | null>(null);   // plan vigente (usuarios incluidos)
   const [error, setError] = useState<string | null>(null);
 
   // null = cerrado · 'nuevo' = crear · number = editar ese usuario
@@ -28,11 +33,12 @@ export default function TabUsuarios({ empresa }: TabUsuariosProps) {
   const cargar = useCallback(async () => {
     setError(null);
     try {
-      const [us, rs] = await Promise.all([
+      const [us, rs, est] = await Promise.all([
         creditosAdminApi.listUsuarios(empresa.id, 'certificaciones'),
         creditosAdminApi.listRoles(),
+        creditosAdminApi.getPlanEmpresa(empresa.id).catch(() => null),
       ]);
-      setUsuarios(us); setRoles(rs);
+      setUsuarios(us); setRoles(rs); setEstado(est);
     } catch (e) { setError((e as Error).message); }
   }, [empresa.id]);
 
@@ -108,6 +114,15 @@ export default function TabUsuarios({ empresa }: TabUsuariosProps) {
     finally { setDeleting(false); }
   };
 
+  // ── Cupo de usuarios según el plan vigente ──────────────────
+  const plan = estado?.plan ?? null;
+  const incluidos = plan?.usuarios_incluidos ?? null;      // 0 = ilimitado
+  const ilimitadoU = incluidos === 0;
+  const enUso = usuarios?.length ?? 0;
+  const adicionales = (incluidos != null && !ilimitadoU) ? Math.max(enUso - incluidos, 0) : 0;
+  // Crear uno más sería ADICIONAL (cobra S/50 + S/5/mes) si ya se llenó el cupo del plan.
+  const creandoSeraAdicional = incluidos != null && !ilimitadoU && enUso >= incluidos;
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -119,6 +134,32 @@ export default function TabUsuarios({ empresa }: TabUsuariosProps) {
           <Plus className="w-4 h-4" /> Agregar usuario
         </button>
       </div>
+
+      {/* Cupo de usuarios del plan + precio del usuario adicional */}
+      {plan && (
+        <div className="rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4" style={{ background: '#fff', border: '1px solid #EEECE6' }}>
+          <div className="flex items-center gap-5 flex-wrap">
+            <div>
+              <p className="text-[10.5px] font-semibold uppercase tracking-wider" style={{ color: '#B0A898' }}>Plan</p>
+              <p className="text-[14px] font-bold" style={{ color: '#0D0E12' }}>{plan.nombre}</p>
+            </div>
+            <div>
+              <p className="text-[10.5px] font-semibold uppercase tracking-wider" style={{ color: '#B0A898' }}>Usuarios incluidos</p>
+              <p className="text-[14px] font-bold" style={{ color: '#0D0E12' }}>{ilimitadoU ? 'Ilimitados' : incluidos}</p>
+            </div>
+            <div>
+              <p className="text-[10.5px] font-semibold uppercase tracking-wider" style={{ color: '#B0A898' }}>En uso</p>
+              <p className="text-[14px] font-bold tabular-nums" style={{ color: adicionales > 0 ? '#B45309' : '#0D0E12' }}>
+                {enUso}{!ilimitadoU && adicionales > 0 && <span className="text-[11px] font-semibold"> · {adicionales} adicional{adicionales === 1 ? '' : 'es'}</span>}
+              </p>
+            </div>
+          </div>
+          <div className="text-right">
+            <p className="text-[10.5px] font-semibold uppercase tracking-wider" style={{ color: '#B0A898' }}>Usuario adicional</p>
+            <p className="text-[12.5px] font-semibold" style={{ color: '#0D7C66' }}>{sol(USUARIO_EXTRA.activacion)} activación · {sol(USUARIO_EXTRA.mensual)}/mes</p>
+          </div>
+        </div>
+      )}
 
       {error && modal === null && (
         <div className="px-4 py-3 rounded-xl flex items-center gap-2.5 text-[13px]" style={{ background: '#FEF2F2', border: '1px solid #FECACA', color: '#B91C1C' }}>
@@ -180,6 +221,11 @@ export default function TabUsuarios({ empresa }: TabUsuariosProps) {
               <button onClick={cerrar} className="p-1 rounded-lg transition-colors hover:bg-gray-100" style={{ color: '#B0A898' }}><X className="w-4 h-4" /></button>
             </div>
             <form onSubmit={guardar} className="space-y-3">
+              {!editando && creandoSeraAdicional && (
+                <div className="px-3 py-2.5 rounded-xl text-[12px]" style={{ background: '#FFFBEB', border: '1px solid #FDE68A', color: '#92400E' }}>
+                  Este será un <b>usuario adicional</b> (el plan {plan?.nombre} incluye {incluidos}). Se cobra <b>{sol(USUARIO_EXTRA.activacion)} de activación</b> + <b>{sol(USUARIO_EXTRA.mensual)}/mes</b>. Regístralo en <b>Nueva venta</b>.
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-3">
                 <input value={form.nombres} onChange={(e) => set('nombres', e.target.value)} placeholder="Nombres" required className="sv-input" />
                 <input value={form.apellidos} onChange={(e) => set('apellidos', e.target.value)} placeholder="Apellidos" required className="sv-input" />

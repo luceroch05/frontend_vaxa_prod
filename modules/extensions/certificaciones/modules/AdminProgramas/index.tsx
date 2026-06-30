@@ -4,6 +4,7 @@ import { Plus, BookOpen, Loader2, X, AlertCircle, ChevronRight, Ban, RefreshCw, 
 import { useProgramas }  from '../../shared/hooks/useProgramas';
 import { useCatalogos }  from '../../shared/hooks/useCatalogos';
 import { useConfirm }    from '../../shared/hooks/useConfirm';
+import { useEsAdmin }    from '../../shared/hooks/useEsAdmin';
 import { usePagination } from '../../shared/hooks/usePagination';
 import Pagination from '../../shared/components/Pagination';
 import type { CreateProgramaDto } from '../../shared/types';
@@ -152,6 +153,7 @@ function ProgramaForm({
 export default function AdminProgramas() {
   const { empresa } = useParams<{ empresa: string }>();
   const navigate    = useNavigate();
+  const esAdmin = useEsAdmin();   // ADMISION no puede archivar/eliminar programas
   const { programas, loading, error, create, setActivo, eliminar } = useProgramas(empresa!, true);
   const confirm = useConfirm();
   const [showForm,   setShowForm]  = useState(false);
@@ -350,8 +352,10 @@ export default function AdminProgramas() {
                 </span>
               </div>
 
-              {/* Acciones: archivar/reactivar + entrar */}
+              {/* Acciones: archivar/reactivar + entrar (programa: solo ADMINISTRADOR) */}
               <div className="flex items-center gap-2 justify-end mt-2 sm:mt-0" onClick={e => e.stopPropagation()}>
+                {esAdmin && (
+                <>
                 <button
                   onClick={() => toggleActivo(p)}
                   className="flex items-center gap-1.5 text-[12px] font-semibold px-2.5 py-1.5 rounded-lg transition-all"
@@ -371,6 +375,8 @@ export default function AdminProgramas() {
                 >
                   <Trash2 size={12} />
                 </button>
+                </>
+                )}
                 <ChevronRight size={16} className="hidden sm:block" style={{ color: '#9CA3AF' }} />
               </div>
             </div>

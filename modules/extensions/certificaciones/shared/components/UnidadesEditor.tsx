@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Plus, Loader2, AlertCircle, Save, Trash2 } from '@/components/ui/icon';
 import { useConfirm }  from '../hooks/useConfirm';
+import { useEsAdmin }  from '../hooks/useEsAdmin';
 import { unidadesApi } from '../api/unidades.api';
 import type { CreateProgramaDto, Programa, Unidad } from '../types';
 
@@ -17,6 +18,7 @@ export default function UnidadesEditor({
   onSaveProg: (id: number, data: Partial<CreateProgramaDto>) => Promise<unknown>;
 }) {
   const confirm = useConfirm();
+  const esAdmin = useEsAdmin();   // ADMISION puede crear/editar unidades, no eliminarlas
   const [unidades, setUnidades] = useState<Unidad[]>([]);
   const [loading,  setLoading]  = useState(true);
   const [label,    setLabel]    = useState(programa.unidad_label || 'Unidad');
@@ -123,9 +125,11 @@ export default function UnidadesEditor({
               <span className="w-5 h-5 rounded-md flex items-center justify-center text-[11px] font-bold flex-shrink-0"
                 style={{ background: '#F3F0FF', color: '#7C3AED' }}>{i + 1}</span>
               <p className="flex-1 text-[13px] truncate" style={{ color: '#0D0E12' }}>{u.nombre}</p>
+              {esAdmin && (
               <button onClick={() => eliminar(u)} className="p-1 rounded-lg transition-colors hover:bg-red-50" style={{ color: '#C8C3BB' }}>
                 <Trash2 size={13} />
               </button>
+              )}
             </div>
           ))}
         </div>

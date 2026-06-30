@@ -8,6 +8,7 @@ import { useInscripciones } from '../../shared/hooks/useInscripciones';
 import { useGrupos }        from '../../shared/hooks/useGrupos';
 import { usePagination }    from '../../shared/hooks/usePagination';
 import { useConfirm }       from '../../shared/hooks/useConfirm';
+import { useEsAdmin }       from '../../shared/hooks/useEsAdmin';
 import { unidadesApi }      from '../../shared/api/unidades.api';
 import Pagination from '../../shared/components/Pagination';
 import NotasGrupo from './NotasGrupo';
@@ -36,13 +37,14 @@ function EstadoBadge({ estadoId }: { estadoId: number }) {
 }
 
 /* ── Inscripcion row ────────────────────────────────────────── */
-function InscripcionRow({ inscripcion, onCambiarEstado, onEliminar, isLast, tieneUnidades }: {
+function InscripcionRow({ inscripcion, onCambiarEstado, onEliminar, isLast, tieneUnidades, esAdmin }: {
   inscripcion: Inscripcion;
   onCambiarEstado: (id: number, estado: number) => void;
   onEliminar: (i: Inscripcion) => void;
   isLast: boolean;
   /** true: programa con unidades (aprobación por notas) · false: sin unidades (manual) · null: desconocido */
   tieneUnidades: boolean | null;
+  esAdmin: boolean;
 }) {
   const [rowLoading, setRowLoading] = useState(false);
 
@@ -103,6 +105,7 @@ function InscripcionRow({ inscripcion, onCambiarEstado, onEliminar, isLast, tien
             ))}
           </select>
           {rowLoading && <Loader2 size={13} className="animate-spin" style={{ color: '#9CA3AF' }} />}
+          {esAdmin && (
           <button
             onClick={() => onEliminar(inscripcion)}
             disabled={rowLoading}
@@ -112,6 +115,7 @@ function InscripcionRow({ inscripcion, onCambiarEstado, onEliminar, isLast, tien
           >
             <Trash2 size={13} />
           </button>
+          )}
         </div>
       </div>
     </div>
@@ -121,6 +125,7 @@ function InscripcionRow({ inscripcion, onCambiarEstado, onEliminar, isLast, tien
 /* ── Page ───────────────────────────────────────────────────── */
 export default function AdminInscripciones() {
   const { empresa }      = useParams<{ empresa: string }>();
+  const esAdmin = useEsAdmin();   // ADMISION no puede eliminar inscripciones
   const navigate         = useNavigate();
   const [searchParams]   = useSearchParams();
 
@@ -407,6 +412,7 @@ export default function AdminInscripciones() {
               onEliminar={handleEliminar}
               isLast={idx === pageItems.length - 1}
               tieneUnidades={tieneUnidades}
+              esAdmin={esAdmin}
             />
           ))}
         </div>

@@ -3,7 +3,7 @@ import { NavLink, Outlet, useNavigate, useParams, useLocation } from 'react-rout
 import {
   LayoutDashboard, BookOpen, ClipboardList, FileBadge,
   Settings, LogOut, Menu, X, GraduationCap, Globe, Users, CreditCard,
-  MessageCircle, Mail, Shield,
+  MessageCircle, Mail, Shield, BarChart3,
 } from '@/components/ui/icon';
 import type { ComponentType } from 'react';
 
@@ -65,6 +65,7 @@ const PAGE_LABELS: Record<string, string> = {
   inscripciones: 'Inscripciones',
   certificados:  'Certificados',
   plan:          'Mi plan',
+  reportes:      'Reportes',
   auditoria:     'Auditoría',
   config:        'Configuración',
 };
@@ -93,6 +94,14 @@ function NavItem({ to, label, Icon, end, onNavigate }: {
       )}
     </NavLink>
   );
+}
+
+/** Entrada "Reportes": solo ADMINISTRADOR y planes con métricas (Profesional+). */
+function ReportesNavLink({ base, empresa, onNavigate }: { base: string; empresa: string; onNavigate: () => void }) {
+  const { estado } = usePlan();
+  const esAdmin = String(authStorage.getUser(empresa)?.rol ?? '').toUpperCase() === 'ADMINISTRADOR';
+  if (!esAdmin || !estado?.plan?.permite_metricas) return null;
+  return <NavItem to={`${base}/reportes`} label="Reportes" Icon={BarChart3} onNavigate={onNavigate} />;
 }
 
 /** Entrada "Auditoría": solo visible para el Admin de la empresa y planes Profesional+. */
@@ -232,6 +241,8 @@ export default function AdminLayout() {
             onNavigate={() => setOpen(false)}
           />
         ))}
+        {/* Reportes: solo Admin en planes Profesional+ */}
+        <ReportesNavLink base={base} empresa={empresa!} onNavigate={() => setOpen(false)} />
         {/* Auditoría: visible solo para Admin en planes Profesional+ */}
         <AuditoriaNavLink base={base} empresa={empresa!} onNavigate={() => setOpen(false)} />
 

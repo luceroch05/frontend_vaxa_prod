@@ -1,6 +1,6 @@
 import { useState, FormEvent } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
-import { Search, Loader2, BadgeCheck, XCircle, QrCode } from '@/components/ui/icon';
+import { Search, Loader2, BadgeCheck, XCircle, QrCode, Download } from '@/components/ui/icon';
 import { useValidarCertificado } from '../../shared/hooks/useCertificados';
 import BrandRow from '../../shared/components/BrandRow';
 import BrandAside from '../../shared/components/BrandAside';
@@ -28,6 +28,7 @@ export default function PublicValidar() {
   const [searchParams]   = useSearchParams();
   const { resultado, loading, error, buscado, validar } = useValidarCertificado();
   const [codigo, setCodigo] = useState(searchParams.get('codigo') ?? '');
+  const [descargando, setDescargando] = useState(false);
 
   useState(() => {
     const c = searchParams.get('codigo');
@@ -37,6 +38,36 @@ export default function PublicValidar() {
   const handleSubmit = (e: FormEvent) => { e.preventDefault(); if (empresa) validar(empresa, codigo); };
 
   const valid = resultado && (resultado.estado === 'EMITIDO' || resultado.estado === 'VIGENTE');
+
+  // URL absoluta del PDF del certificado (para el botón de descarga).
+  const apiBase = (import.meta.env.VITE_API_URL as string) || 'http://localhost:4000';
+  const pdfUrl = resultado?.url
+    ? (/^https?:\/\//.test(resultado.url) ? resultado.url : `${apiBase}${resultado.url.startsWith('/') ? '' : '/'}${resultado.url}`)
+    : null;
+
+  // Fuerza la DESCARGA del PDF (lo baja como archivo, no lo abre en el visor).
+  const descargarCertificado = async () => {
+    if (!pdfUrl || !resultado) return;
+    setDescargando(true);
+    try {
+      const res = await fetch(pdfUrl);
+      if (!res.ok) throw new Error('No disponible');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `certificado-${resultado.codigo_unico}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      // Si falla la descarga directa (CORS/red), al menos abrirlo en otra pestaña.
+      window.open(pdfUrl, '_blank');
+    } finally {
+      setDescargando(false);
+    }
+  };
 
   return (
     <div className="min-h-screen px-4 sm:px-6 py-8 sm:py-10 flex items-start lg:items-center justify-center" style={PAGE}>
@@ -160,6 +191,20 @@ export default function PublicValidar() {
                     <p className="text-[10px] font-semibold uppercase tracking-widest mb-1" style={{ color: '#B0A898' }}>Código único</p>
                     <p className="text-[12px] font-mono break-all" style={{ color: '#374151' }}>{resultado.codigo_unico}</p>
                   </div>
+
+                  {/* Descargar el certificado (solo si es válido y tiene PDF) */}
+                  {valid && pdfUrl && (
+                    <button
+                      type="button"
+                      onClick={descargarCertificado}
+                      disabled={descargando}
+                      className="mt-1 flex items-center justify-center gap-2 w-full rounded-2xl py-3 text-[13px] font-semibold transition-opacity hover:opacity-90 disabled:opacity-60"
+                      style={{ background: '#0D0E12', color: '#FFFFFF' }}
+                    >
+                      {descargando ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
+                      {descargando ? 'Descargando…' : 'Descargar certificado'}
+                    </button>
+                  )}
                 </div>
               </div>
             )}

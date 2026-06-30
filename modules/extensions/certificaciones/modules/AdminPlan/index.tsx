@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { CreditCard, Loader2, CheckCircle, AlertCircle, Sparkles, Package, MessageCircle, Clock } from '@/components/ui/icon';
 import { usePlan } from '../../shared/hooks/usePlan';
+import { useEsAdmin } from '../../shared/hooks/useEsAdmin';
 import { planesApi, PAQUETES_CREDITOS, CREDITOS_INDIVIDUALES, type MovimientoCredito } from '../../shared/api/planes.api';
 import Pagination from '../../shared/components/Pagination';
 
@@ -32,6 +33,7 @@ const COBRANZA = {
 export default function AdminPlan() {
   const { empresa } = useParams<{ empresa: string }>();
   const { estado, loading } = usePlan();
+  const esAdmin = useEsAdmin();   // ADMISION no ve precios (solo plan, saldo y movimientos)
   const [movimientos, setMovimientos] = useState<MovimientoCredito[]>([]);
   const [movTipo, setMovTipo] = useState<'todos' | MovimientoCredito['tipo']>('todos');
   const [movPage, setMovPage] = useState(1);
@@ -96,7 +98,9 @@ export default function AdminPlan() {
             )}
           </div>
           <p className="text-[26px] font-bold leading-tight">{plan.nombre}</p>
-          <p className="text-[13px] mt-1" style={{ color: 'rgba(255,255,255,0.85)' }}>{sol(plan.mantenimiento_mensual || plan.precio_mensual)} / mes · mantenimiento</p>
+          {esAdmin && (
+            <p className="text-[13px] mt-1" style={{ color: 'rgba(255,255,255,0.85)' }}>{sol(plan.mantenimiento_mensual || plan.precio_mensual)} / mes · mantenimiento</p>
+          )}
           {suscripcion && (
             <p className="text-[12px] mt-3" style={{ color: 'rgba(255,255,255,0.75)' }}>
               {suscripcion.ciclo} · vigente hasta {fmtFecha(suscripcion.fecha_fin)}
@@ -194,8 +198,8 @@ export default function AdminPlan() {
         </div>
       )}
 
-      {/* ── Recargar créditos (paquetes; la compra la activa Vaxa) — no aplica a planes ilimitados ── */}
-      {!ilimitado && (
+      {/* ── Recargar créditos (precios) — solo ADMINISTRADOR · no aplica a planes ilimitados ── */}
+      {esAdmin && !ilimitado && (
       <div className="rounded-2xl p-5" style={{ background: '#fff', border: '1px solid #EEECE6' }}>
         <div className="flex items-center gap-2 mb-1">
           <Package size={16} style={{ color: '#0D7C66' }} />
@@ -314,7 +318,8 @@ export default function AdminPlan() {
       </>
       )}
 
-      {/* ── Detalle de tu plan (solo el plan contratado, no el catálogo) ── */}
+      {/* ── Detalle de tu plan (precios) — solo ADMINISTRADOR ── */}
+      {esAdmin && (
       <div>
         <p className="text-[13px] font-bold mb-3" style={{ color: '#0D0E12' }}>Detalle de tu plan</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -348,6 +353,7 @@ export default function AdminPlan() {
           <Sparkles size={13} style={{ color: '#D97706' }} /> ¿Quieres cambiar de plan? Contacta a Vaxa.
         </p>
       </div>
+      )}
     </div>
   );
 }

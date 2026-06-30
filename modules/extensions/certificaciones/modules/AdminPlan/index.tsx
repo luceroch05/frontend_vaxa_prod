@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { CreditCard, Loader2, CheckCircle, AlertCircle, Sparkles, Package, MessageCircle, Clock } from '@/components/ui/icon';
 import { usePlan } from '../../shared/hooks/usePlan';
-import { planesApi, PAQUETES_CREDITOS, type Plan, type MovimientoCredito } from '../../shared/api/planes.api';
+import { planesApi, PAQUETES_CREDITOS, CREDITOS_INDIVIDUALES, type MovimientoCredito } from '../../shared/api/planes.api';
+import Pagination from '../../shared/components/Pagination';
 
 /** Contacto de Vaxa para solicitar la recarga (la compra es manual por ahora). */
 const VAXA_WA = '51974280156';
@@ -31,19 +32,19 @@ const COBRANZA = {
 export default function AdminPlan() {
   const { empresa } = useParams<{ empresa: string }>();
   const { estado, loading } = usePlan();
-  const [catalogo, setCatalogo] = useState<Plan[]>([]);
   const [movimientos, setMovimientos] = useState<MovimientoCredito[]>([]);
+  const [movTipo, setMovTipo] = useState<'todos' | MovimientoCredito['tipo']>('todos');
+  const [movPage, setMovPage] = useState(1);
 
   useEffect(() => {
-    planesApi.catalogo(empresa!).then(setCatalogo).catch(() => setCatalogo([]));
-    planesApi.movimientos(empresa!).then(setMovimientos).catch(() => setMovimientos([]));
+    planesApi.movimientos(empresa!, 300).then(setMovimientos).catch(() => setMovimientos([]));
   }, [empresa]);
 
   // El saldo del provider cambia al emitir/eliminar; recargar el historial al vuelo.
   const saldoActual = estado?.creditos?.disponibles;
   useEffect(() => {
     if (saldoActual === undefined) return;
-    planesApi.movimientos(empresa!).then(setMovimientos).catch(() => { /* deja el último historial */ });
+    planesApi.movimientos(empresa!, 300).then(setMovimientos).catch(() => { /* deja el último historial */ });
   }, [empresa, saldoActual]);
 
   if (loading) {
@@ -68,6 +69,14 @@ export default function AdminPlan() {
   const pct = creditos.asignados > 0 ? Math.min((creditos.consumidos / creditos.asignados) * 100, 100) : 0;
   const sinCreditos = !ilimitado && creditos.disponibles <= 0;
   const pocos = !ilimitado && !sinCreditos && creditos.disponibles <= 10;
+
+  // Movimientos: filtro por tipo + paginación (cliente).
+  const MOV_POR_PAGINA = 8;
+  const movsFiltrados = movimientos.filter(m => movTipo === 'todos' || m.tipo === movTipo);
+  const movTotalPages = Math.max(1, Math.ceil(movsFiltrados.length / MOV_POR_PAGINA));
+  const movPageSafe = Math.min(movPage, movTotalPages);
+  const movStart = (movPageSafe - 1) * MOV_POR_PAGINA;
+  const movsPagina = movsFiltrados.slice(movStart, movStart + MOV_POR_PAGINA);
 
   return (
     <div className="space-y-5 page-enter">
@@ -193,45 +202,80 @@ export default function AdminPlan() {
           <p className="text-[13px] font-bold" style={{ color: '#0D0E12' }}>¿Necesitas más créditos?</p>
         </div>
         <p className="text-[12.5px] mb-4" style={{ color: '#9CA3AF' }}>
-          Elige un paquete y escríbenos para recargarlo. Se suman a tu saldo, son acumulables y no vencen.
+          Recarga el paquete de tu plan y escríbenos para activarlo. Se suma a tu saldo, es acumulable y no vence.
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          {PAQUETES_CREDITOS.map(pq => (
-            <a
-              key={pq.creditos}
-              href={`https://wa.me/${VAXA_WA}?text=${encodeURIComponent(`Hola Vaxa 👋, soy de "${empresa}" y quiero recargar el paquete de ${pq.creditos} créditos (${sol(pq.precio)}).`)}`}
-              target="_blank"
-              rel="noreferrer"
-              className="rounded-xl p-4 flex flex-col transition-all hover:-translate-y-0.5"
-              style={{ background: '#FAFAF8', border: '1px solid #EEECE6' }}
-            >
-              <p className="text-[22px] font-bold leading-none tabular-nums" style={{ color: '#0D0E12' }}>{pq.creditos}</p>
-              <p className="text-[10.5px] font-semibold uppercase tracking-wider mt-1" style={{ color: '#B0A898' }}>créditos</p>
-              <p className="text-[14px] font-bold mt-2" style={{ color: '#0D7C66' }}>{sol(pq.precio)}</p>
-              <span className="mt-3 inline-flex items-center justify-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-lg"
-                style={{ background: '#25D366', color: '#04110C' }}>
-                <MessageCircle size={13} /> Solicitar
-              </span>
-            </a>
-          ))}
+          {PAQUETES_CREDITOS.filter(pq => pq.planSlug === plan.slug).map(pq => {
+            const costoCert = pq.precio / pq.creditos;   // costo por certificado del paquete
+            return (
+              <a
+                key={pq.creditos}
+                href={`https://wa.me/${VAXA_WA}?text=${encodeURIComponent(`Hola Vaxa 👋, soy de "${empresa}" y quiero recargar el paquete ${pq.nombre} de ${pq.creditos} créditos (${sol(pq.precio)}).`)}`}
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-xl p-4 flex flex-col transition-all hover:-translate-y-0.5"
+                style={{ background: '#FAFAF8', border: '1px solid #EEECE6' }}
+              >
+                <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: '#B0A898' }}>{pq.nombre}</p>
+                <p className="text-[22px] font-bold leading-none tabular-nums mt-1" style={{ color: '#0D0E12' }}>{pq.creditos}</p>
+                <p className="text-[10.5px] font-semibold uppercase tracking-wider mt-0.5" style={{ color: '#B0A898' }}>créditos</p>
+                <p className="text-[14px] font-bold mt-2" style={{ color: '#0D7C66' }}>{sol(pq.precio)}</p>
+                <p className="text-[11px] mt-0.5" style={{ color: '#9CA3AF' }}>{sol(costoCert)} por certificado</p>
+                <span className="mt-3 inline-flex items-center justify-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-lg"
+                  style={{ background: '#25D366', color: '#04110C' }}>
+                  <MessageCircle size={13} /> Solicitar
+                </span>
+              </a>
+            );
+          })}
         </div>
+
+        {/* Compra de créditos individuales (clientes con plan activo que necesitan pocos) */}
+        <div className="rounded-xl px-4 py-3 mt-3" style={{ background: '#FAFAF8', border: '1px solid #EEECE6' }}>
+          <p className="text-[11.5px] font-bold uppercase tracking-wider mb-1.5" style={{ color: '#374151' }}>Créditos individuales</p>
+          <div className="flex flex-wrap gap-x-5 gap-y-1 text-[12.5px]" style={{ color: '#64748B' }}>
+            {CREDITOS_INDIVIDUALES.map(t => (
+              <span key={t.desde}><b style={{ color: '#0D0E12' }}>{t.desde}–{t.hasta}</b> créditos · {sol(t.precio)} c/u</span>
+            ))}
+            <span><b style={{ color: '#0D0E12' }}>100 o más</b> · conviene un paquete</span>
+          </div>
+        </div>
+
         <p className="text-[11.5px] mt-3" style={{ color: '#9CA3AF' }}>
           1 crédito = 1 certificado. La recarga la activa Vaxa al confirmar el pago (boleta o factura).
         </p>
       </div>
       )}
 
-      {/* ── Historial de movimientos de créditos ──────────────── */}
+      {/* ── Historial de movimientos de créditos (filtro + paginación) ── */}
       {!ilimitado && (
+      <>
       <div className="rounded-2xl overflow-hidden" style={{ background: '#fff', border: '1px solid #EEECE6' }}>
-        <div className="flex items-center gap-2 px-5 py-3.5" style={{ borderBottom: '1px solid #F0EEE9' }}>
-          <Clock size={15} style={{ color: '#B0A898' }} />
-          <p className="text-[13px] font-bold" style={{ color: '#0D0E12' }}>Movimientos de créditos</p>
+        <div className="flex items-center justify-between gap-3 flex-wrap px-5 py-3.5" style={{ borderBottom: '1px solid #F0EEE9' }}>
+          <div className="flex items-center gap-2">
+            <Clock size={15} style={{ color: '#B0A898' }} />
+            <p className="text-[13px] font-bold" style={{ color: '#0D0E12' }}>Movimientos de créditos</p>
+          </div>
+          <select
+            value={movTipo}
+            onChange={(e) => { setMovTipo(e.target.value as typeof movTipo); setMovPage(1); }}
+            className="text-[12.5px] rounded-lg px-2.5 outline-none"
+            style={{ height: 34, minWidth: 180, border: '1px solid #EEECE6', background: '#fff', color: '#374151' }}
+          >
+            <option value="todos">Todos los tipos</option>
+            <option value="recarga">Recargas</option>
+            <option value="consumo">Emisiones</option>
+            <option value="devolucion">Devoluciones</option>
+            <option value="asignacion">Créditos del plan</option>
+            <option value="ajuste">Ajustes</option>
+          </select>
         </div>
         {movimientos.length === 0 ? (
           <p className="text-[12.5px] text-center py-8" style={{ color: '#9CA3AF' }}>Aún no hay movimientos.</p>
+        ) : movsFiltrados.length === 0 ? (
+          <p className="text-[12.5px] text-center py-8" style={{ color: '#9CA3AF' }}>No hay movimientos de ese tipo.</p>
         ) : (
-          movimientos.map((m, idx) => {
+          movsPagina.map((m, idx) => {
             const suma = m.cantidad > 0;
             return (
               <div
@@ -256,39 +300,46 @@ export default function AdminPlan() {
           })
         )}
       </div>
+      {movsFiltrados.length > 0 && (
+        <Pagination
+          page={movPageSafe}
+          totalPages={movTotalPages}
+          onChange={setMovPage}
+          startIndex={movStart}
+          endIndex={Math.min(movStart + MOV_POR_PAGINA, movsFiltrados.length)}
+          total={movsFiltrados.length}
+          itemLabel="movimientos"
+        />
+      )}
+      </>
       )}
 
-      {/* ── Catálogo de planes ────────────────────────────────── */}
+      {/* ── Detalle de tu plan (solo el plan contratado, no el catálogo) ── */}
       <div>
-        <p className="text-[13px] font-bold mb-3" style={{ color: '#0D0E12' }}>Planes disponibles</p>
+        <p className="text-[13px] font-bold mb-3" style={{ color: '#0D0E12' }}>Detalle de tu plan</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          {catalogo.map(p => {
-            const actual = p.id === plan.id;
-            return (
-              <div key={p.id} className="rounded-2xl p-4 flex flex-col"
-                style={{ background: '#fff', border: `1.5px solid ${actual ? '#0D0E12' : '#EEECE6'}` }}>
-                <div className="flex items-center justify-between mb-1">
-                  <p className="text-[14px] font-bold" style={{ color: '#0D0E12' }}>{p.nombre}</p>
-                  {actual && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: '#FEF3C7', color: '#B45309' }}>Actual</span>}
-                </div>
-                <p className="text-[20px] font-bold leading-none" style={{ color: '#0D0E12' }}>{sol(p.precio_mensual)}<span className="text-[12px] font-normal" style={{ color: '#9CA3AF' }}>/mes</span></p>
-                <p className="text-[10px] font-semibold uppercase tracking-wider mt-0.5" style={{ color: '#B0A898' }}>Mantenimiento</p>
+          <div className="rounded-2xl p-4 flex flex-col"
+            style={{ background: '#fff', border: '1.5px solid #0D0E12' }}>
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-[14px] font-bold" style={{ color: '#0D0E12' }}>{plan.nombre}</p>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: '#FEF3C7', color: '#B45309' }}>Actual</span>
+            </div>
+            <p className="text-[20px] font-bold leading-none" style={{ color: '#0D0E12' }}>{sol(plan.precio_mensual)}<span className="text-[12px] font-normal" style={{ color: '#9CA3AF' }}>/mes</span></p>
+            <p className="text-[10px] font-semibold uppercase tracking-wider mt-0.5" style={{ color: '#B0A898' }}>Mantenimiento</p>
 
-                {/* Desglose completo: implementación + certificados + adicional */}
-                <div className="rounded-xl px-3 py-2 mt-2 space-y-1" style={{ background: '#FAFAF8', border: '1px solid #EEECE6' }}>
-                  <Linea label="Implementación" valor={p.setup_inicial > 0 ? sol(p.setup_inicial) : 'Incluida'} />
-                  <Linea label="Certificados" valor={p.creditos_incluidos > 0 ? String(p.creditos_incluidos) : 'Ilimitados'} />
-                  <Linea label="Usuarios" valor={p.usuarios_incluidos > 0 ? String(p.usuarios_incluidos) : 'Ilimitados'} />
-                </div>
+            {/* Desglose completo: implementación + certificados + usuarios */}
+            <div className="rounded-xl px-3 py-2 mt-2 space-y-1" style={{ background: '#FAFAF8', border: '1px solid #EEECE6' }}>
+              <Linea label="Implementación" valor={plan.setup_inicial > 0 ? sol(plan.setup_inicial) : 'Incluida'} />
+              <Linea label="Certificados" valor={plan.creditos_incluidos > 0 ? String(plan.creditos_incluidos) : 'Ilimitados'} />
+              <Linea label="Usuarios" valor={plan.usuarios_incluidos > 0 ? String(plan.usuarios_incluidos) : 'Ilimitados'} />
+            </div>
 
-                <div className="mt-2 space-y-1">
-                  {p.permite_diseno     && <Feat txt="Diseño personalizado" />}
-                  {p.permite_subdominio && <Feat txt="Dominio propio" />}
-                  {p.permite_carga_masiva && <Feat txt="Carga masiva / API" />}
-                </div>
-              </div>
-            );
-          })}
+            <div className="mt-2 space-y-1">
+              {plan.permite_diseno      && <Feat txt="Diseño personalizado" />}
+              {plan.permite_subdominio  && <Feat txt="Dominio propio" />}
+              {plan.permite_carga_masiva && <Feat txt="Carga masiva por Excel" />}
+            </div>
+          </div>
         </div>
         <p className="text-[11.5px] mt-3" style={{ color: '#9CA3AF' }}>
           Implementación = pago único · Mantenimiento mensual · Certificados incluidos según el plan.

@@ -3,8 +3,9 @@ import { NavLink, Outlet, useNavigate, useParams, useLocation } from 'react-rout
 import {
   LayoutDashboard, BookOpen, ClipboardList, FileBadge,
   Settings, LogOut, Menu, X, GraduationCap, Globe, Users, CreditCard,
-  MessageCircle, Mail,
+  MessageCircle, Mail, Shield,
 } from '@/components/ui/icon';
+import type { ComponentType } from 'react';
 
 /** Contacto de soporte de Vaxa (para que el cliente nos escriba directo). */
 const VAXA_SOPORTE = {
@@ -64,8 +65,43 @@ const PAGE_LABELS: Record<string, string> = {
   inscripciones: 'Inscripciones',
   certificados:  'Certificados',
   plan:          'Mi plan',
+  auditoria:     'Auditoría',
   config:        'Configuración',
 };
+
+/** Item del menú lateral, reutilizable (mismo estilo para todas las entradas). */
+function NavItem({ to, label, Icon, end, onNavigate }: {
+  to: string; label: string; Icon: ComponentType<{ size?: number | string; style?: React.CSSProperties }>; end?: boolean; onNavigate: () => void;
+}) {
+  return (
+    <NavLink
+      to={to}
+      end={end}
+      onClick={onNavigate}
+      className={({ isActive }) =>
+        `flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all duration-150 ${
+          isActive ? 'text-white' : 'text-[#64748B] hover:bg-[#F5F3EE] hover:text-[#1a1c23]'
+        }`
+      }
+      style={({ isActive }) => ({ background: isActive ? '#0D0E12' : undefined })}
+    >
+      {({ isActive }) => (
+        <>
+          <Icon size={16} style={{ color: isActive ? '#D97706' : '#B0A898', flexShrink: 0 }} />
+          {label}
+        </>
+      )}
+    </NavLink>
+  );
+}
+
+/** Entrada "Auditoría": solo visible para el Admin de la empresa y planes Profesional+. */
+function AuditoriaNavLink({ base, empresa, onNavigate }: { base: string; empresa: string; onNavigate: () => void }) {
+  const { estado } = usePlan();
+  const esAdmin = String(authStorage.getUser(empresa)?.rol ?? '').toUpperCase() === 'ADMINISTRADOR';
+  if (!esAdmin || !estado?.plan?.permite_auditoria) return null;
+  return <NavItem to={`${base}/auditoria`} label="Auditoría" Icon={Shield} onNavigate={onNavigate} />;
+}
 
 // "Grupos" se unificó dentro de cada programa (pestaña "Aulas"), por eso ya no
 // aparece como sección aparte del menú.
@@ -186,37 +222,18 @@ export default function AdminLayout() {
           Menú principal
         </p>
 
-        {NAV_ITEMS.map(({ key, label, Icon, end }) => {
-          const to = key ? `${base}/${key}` : base;
-          return (
-            <NavLink
-              key={to}
-              to={to}
-              end={end}
-              onClick={() => setOpen(false)}
-              className={({ isActive }) =>
-                `flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all duration-150 ${
-                  isActive
-                    ? 'text-white'
-                    : 'text-[#64748B] hover:bg-[#F5F3EE] hover:text-[#1a1c23]'
-                }`
-              }
-              style={({ isActive }) => ({
-                background: isActive ? '#0D0E12' : undefined,
-              })}
-            >
-              {({ isActive }) => (
-                <>
-                  <Icon
-                    size={16}
-                    style={{ color: isActive ? '#D97706' : '#B0A898', flexShrink: 0 }}
-                  />
-                  {label}
-                </>
-              )}
-            </NavLink>
-          );
-        })}
+        {NAV_ITEMS.map(({ key, label, Icon, end }) => (
+          <NavItem
+            key={key || 'panel'}
+            to={key ? `${base}/${key}` : base}
+            label={label}
+            Icon={Icon}
+            end={end}
+            onNavigate={() => setOpen(false)}
+          />
+        ))}
+        {/* Auditoría: visible solo para Admin en planes Profesional+ */}
+        <AuditoriaNavLink base={base} empresa={empresa!} onNavigate={() => setOpen(false)} />
 
         <div className="pt-3 pb-1">
           <div className="h-px" style={{ background: '#F0EEE9' }} />

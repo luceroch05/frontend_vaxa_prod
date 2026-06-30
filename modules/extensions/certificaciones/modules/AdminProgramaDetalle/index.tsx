@@ -7,6 +7,7 @@ import {
 import { useProgramas } from '../../shared/hooks/useProgramas';
 import { useGrupos }    from '../../shared/hooks/useGrupos';
 import { useConfirm }   from '../../shared/hooks/useConfirm';
+import { usePlan }      from '../../shared/hooks/usePlan';
 import GrupoForm, { DIAS_CORTO } from '../../shared/components/GrupoForm';
 import UnidadesEditor from '../../shared/components/UnidadesEditor';
 import CopyLinkButton from '../../shared/components/CopyLinkButton';
@@ -32,7 +33,7 @@ function fmtHorario(g: { dias_semana?: string | null; hora_inicio?: string | nul
 }
 
 /* ── Fila de aula ───────────────────────────────────────────────── */
-function AulaRow({ aula, empresa, onVerInscritos, onImportar, onToggleActivo, onEliminar, isLast }: { aula: Grupo; empresa: string; onVerInscritos: (g: Grupo) => void; onImportar: (g: Grupo) => void; onToggleActivo: (g: Grupo) => void; onEliminar: (g: Grupo) => void; isLast: boolean }) {
+function AulaRow({ aula, empresa, puedeImportar, onVerInscritos, onImportar, onToggleActivo, onEliminar, isLast }: { aula: Grupo; empresa: string; puedeImportar: boolean; onVerInscritos: (g: Grupo) => void; onImportar: (g: Grupo) => void; onToggleActivo: (g: Grupo) => void; onEliminar: (g: Grupo) => void; isLast: boolean }) {
   return (
     <div
       className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-4 transition-colors"
@@ -82,17 +83,19 @@ function AulaRow({ aula, empresa, onVerInscritos, onImportar, onToggleActivo, on
         >
           <Users size={12} /> Inscritos <ChevronRight size={11} />
         </button>
-        {/* Importar participantes por Excel (carga masiva) */}
-        <button
-          onClick={() => onImportar(aula)}
-          className="flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-xl transition-all"
-          style={{ background: '#ECFDF5', color: '#15803D', border: '1px solid #A7F3D0' }}
-          onMouseEnter={e => { e.currentTarget.style.background = '#15803D'; e.currentTarget.style.color = '#fff'; }}
-          onMouseLeave={e => { e.currentTarget.style.background = '#ECFDF5'; e.currentTarget.style.color = '#15803D'; }}
-          title="Importar participantes desde Excel"
-        >
-          <FileSpreadsheet size={12} /> Importar
-        </button>
+        {/* Importar participantes por Excel (carga masiva) — solo planes Profesional+ */}
+        {puedeImportar && (
+          <button
+            onClick={() => onImportar(aula)}
+            className="flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-xl transition-all"
+            style={{ background: '#ECFDF5', color: '#15803D', border: '1px solid #A7F3D0' }}
+            onMouseEnter={e => { e.currentTarget.style.background = '#15803D'; e.currentTarget.style.color = '#fff'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = '#ECFDF5'; e.currentTarget.style.color = '#15803D'; }}
+            title="Importar participantes desde Excel"
+          >
+            <FileSpreadsheet size={12} /> Importar
+          </button>
+        )}
         {/* Archivar / reactivar aula (soft-delete) */}
         <button
           onClick={() => onToggleActivo(aula)}
@@ -127,6 +130,9 @@ export default function AdminProgramaDetalle() {
   const { programas, loading: progLoading, update, setActivo: setActivoPrograma, eliminar: eliminarPrograma } = useProgramas(empresa!, true);
   const { grupos, loading: gruposLoading, error, create, setActivo: setActivoGrupo, eliminar: eliminarGrupo } = useGrupos(empresa!, true);
   const confirm = useConfirm();
+  const { estado } = usePlan();
+  // La importación por Excel es función de plan (Profesional o superior).
+  const puedeImportar = !!estado?.plan?.permite_carga_masiva;
 
   const [tab,       setTab]       = useState<'aulas' | 'evaluacion'>('aulas');
   const [showForm,  setShowForm]  = useState(false);
@@ -386,7 +392,7 @@ export default function AdminProgramaDetalle() {
           {!gruposLoading && aulas.length > 0 && (
             <div className="bg-white rounded-2xl overflow-hidden" style={{ border: '1px solid #EEECE6' }}>
               {aulas.map((a, i) => (
-                <AulaRow key={a.id} aula={a} empresa={empresa!} onVerInscritos={handleVerInscritos} onImportar={setImportAula} onToggleActivo={handleToggleAula} onEliminar={handleEliminarAula} isLast={i === aulas.length - 1} />
+                <AulaRow key={a.id} aula={a} empresa={empresa!} puedeImportar={puedeImportar} onVerInscritos={handleVerInscritos} onImportar={setImportAula} onToggleActivo={handleToggleAula} onEliminar={handleEliminarAula} isLast={i === aulas.length - 1} />
               ))}
             </div>
           )}

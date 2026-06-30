@@ -18,6 +18,14 @@ export const certificadosApi = {
       opts(empresa)
     ),
 
+  /** Emite varias inscripciones de golpe → registra UN solo movimiento de crédito (-N). */
+  generarLote: (empresa: string, ids: number[]) =>
+    api.post<{ emitidos: number; errores: Array<{ id: number; error: string }>; bloqueo: 'creditos' | null }>(
+      '/api/certificados/emision/lote',
+      { ids },
+      opts(empresa),
+    ),
+
   anular: (empresa: string, id: number) =>
     api.patch<Certificado>(
       `/api/certificados/emision/${id}/anular`,

@@ -77,11 +77,18 @@ export interface MovimientoCredito {
   created_at: string;
 }
 
-/** Paquetes de recarga (precios reales; la compra es manual: el cliente contacta a Vaxa). */
+/** Paquetes de recarga (Tarifario de Créditos; la compra es manual: el cliente contacta a Vaxa).
+ *  `planSlug` = a qué plan corresponde cada paquete (el cliente solo ve el de SU plan). */
 export const PAQUETES_CREDITOS = [
-  { creditos: 100, precio: 270 },
-  { creditos: 300, precio: 750 },
-  { creditos: 700, precio: 1500 },
+  { nombre: 'Básico',      planSlug: 'basico',      creditos: 100, precio: 270 },
+  { nombre: 'Profesional', planSlug: 'profesional', creditos: 300, precio: 750 },
+  { nombre: 'Empresarial', planSlug: 'empresarial', creditos: 700, precio: 1500 },
+] as const;
+
+/** Compra de créditos individuales (clientes con plan activo que necesitan pocos). */
+export const CREDITOS_INDIVIDUALES = [
+  { desde: 1,  hasta: 49, precio: 3.00 },
+  { desde: 50, hasta: 99, precio: 2.85 },
 ] as const;
 
 export const planesApi = {

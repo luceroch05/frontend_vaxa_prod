@@ -156,7 +156,12 @@
       "Bash(VITE_API_URL=https://vaxasys.com npm run build)",
       "Bash(tar -czf /c/Users/Lucero/Desktop/frontend-dist.tar.gz dist)",
       "Bash(git add *)",
-      "Bash(git commit -m ' *)"
+      "Bash(git commit -m ' *)",
+      "Bash(tar --exclude='./.htaccess' -C dist -czf /c/Users/Lucero/Desktop/front-dist.tar.gz .)",
+      "Bash(tar -C /c/Users/Lucero/Desktop/backend-vaxa-prod/dist -czf /c/Users/Lucero/Desktop/back-dist.tar.gz .)",
+      "Bash(awk '{print $5, $9}')",
+      "Bash(tar -czf /c/Users/Lucero/Desktop/back-dist.tar.gz dist)",
+      "PowerShell($mysql = \"C:\\\\Program Files\\\\MySQL\\\\MySQL Server 9.7\\\\bin\\\\mysql.exe\"; & $mysql -u root -padmin vaxa -e \"UPDATE planes SET permite_carga_masiva=0 WHERE slug='basico'; UPDATE planes SET permite_carga_masiva=1 WHERE slug IN \\('profesional','empresarial','corporativo'\\); SELECT slug,permite_carga_masiva AS excel FROM planes ORDER BY orden;\" 2>&1 | Where-Object { $_ -notmatch 'password on the command line' })"
     ],
     "deny": [],
     "ask": []

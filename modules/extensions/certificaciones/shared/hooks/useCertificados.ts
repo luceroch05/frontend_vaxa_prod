@@ -29,6 +29,13 @@ export function useCertificados(empresa: string) {
     return cert;
   };
 
+  /** Emite varias inscripciones en lote (un solo movimiento de crédito) y refresca la lista. */
+  const generarLote = async (ids: number[]) => {
+    const r = await certificadosApi.generarLote(empresa, ids);
+    await fetchAll();
+    return r;
+  };
+
   const anular = async (id: number) => {
     await certificadosApi.anular(empresa, id);
     // El backend devuelve 204 sin body — actualizamos estado localmente
@@ -43,7 +50,7 @@ export function useCertificados(empresa: string) {
     setCertificados(prev => prev.filter(c => c.id !== id));
   };
 
-  return { certificados, loading, error, generar, anular, eliminar, refetch: fetchAll };
+  return { certificados, loading, error, generar, generarLote, anular, eliminar, refetch: fetchAll };
 }
 
 export function useValidarCertificado() {

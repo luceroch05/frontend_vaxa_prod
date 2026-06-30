@@ -23,11 +23,12 @@ const CICLOS = [
 
 const MES = ['', 'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 
-/** Paquetes de créditos con precio real (con descuento). El monto se cobra tal cual. */
+/** Paquetes de créditos del Tarifario (precio con descuento). El monto se cobra tal cual.
+ *  `planSlug` = a qué plan corresponde; la empresa solo ve el paquete de SU plan. */
 const PAQUETES = [
-  { creditos: 100, precio: 270 },
-  { creditos: 300, precio: 750 },
-  { creditos: 700, precio: 1500 },
+  { nombre: 'Básico',      planSlug: 'basico',      creditos: 100, precio: 270 },
+  { nombre: 'Profesional', planSlug: 'profesional', creditos: 300, precio: 750 },
+  { nombre: 'Empresarial', planSlug: 'empresarial', creditos: 700, precio: 1500 },
 ];
 
 /** Etiqueta legible por tipo de movimiento de crédito. */
@@ -155,16 +156,20 @@ export default function TabPlan({ empresa, onChange }: TabPlanProps) {
     finally { setSaving(false); }
   };
 
-  // Precio por crédito suelto (incluye IGV) — base de la cantidad libre.
-  const precioUnit = 2.70;
+  // Precio por crédito suelto escalonado (tarifario oficial 2026, incluye IGV):
+  //   1–49 → S/3.00 · 50 o más → S/2.85. A partir de 100 conviene un paquete.
+  const precioCreditoSuelto = (cant: number) => (cant >= 50 ? 2.85 : 3.00);
   // Validación: solo enteros positivos.
   const cantidadRecarga = Math.floor(Number(recarga));
   const recargaValida = Number.isFinite(cantidadRecarga) && cantidadRecarga > 0 && String(recarga).trim() !== '';
+  const precioUnit = precioCreditoSuelto(recargaValida ? cantidadRecarga : 1);
 
   // Paquete elegido (si hay) y monto/cantidad/validez efectivos de la recarga.
   const paquete = paqueteSel != null ? PAQUETES[paqueteSel] : null;
   const recargaCantidad = paquete ? paquete.creditos : cantidadRecarga;
   const recargaMonto = paquete ? paquete.precio : (recargaValida ? precioUnit * cantidadRecarga : 0);
+  // A partir de 100 créditos sueltos conviene un paquete (más barato por unidad).
+  const sugerirPaquete = !paquete && recargaValida && cantidadRecarga >= 100;
   const puedeRecargar = paquete != null || recargaValida;
 
   /** Recarga núcleo: `monto` opcional = precio de paquete (con descuento); si no, precio por crédito suelto. */
@@ -377,14 +382,17 @@ export default function TabPlan({ empresa, onChange }: TabPlanProps) {
           </div>
           <p className="text-[12.5px] mb-4" style={{ color: '#9CA3AF' }}>
             Suma créditos al saldo de la empresa (acumulables, no vencen).
-            Crédito suelto a <b style={{ color: '#64748B' }}>{sol(precioUnit)}</b> c/u, o un paquete con descuento.
+            Crédito suelto: <b style={{ color: '#64748B' }}>{sol(3.00)}</b> (1–49) ·
+            <b style={{ color: '#64748B' }}> {sol(2.85)}</b> (50+), o un paquete con descuento.
           </p>
 
           {/* Paquetes con descuento: seleccionar marca el paquete (recién se aplica con "Recargar") */}
           <div className="mb-4">
             <p className="text-[11px] font-semibold uppercase tracking-wider mb-2" style={{ color: '#374151' }}>Paquetes (precio con descuento)</p>
             <div className="grid grid-cols-3 gap-2">
-              {PAQUETES.map((pq, i) => {
+              {PAQUETES.map((pq, i) => ({ pq, i }))
+                .filter(({ pq }) => pq.planSlug === estado?.plan?.slug)
+                .map(({ pq, i }) => {
                 const sel = paqueteSel === i;
                 return (
                   <button
@@ -394,11 +402,13 @@ export default function TabPlan({ empresa, onChange }: TabPlanProps) {
                     onClick={() => { setPaqueteSel(sel ? null : i); setRecarga(''); }}
                     className="rounded-xl p-3 text-left transition-all hover:-translate-y-0.5 disabled:opacity-50"
                     style={{ background: sel ? '#ECFDF5' : '#FAFAF8', border: `1.5px solid ${sel ? '#059669' : '#EEECE6'}` }}
-                    title={`Paquete de ${pq.creditos} créditos por ${sol(pq.precio)}`}
+                    title={`Paquete ${pq.nombre}: ${pq.creditos} créditos por ${sol(pq.precio)} (${sol(pq.precio / pq.creditos)} c/u)`}
                   >
-                    <p className="text-[16px] font-bold leading-none tabular-nums" style={{ color: '#0D0E12' }}>{pq.creditos}</p>
+                    <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: '#B0A898' }}>{pq.nombre}</p>
+                    <p className="text-[16px] font-bold leading-none tabular-nums mt-0.5" style={{ color: '#0D0E12' }}>{pq.creditos}</p>
                     <p className="text-[10px] font-semibold uppercase tracking-wider mt-0.5" style={{ color: '#B0A898' }}>créditos</p>
                     <p className="text-[12.5px] font-bold mt-1.5" style={{ color: '#059669' }}>{sol(pq.precio)}</p>
+                    <p className="text-[10px] mt-0.5" style={{ color: '#9CA3AF' }}>{sol(pq.precio / pq.creditos)} c/u</p>
                   </button>
                 );
               })}
@@ -426,6 +436,12 @@ export default function TabPlan({ empresa, onChange }: TabPlanProps) {
               {paquete ? ` ${paquete.creditos}` : recargaValida ? ` ${cantidadRecarga}` : ''}
             </button>
           </div>
+
+          {sugerirPaquete && (
+            <p className="text-[12px] mt-3" style={{ color: '#B45309' }}>
+              Para 100 créditos o más conviene adquirir un <b>paquete</b>: sale más barato por crédito.
+            </p>
+          )}
         </form>
       )}
 

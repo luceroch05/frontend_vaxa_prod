@@ -75,7 +75,7 @@ export default function AdminCertificados() {
   const { empresa } = useParams<{ empresa: string }>();
   const confirm = useConfirm();
   const navigate = useNavigate();
-  const { certificados, loading, error, generar, anular, eliminar } = useCertificados(empresa!);
+  const { certificados, loading, error, generarLote, anular, eliminar } = useCertificados(empresa!);
   const { estado: planEstado, refetch: refrescarPlan } = usePlan();
   const planIlimitado = !!planEstado?.creditos?.ilimitado;
 
@@ -177,19 +177,26 @@ export default function AdminCertificados() {
   const anuladosFiltrados   = filtrar(certAnulados);
 
   /* ── Selección ─────────────────────────────────────────── */
+  // Actualización FUNCIONAL: así varias llamadas seguidas (ej. seleccionar todo
+  // un grupo en un forEach) se acumulan sobre el estado más reciente y no se
+  // pisan entre sí (antes solo quedaba la última → se marcaba un solo alumno).
   const toggleAll = (ids: number[]) => {
-    const allSelected = ids.every(id => selected.has(id));
-    const next = new Set(selected);
-    if (allSelected) ids.forEach(id => next.delete(id));
-    else ids.forEach(id => next.add(id));
-    setSelected(next);
+    setSelected(prev => {
+      const allSelected = ids.every(id => prev.has(id));
+      const next = new Set(prev);
+      if (allSelected) ids.forEach(id => next.delete(id));
+      else ids.forEach(id => next.add(id));
+      return next;
+    });
   };
 
   const toggleOne = (id: number) => {
-    const next = new Set(selected);
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
-    setSelected(next);
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   };
 
   const clearSelection = () => setSelected(new Set());
@@ -267,36 +274,39 @@ export default function AdminCertificados() {
     setBatchProgress({ done: 0, total: ids.length, errors: 0 });
     setErrorMsg(null); setOkMsg(null);
 
-    let done = 0;
-    let errors = 0;
-    let configMsg: string | null = null;
-    let bloqueo: 'plan' | 'creditos' | null = null;
-    for (const id of ids) {
-      try {
-        await generar(id);
-      } catch (e: unknown) {
-        errors += 1;
-        const raw = (e as Error).message;
-        if (raw.startsWith('FALTA_CONFIG:') && !configMsg) configMsg = raw.replace('FALTA_CONFIG:', '').trim();
-        else if (raw.startsWith('SIN_CREDITOS')) { bloqueo = 'creditos'; break; }  // saldo agotado: el resto también fallaría
-        else if (raw.startsWith('SIN_PLAN'))     { bloqueo = 'plan'; break; }       // sin suscripción: no tiene sentido seguir
-      }
-      done += 1;
-      setBatchProgress({ done, total: ids.length, errors });
+    // Una sola llamada en lote: el backend emite la tanda en una transacción y
+    // registra UN solo movimiento de crédito (-N) en vez de N de -1.
+    let resultado: { emitidos: number; errores: Array<{ id: number; error: string }>; bloqueo: 'creditos' | null } | null = null;
+    let bloqueoFatal: 'plan' | 'creditos' | null = null;
+    try {
+      resultado = await generarLote(ids);
+    } catch (e: unknown) {
+      const raw = (e as Error).message;
+      if (raw.startsWith('SIN_PLAN'))           bloqueoFatal = 'plan';
+      else if (raw.startsWith('SIN_CREDITOS'))  bloqueoFatal = 'creditos';
+      else                                      setErrorMsg(raw);
     }
 
     setBatchRunning(false);
     clearSelection();
     refrescarPlan();
 
-    // Si el programa no tiene diseño, el motivo principal es ése → modal de advertencia.
-    if (configMsg) { await avisarFaltaConfig(configMsg); return; }
-    if (bloqueo) { setBloqueoEmision(bloqueo); return; }
+    if (bloqueoFatal) { setBloqueoEmision(bloqueoFatal); return; }
+    if (!resultado) return;
 
-    if (errors === 0) {
-      setOkMsg(`${done} certificados emitidos correctamente`);
+    const { emitidos, errores, bloqueo } = resultado;
+    setBatchProgress({ done: emitidos, total: ids.length, errors: errores.length });
+
+    // Si nada se emitió por falta de diseño, mostrar el modal de configuración.
+    const faltaConfig = errores.find(er => er.error.startsWith('FALTA_CONFIG:'));
+    if (emitidos === 0 && faltaConfig) { await avisarFaltaConfig(faltaConfig.error.replace('FALTA_CONFIG:', '').trim()); return; }
+    // El saldo se agotó a mitad de la tanda → modal de sin créditos.
+    if (bloqueo === 'creditos') { setBloqueoEmision('creditos'); return; }
+
+    if (errores.length === 0) {
+      setOkMsg(`${emitidos} certificado${emitidos === 1 ? '' : 's'} emitido${emitidos === 1 ? '' : 's'} correctamente`);
     } else {
-      setErrorMsg(`${done - errors} emitidos · ${errors} con error`);
+      setErrorMsg(`${emitidos} emitido${emitidos === 1 ? '' : 's'} · ${errores.length} con error`);
     }
     setTimeout(() => { setOkMsg(null); setErrorMsg(null); }, 4000);
   };

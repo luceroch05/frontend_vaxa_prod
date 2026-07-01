@@ -203,3 +203,10 @@ body {
   border-radius: 16px;
   box-shadow: 0 1px 3px rgba(0,0,0,0.03);
 }
+
+/* Impresión (tarifario): oculta cabecera/botones y aplana colores */
+@media print {
+  header, .no-print { display: none !important; }
+  main { max-width: 100% !important; padding: 0 !important; }
+  body { background: #fff !important; }
+}

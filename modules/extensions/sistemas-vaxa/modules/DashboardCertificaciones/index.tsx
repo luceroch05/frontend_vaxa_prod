@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { TenantConfig } from '@/lib/tenants';
 import {
-  Building2, FileText, TrendingUp, CreditCard, Plus, ArrowRight, Loader2,
+  Building2, FileText, TrendingUp, CreditCard, Plus, ArrowRight, Loader2, ClipboardList, DollarSign,
 } from '@/components/ui/icon';
 import HeaderSistemasVaxa from '../../shared/components/HeaderSistemasVaxa';
 import { VAXA_CONFIG } from '../../shared/constants';
@@ -120,6 +120,8 @@ export default function DashboardCertificaciones({ tenantId }: Props) {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-5 page-enter stagger-2">
               {[
                 { to: `/${tenantId}/certificaciones/empresas`, Icon: Building2, t: 'Ver todas las empresas', d: 'Empresas, créditos y usuarios' },
+                { to: `/${tenantId}/certificaciones/cotizaciones`, Icon: ClipboardList, t: 'Cotizaciones', d: 'Arma propuestas y conviértelas en venta' },
+                { to: `/${tenantId}/certificaciones/tarifario`, Icon: DollarSign, t: 'Tarifario', d: 'Planes, paquetes y precios 2026' },
                 { to: `/${tenantId}/certificaciones/cobranza`, Icon: CreditCard, t: 'Cobranza y vencimientos', d: 'Quién debe pagar y cuándo vence' },
                 { to: `/${tenantId}/certificaciones/facturacion`, Icon: FileText, t: 'Facturación electrónica', d: 'Emite y consulta comprobantes SUNAT' },
                 { to: `/${tenantId}/certificaciones/registrar-empresa`, Icon: Plus, t: 'Registrar nueva empresa', d: 'Agrega una empresa al sistema' },

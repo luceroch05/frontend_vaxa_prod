@@ -88,6 +88,8 @@ export default function App() {
         <Route path="certificaciones/empresas"              element={<LazyRoute module="EmpresasCertificaciones" />} />
         <Route path="certificaciones/cobranza"              element={<LazyRoute module="CobranzaCertificaciones" />} />
         <Route path="certificaciones/facturacion"           element={<LazyRoute module="FacturacionCertificaciones" />} />
+        <Route path="certificaciones/tarifario"             element={<LazyRoute module="TarifarioCertificaciones" />} />
+        <Route path="certificaciones/cotizaciones"          element={<LazyRoute module="CotizacionesCertificaciones" />} />
         <Route path="certificaciones/registrar-empresa"     element={<LazyRoute module="RegistrarEmpresaCertificaciones" />} />
         <Route path="certificaciones/empresa/:empresaId"    element={<LazyRoute module="PerfilEmpresa" paramKey="empresaId" />} />
       </Route>

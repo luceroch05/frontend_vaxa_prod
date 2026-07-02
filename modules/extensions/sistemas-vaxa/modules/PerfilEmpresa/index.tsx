@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { TenantConfig } from '@/lib/tenants';
 import {
   Building2, Users, CreditCard, Info, Loader2, AlertCircle,
-  Trash2, RefreshCw, AlertTriangle, CheckCircle,
+  Trash2, RefreshCw, AlertTriangle, CheckCircle, DollarSign, Package,
 } from '@/components/ui/icon';
 import HeaderSistemasVaxa from '../../shared/components/HeaderSistemasVaxa';
 import BotonVolver from '../../shared/components/BotonVolver';
@@ -19,7 +19,7 @@ import TabUsuarios from './TabUsuarios';
 
 interface PerfilEmpresaProps { tenantId: string; tenant: TenantConfig; empresaId: string; }
 interface Usuario { email: string; nombre: string; role: string; }
-type TabType = 'informacion' | 'plan' | 'usuarios';
+type TabType = 'informacion' | 'plan' | 'cobros' | 'creditos' | 'usuarios';
 
 export default function PerfilEmpresa({ tenantId, empresaId }: PerfilEmpresaProps) {
   const navigate = useNavigate();
@@ -85,6 +85,8 @@ export default function PerfilEmpresa({ tenantId, empresaId }: PerfilEmpresaProp
   const tabs = [
     { id: 'informacion' as TabType, label: 'Información', icon: Info },
     { id: 'plan' as TabType, label: 'Plan', icon: CreditCard },
+    { id: 'cobros' as TabType, label: 'Cobros', icon: DollarSign },
+    { id: 'creditos' as TabType, label: 'Créditos', icon: Package },
     { id: 'usuarios' as TabType, label: 'Usuarios', icon: Users },
   ];
 
@@ -196,7 +198,9 @@ export default function PerfilEmpresa({ tenantId, empresaId }: PerfilEmpresaProp
                 {activeTab === 'informacion' && (
                   <TabInformacion empresa={empresa} onChange={cargar} />
                 )}
-                {activeTab === 'plan' && <TabPlan empresa={empresa} onChange={cargar} />}
+                {activeTab === 'plan' && <TabPlan empresa={empresa} onChange={cargar} section="plan" />}
+                {activeTab === 'cobros' && <TabPlan empresa={empresa} onChange={cargar} section="cobros" />}
+                {activeTab === 'creditos' && <TabPlan empresa={empresa} onChange={cargar} section="creditos" />}
                 {activeTab === 'usuarios' && <TabUsuarios empresa={empresa} />}
               </div>
             </div>

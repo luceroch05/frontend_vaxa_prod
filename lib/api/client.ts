@@ -22,6 +22,20 @@ function handleSessionRevoked(): void {
   window.dispatchEvent(new CustomEvent('vaxa:session-revoked'));
 }
 
+/**
+ * El plan de mantenimiento de la empresa venció (falta de pago): el backend corta
+ * TODO el panel con 403 `PLAN_VENCIDO`, incluso para sesiones ya abiertas. Cerramos
+ * la sesión local y mandamos al login, donde se muestra el motivo de la suspensión.
+ */
+function handlePlanVencido(): void {
+  if (typeof window === 'undefined') return;
+  if (window.location.pathname.includes('/certificados/login')) return;
+  try { authStorage.clearAllSessions(); } catch { /* ignore */ }
+  try { sessionStorage.setItem('vaxa_plan_vencido', '1'); } catch { /* ignore */ }
+  const empresa = window.location.pathname.match(/^\/([^/]+)\/certificados\b/)?.[1];
+  window.location.href = empresa ? `/${empresa}/certificados/login` : '/';
+}
+
 export interface RequestOptions extends RequestInit {
   tenantId?: string;
   token?: string;
@@ -63,6 +77,9 @@ export async function apiClient<T>(
     const msg = errorData.error ?? errorData.message ?? response.statusText ?? 'Error en la petición';
     if (response.status === 401 && errorData.code === 'SESSION_REVOKED') {
       handleSessionRevoked();
+    }
+    if (response.status === 403 && errorData.code === 'PLAN_VENCIDO') {
+      handlePlanVencido();
     }
     throw new ApiError(msg, response.status, errorData);
   }

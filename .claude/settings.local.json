@@ -161,7 +161,17 @@
       "Bash(tar -C /c/Users/Lucero/Desktop/backend-vaxa-prod/dist -czf /c/Users/Lucero/Desktop/back-dist.tar.gz .)",
       "Bash(awk '{print $5, $9}')",
       "Bash(tar -czf /c/Users/Lucero/Desktop/back-dist.tar.gz dist)",
-      "PowerShell($mysql = \"C:\\\\Program Files\\\\MySQL\\\\MySQL Server 9.7\\\\bin\\\\mysql.exe\"; & $mysql -u root -padmin vaxa -e \"UPDATE planes SET permite_carga_masiva=0 WHERE slug='basico'; UPDATE planes SET permite_carga_masiva=1 WHERE slug IN \\('profesional','empresarial','corporativo'\\); SELECT slug,permite_carga_masiva AS excel FROM planes ORDER BY orden;\" 2>&1 | Where-Object { $_ -notmatch 'password on the command line' })"
+      "PowerShell($mysql = \"C:\\\\Program Files\\\\MySQL\\\\MySQL Server 9.7\\\\bin\\\\mysql.exe\"; & $mysql -u root -padmin vaxa -e \"UPDATE planes SET permite_carga_masiva=0 WHERE slug='basico'; UPDATE planes SET permite_carga_masiva=1 WHERE slug IN \\('profesional','empresarial','corporativo'\\); SELECT slug,permite_carga_masiva AS excel FROM planes ORDER BY orden;\" 2>&1 | Where-Object { $_ -notmatch 'password on the command line' })",
+      "Bash(grep -rn '\"@/\\\\*\"\\\\|\"@/components' tsconfig.json vite.config.*)",
+      "Bash('/c/Program Files/MySQL/MySQL Server 9.7/bin/mysql.exe' -uroot -padmin vaxa -e 'SHOW TABLES;')",
+      "Bash('/c/Program Files/MySQL/MySQL Server 9.7/bin/mysql.exe' -uroot -padmin vaxa -e 'SELECT * FROM parametros_facturacion;')",
+      "Bash('/c/Program Files/MySQL/MySQL Server 9.7/bin/mysql.exe' -uroot -padmin vaxa -e 'SELECT * FROM ciclo_facturacion;')",
+      "Bash('/c/Program Files/MySQL/MySQL Server 9.7/bin/mysql.exe' -uroot -padmin vaxa)",
+      "Bash('/c/Program Files/MySQL/MySQL Server 9.7/bin/mysql.exe' -uroot -padmin vaxa -e 'SELECT e.id, e.razon_social, COUNT\\(u.id\\) AS usuarios, p.usuarios_incluidos FROM empresas e LEFT JOIN usuarios u ON u.empresa_id=e.id AND u.activo=1 LEFT JOIN planes p ON p.id=e.plan_actual_id GROUP BY e.id ORDER BY usuarios DESC LIMIT 8;')",
+      "Bash('/c/Program Files/MySQL/MySQL Server 9.7/bin/mysql.exe' -uroot -padmin vaxa -e 'SELECT s.fecha_inicio, s.fecha_fin, ci.meses_pago, ci.meses_vigencia, ci.nombre AS ciclo, p.nombre plan, p.mantenimiento_mensual, p.usuarios_incluidos FROM empresa_suscripcion s JOIN ciclo_facturacion ci ON ci.id=s.ciclo_id JOIN planes p ON p.id=s.plan_id WHERE s.empresa_id=2 AND s.estado_id=1 ORDER BY s.id DESC LIMIT 1;')",
+      "Bash('/c/Program Files/MySQL/MySQL Server 9.7/bin/mysql.exe' -uroot -padmin vaxa -e 'SELECT id, ciclo_id, fecha_inicio, fecha_fin FROM empresa_suscripcion WHERE empresa_id=2 AND estado_id=1 ORDER BY id DESC LIMIT 1; SELECT id, usuarios_incluidos FROM planes WHERE id=2; SELECT id, activacion_cobrada, created_at FROM usuarios WHERE id IN \\(14,15\\);')",
+      "Bash('/c/Program Files/MySQL/MySQL Server 9.7/bin/mysql.exe' -uroot -padmin vaxa -e 'SHOW COLUMNS FROM creditos_movimientos;')",
+      "Bash('/c/Program Files/MySQL/MySQL Server 9.7/bin/mysql.exe' -uroot -padmin vaxa -e ' *)"
     ],
     "deny": [],
     "ask": []

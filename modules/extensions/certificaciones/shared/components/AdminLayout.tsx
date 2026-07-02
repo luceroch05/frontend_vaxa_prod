@@ -3,7 +3,7 @@ import { NavLink, Outlet, useNavigate, useParams, useLocation } from 'react-rout
 import {
   LayoutDashboard, BookOpen, ClipboardList, FileBadge,
   Settings, LogOut, Menu, X, GraduationCap, Globe, Users, CreditCard,
-  MessageCircle, Mail, Shield, BarChart3,
+  MessageCircle, Mail, Shield, BarChart3, AlertTriangle, Clock,
 } from '@/components/ui/icon';
 import type { ComponentType } from 'react';
 
@@ -53,6 +53,83 @@ function CreditosBadge() {
       <span className="text-[12px] font-semibold" style={{ color }}>
         {texto}
       </span>
+    </div>
+  );
+}
+
+/** Fecha 'YYYY-MM-DD' → "18 de julio de 2026". */
+function fmtFechaLarga(s: string): string {
+  return new Date(`${s.slice(0, 10)}T00:00:00`).toLocaleDateString('es-PE', { day: '2-digit', month: 'long', year: 'numeric' });
+}
+
+/**
+ * Alerta GLOBAL de vencimiento del plan: sale en todas las páginas del panel
+ * cuando el mantenimiento está por vencer (≤ 7 días) o ya venció. Muestra los
+ * días restantes bien grandes y un botón directo para contactar a Vaxa.
+ */
+function VencimientoAlert({ waLink }: { waLink: string }) {
+  const { estado } = usePlan();
+  const s = estado?.suscripcion;
+  if (!s || s.estado_cobranza === 'vigente') return null;
+
+  const vencido = s.estado_cobranza === 'vencido';
+  const dias = Math.abs(s.dias_para_vencer);
+  const C = vencido
+    ? { bg: '#FEF2F2', bd: '#FECACA', fg: '#B91C1C', ico: '#DC2626' }
+    : { bg: '#FFFBEB', bd: '#FDE68A', fg: '#B45309', ico: '#D97706' };
+
+  return (
+    <div className="mb-5 rounded-2xl p-4 flex items-center gap-4 flex-wrap"
+      style={{ background: C.bg, border: `1.5px solid ${C.bd}`, boxShadow: `0 4px 16px ${C.bg}` }}>
+      {/* Contador de días bien grande */}
+      <div className="flex flex-col items-center justify-center rounded-xl px-4 py-2 flex-shrink-0"
+        style={{ background: '#fff', border: `1px solid ${C.bd}`, minWidth: 78 }}>
+        <span className="text-[26px] font-extrabold leading-none tabular-nums" style={{ color: C.ico }}>{dias}</span>
+        <span className="text-[10px] font-semibold uppercase tracking-wider mt-0.5" style={{ color: C.fg }}>
+          {vencido ? (dias === 1 ? 'día' : 'días') : (dias === 1 ? 'día' : 'días')}
+        </span>
+      </div>
+
+      <div className="flex-1 min-w-[220px]">
+        <div className="flex items-center gap-1.5 mb-0.5">
+          <AlertTriangle size={16} style={{ color: C.ico }} />
+          <p className="text-[14px] font-bold" style={{ color: C.fg }}>
+            {vencido ? `Tu plan venció hace ${dias} ${dias === 1 ? 'día' : 'días'}` : `Tu plan vence en ${dias} ${dias === 1 ? 'día' : 'días'}`}
+          </p>
+        </div>
+        <p className="text-[12.5px]" style={{ color: C.fg }}>
+          {vencido
+            ? <>Venció el <b>{fmtFechaLarga(s.fecha_fin)}</b>. Renueva el mantenimiento para seguir emitiendo certificados sin cortes.</>
+            : <>Vence el <b>{fmtFechaLarga(s.fecha_fin)}</b>. Paga como máximo el <b>{fmtFechaLarga(s.fecha_limite_pago)}</b> para renovar sin interrupciones.</>}
+        </p>
+      </div>
+
+      <a href={waLink} target="_blank" rel="noreferrer"
+        className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-[13px] font-semibold flex-shrink-0 transition-transform hover:-translate-y-0.5"
+        style={{ background: C.fg, color: '#fff' }}>
+        <MessageCircle size={16} /> Contactar a Vaxa
+      </a>
+    </div>
+  );
+}
+
+/** Pastilla siempre visible con los días de vigencia (topbar). Cambia de color al acercarse. */
+function VigenciaChip() {
+  const { estado, loading } = usePlan();
+  const s = estado?.suscripcion;
+  if (loading || !s) return null;
+  const d = s.dias_para_vencer;
+  const vencido = s.estado_cobranza === 'vencido';
+  const alerta  = s.estado_cobranza !== 'vigente';
+  const color = vencido ? '#DC2626' : alerta ? '#D97706' : '#0D7C66';
+  const bg    = vencido ? '#FEF2F2' : alerta ? '#FEF3C7' : '#ECFDF5';
+  const bd    = vencido ? '#FECACA' : alerta ? '#FDE68A' : '#A7F3D0';
+  const texto = vencido ? `Venció hace ${Math.abs(d)}d` : `Vence en ${d}d`;
+  return (
+    <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl" style={{ background: bg, border: `1px solid ${bd}` }}
+      title={`Mantenimiento vigente hasta ${fmtFechaLarga(s.fecha_fin)}`}>
+      <Clock size={14} style={{ color }} />
+      <span className="text-[12px] font-semibold" style={{ color }}>{texto}</span>
     </div>
   );
 }
@@ -355,6 +432,7 @@ export default function AdminLayout() {
             </h1>
           </div>
           <div className="flex items-center gap-3">
+            <VigenciaChip />
             <CreditosBadge />
             <div
               className="w-8 h-8 rounded-full flex items-center justify-center text-[12px] font-bold flex-shrink-0"
@@ -398,6 +476,7 @@ export default function AdminLayout() {
         <main className="flex-1 overflow-y-auto">
           <div className="p-6 lg:p-8 max-w-5xl mx-auto">
             <ConfirmProvider>
+              <VencimientoAlert waLink={waLink} />
               <Outlet />
             </ConfirmProvider>
           </div>

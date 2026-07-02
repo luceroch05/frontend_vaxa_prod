@@ -1,7 +1,7 @@
 export {
   lucideIcons,
   type LucideIconName,
-  Bell, Trash2, Edit, Plus, Search, User, Settings, LogOut, Mail, Lock,
+  Bell, Trash2, Edit, Plus, Minus, Search, User, Settings, LogOut, Mail, Lock,
   Building2, Eye, EyeOff, AlertCircle, Loader2, FileText, Calendar, Download,
   Edit2, Save, X, RefreshCw, Package, Users, Star, ChevronDown, ChevronUp,
   ArrowLeft, CheckCircle, XCircle, Award, Shield, Clock, Verified, Sparkles,

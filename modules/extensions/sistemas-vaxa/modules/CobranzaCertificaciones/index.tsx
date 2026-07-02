@@ -159,10 +159,15 @@ export default function CobranzaCertificaciones({ tenantId }: Props) {
                           <p className="text-[12.5px] font-medium truncate" style={{ color: f.plan ? '#374151' : '#B0A898' }}>{f.plan ?? '—'}</p>
                           <p className="text-[11px] truncate" style={{ color: '#9CA3AF' }}>{f.ciclo ?? 'sin suscripción'}</p>
                         </div>
-                        {/* Vence */}
-                        <p className="text-[12.5px] tabular-nums" style={{ color: f.fecha_fin ? '#374151' : '#B0A898' }}>
-                          {f.fecha_fin ? fmtFecha(f.fecha_fin) : '—'}
-                        </p>
+                        {/* Pagado hasta — '—' si aún no hay pagos (fecha_fin anterior a la implementación) */}
+                        {(() => {
+                          const conPagos = !!f.fecha_fin && !!f.fecha_inicio && f.fecha_fin >= f.fecha_inicio;
+                          return (
+                            <p className="text-[12.5px] tabular-nums" style={{ color: conPagos ? '#374151' : '#B0A898' }}>
+                              {conPagos ? fmtFecha(f.fecha_fin!) : '—'}
+                            </p>
+                          );
+                        })()}
                         {/* Pago máx. */}
                         <p className="text-[12.5px] tabular-nums" style={{ color: cb ? '#374151' : '#B0A898' }}>
                           {cb ? fmtFecha(cb.fecha_limite_pago) : '—'}

@@ -2,9 +2,9 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { CreditCard, Loader2, AlertCircle, CheckCircle, Sparkles, Plus, FileText, X, Package, Clock, Search } from '@/components/ui/icon';
+import { CreditCard, Loader2, AlertCircle, CheckCircle, Sparkles, Plus, Minus, FileText, X, Package, Clock, Search, ArrowRight, RefreshCw } from '@/components/ui/icon';
 import {
-  creditosAdminApi, type EmpresaCreditos, type PlanCatalogo, type EstadoPlanEmpresa, type PagoHist, type MovimientoCredito,
+  creditosAdminApi, type EmpresaCreditos, type PlanCatalogo, type EstadoPlanEmpresa, type PagoHist, type MovimientoCredito, type ResumenCobro,
 } from '../../shared/api/creditos.admin.api';
 import Pager from '../../shared/components/Pager';
 
@@ -12,6 +12,8 @@ interface TabPlanProps {
   empresa: EmpresaCreditos;
   /** Refresca el perfil tras cambiar el plan (para actualizar el header). */
   onChange?: () => void;
+  /** Qué grupo de secciones mostrar (tab del perfil). Sin valor = todo (compat). */
+  section?: 'plan' | 'cobros' | 'creditos';
 }
 
 /** Ciclos de contrato (catálogo fijo: id 1/2/3). */
@@ -54,7 +56,7 @@ const COBRANZA = {
   vencido:    { bg: '#FEF2F2', bd: '#FECACA', fg: '#B91C1C', label: 'Vencido' },
 } as const;
 
-export default function TabPlan({ empresa, onChange }: TabPlanProps) {
+export default function TabPlan({ empresa, onChange, section }: TabPlanProps) {
   const [estado, setEstado]   = useState<EstadoPlanEmpresa | null>(null);
   const [planes, setPlanes]   = useState<PlanCatalogo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -69,6 +71,12 @@ export default function TabPlan({ empresa, onChange }: TabPlanProps) {
   const [recarga, setRecarga]       = useState<string>('');
   const [paqueteSel, setPaqueteSel] = useState<number | null>(null);  // índice en PAQUETES (null = cantidad libre)
   const [recargando, setRecargando] = useState(false);
+
+  // Ajuste manual: quitar créditos asignados por error (delta negativo) + motivo.
+  const [quitar, setQuitar]         = useState<string>('');
+  const [quitarMotivo, setQuitarMotivo] = useState<string>('');
+  const [ajustando, setAjustando]   = useState(false);
+  const [confirmQuitar, setConfirmQuitar] = useState(false);  // abre el modal de confirmación
 
   // Confirmación del pago del ciclo (renueva el vencimiento; NO emite factura).
   const [pagando, setPagando]                 = useState(false);
@@ -92,6 +100,18 @@ export default function TabPlan({ empresa, onChange }: TabPlanProps) {
     try { setMovs(await creditosAdminApi.movimientos(empresa.id)); } catch { /* noop */ }
   }, [empresa.id]);
   useEffect(() => { cargarMovs(); }, [cargarMovs]);
+
+  // Resumen de lo que hay que cobrar (mantenimiento del ciclo + usuarios extra prorrateados).
+  const [resumen, setResumen] = useState<ResumenCobro | null>(null);
+  const cargarResumen = useCallback(async () => {
+    try { setResumen(await creditosAdminApi.resumenCobro(empresa.id)); } catch { /* noop */ }
+  }, [empresa.id]);
+  useEffect(() => { cargarResumen(); }, [cargarResumen]);
+  // Precarga de "Nueva venta" (líneas + ids de usuarios cuya activación se cobra).
+  const [ventaPrefill, setVentaPrefill] = useState<{
+    lineas: Array<{ descripcion: string; cantidad: number; precioUnitario: number; creditos?: number; renueva?: boolean }>;
+    marcar: number[];
+  } | null>(null);
 
   const POR_PAGINA = 8;
   // Pagos filtrados por texto (concepto, detalle facturado o número de comprobante).
@@ -149,9 +169,11 @@ export default function TabPlan({ empresa, onChange }: TabPlanProps) {
     try {
       const est = await creditosAdminApi.asignarPlan(empresa.id, planId, cicloId);
       setEstado(est);
-      setOkMsg('Plan actualizado correctamente');
       onChange?.();
-      setTimeout(() => setOkMsg(null), 2500);
+      // La implementación (setup) NO se cobra aquí: es un cobro MANUAL por adelantado
+      // (primero paga, luego se implementa) → se arma en "Nueva venta" o en una Cotización.
+      setOkMsg('Plan actualizado. Recuerda cobrar la implementación aparte (Nueva venta / Cotización).');
+      setTimeout(() => setOkMsg(null), 3500);
     } catch (e) { setError((e as Error).message); }
     finally { setSaving(false); }
   };
@@ -190,10 +212,44 @@ export default function TabPlan({ empresa, onChange }: TabPlanProps) {
     finally { setRecargando(false); }
   };
 
+  // La recarga es una FUNCIÓN DEL SISTEMA manual: suma créditos al saldo directo
+  // (ledger 'recarga'), SIN vincularse a la venta. El comprobante/cobro se hace
+  // aparte en "Nueva venta" (decisión del usuario: venta y funciones van desacopladas).
   const recargar = (ev: React.FormEvent) => {
     ev.preventDefault();
     if (!puedeRecargar) return;
     doRecargar(recargaCantidad, paquete ? paquete.precio : undefined);
+  };
+
+  // Quitar créditos (ajuste negativo): solo hasta lo disponible; el backend valida.
+  const cantidadQuitar = Math.floor(Number(quitar));
+  const disponibles = estado?.creditos?.disponibles ?? 0;
+  const quitarValido = Number.isFinite(cantidadQuitar) && cantidadQuitar > 0 && String(quitar).trim() !== '' && cantidadQuitar <= disponibles;
+
+  // El submit del form solo abre el modal de confirmación (nada de window.confirm).
+  const ajustarQuitar = (ev: React.FormEvent) => {
+    ev.preventDefault();
+    if (ajustando || !quitarValido) return;
+    setError(null);
+    setConfirmQuitar(true);
+  };
+
+  // Acción real, tras confirmar en el modal.
+  const doQuitar = async () => {
+    if (ajustando || !quitarValido) return;
+    setAjustando(true); setError(null); setOkMsg(null);
+    try {
+      await creditosAdminApi.ajustar(empresa.id, -cantidadQuitar, quitarMotivo.trim() || undefined);
+      await cargar();
+      await cargarMovs();
+      setQuitar('');
+      setQuitarMotivo('');
+      setConfirmQuitar(false);
+      setOkMsg(`Se quitaron ${cantidadQuitar} créditos del saldo.`);
+      onChange?.();
+      setTimeout(() => setOkMsg(null), 3500);
+    } catch (e) { setError((e as Error).message); }
+    finally { setAjustando(false); }
   };
 
   const marcarPagado = async () => {
@@ -208,11 +264,51 @@ export default function TabPlan({ empresa, onChange }: TabPlanProps) {
       });
       setEstado(est);
       await cargarPagos();
-      setOkMsg(`Mantenimiento renovado hasta ${est.suscripcion ? fmtFecha(est.suscripcion.fecha_fin) : '—'}`);
+      await cargarResumen();
+      setOkMsg(`Mantenimiento pagado hasta ${est.suscripcion ? fmtFecha(est.suscripcion.fecha_fin) : '—'}`);
       onChange?.();
       setTimeout(() => setOkMsg(null), 3500);
     } catch (e) { setError((e as Error).message); }
     finally { setPagando(false); }
+  };
+
+  // Revertir el mantenimiento del mes: deshace UN mes de lo pagado (por si
+  // confirmaste un pago por error). Retrocede "pagado hasta" un mes y el resumen
+  // se recalcula (te vuelve a mostrar lo que quedaría por cobrar).
+  const [revirtiendo, setRevirtiendo] = useState(false);
+  const revertirCiclo = async () => {
+    if (revirtiendo) return;
+    setRevirtiendo(true); setError(null); setOkMsg(null);
+    try {
+      const est = await creditosAdminApi.revertirCiclo(empresa.id);
+      setEstado(est);
+      await cargarPagos();
+      await cargarResumen();
+      setOkMsg(`Se revirtió un mes de mantenimiento. Pagado hasta ${est.suscripcion ? fmtFecha(est.suscripcion.fecha_fin) : '—'}. Revisa el "Resumen de cobro".`);
+      onChange?.();
+      setTimeout(() => setOkMsg(null), 4000);
+    } catch (e) { setError((e as Error).message); }
+    finally { setRevirtiendo(false); }
+  };
+
+  // Reactivar la cuenta tras suspensión: arranca mantenimiento nuevo desde hoy
+  // (las cuotas atrasadas se cobran aparte en "Nueva venta").
+  const [reactivandoCuenta, setReactivandoCuenta] = useState(false);
+  const [confirmReactivar, setConfirmReactivar] = useState(false);  // muestra la deuda antes de reactivar
+  const reactivarCuenta = async () => {
+    if (reactivandoCuenta) return;
+    setReactivandoCuenta(true); setError(null); setOkMsg(null);
+    try {
+      const est = await creditosAdminApi.reactivarCuenta(empresa.id);
+      setEstado(est);
+      await cargarPagos();
+      await cargarResumen();
+      setConfirmReactivar(false);
+      setOkMsg('Cuenta reactivada: el mantenimiento arranca de nuevo desde hoy.');
+      onChange?.();
+      setTimeout(() => setOkMsg(null), 4500);
+    } catch (e) { setError((e as Error).message); }
+    finally { setReactivandoCuenta(false); }
   };
 
   if (loading) {
@@ -226,6 +322,11 @@ export default function TabPlan({ empresa, onChange }: TabPlanProps) {
   const cicloVigenteId = CICLOS.find((x) => x.label === estado?.suscripcion?.ciclo)?.id ?? 1;
   // Hay cambios si cambió el plan o el ciclo respecto a lo vigente.
   const planCambiado = planId !== (estado?.plan?.id ?? 0) || cicloId !== cicloVigenteId;
+
+  // Qué secciones mostrar según el sub-tab del perfil (sin section = todo).
+  const showPlan     = !section || section === 'plan';
+  const showCobros   = !section || section === 'cobros';
+  const showCreditos = !section || section === 'creditos';
 
   return (
     <div className="space-y-6">
@@ -241,7 +342,7 @@ export default function TabPlan({ empresa, onChange }: TabPlanProps) {
       )}
 
       {/* ── Acción principal: registrar una venta ───────────── */}
-      {estado?.plan && (
+      {showCobros && estado?.plan && (
         <div className="rounded-2xl p-4 flex items-center justify-between gap-3 flex-wrap"
           style={{ background: 'linear-gradient(135deg, #0D0E12, #2A2D35)' }}>
           <div className="text-white">
@@ -250,14 +351,118 @@ export default function TabPlan({ empresa, onChange }: TabPlanProps) {
               Mantenimiento + créditos + implementación, con descuento → emite la <b>factura</b>. La renovación del mes se hace aparte al confirmar el pago.
             </p>
           </div>
-          <button type="button" onClick={() => setVentaModal(true)} className="sv-btn px-5 text-white flex-shrink-0"
+          <button type="button" onClick={() => { setVentaPrefill(null); setVentaModal(true); }} className="sv-btn px-5 text-white flex-shrink-0"
             style={{ background: '#059669' }}>
             <Plus className="w-4 h-4" /> Nueva venta
           </button>
         </div>
       )}
 
+      {/* ── Resumen de lo que hay que cobrar (mantenimiento + usuarios extra prorrateados) ── */}
+      {showCobros && resumen?.plan && (resumen.lineas.length > 0 || resumen.enCurso.length > 0) && (() => {
+        const v = resumen.vencimiento;
+        const hayCobro = resumen.lineas.length > 0;   // hay algo vencido a cobrar ahora
+        const sem = v ? COBRANZA[v.estado_cobranza] : null;
+        // La insignia usa SIEMPRE `fecha_limite_pago` (la cuota realmente vencida o el
+        // próximo fin de mes), NO `fecha_fin` (= "pagado hasta", que puede ser un mes
+        // anterior a la implementación y confunde). Así coincide con "hace X día(s)"
+        // y con la tarjeta "Mantenimiento del mes".
+        const fLim = v ? new Date(`${v.fecha_limite_pago}T00:00:00`).toLocaleDateString('es-PE', { day: '2-digit', month: 'short' }) : '';
+        const badgeTxt = v
+          ? (v.dias_para_vencer >= 0
+              ? `Próximo cobro ${fLim}`
+              : `Venció ${fLim} · hace ${Math.abs(v.dias_para_vencer)} día(s)`)
+          : null;
+        return (
+          <div className="rounded-2xl p-5" style={{ background: '#fff', border: '1px solid #EEECE6' }}>
+            <div className="flex items-center justify-between gap-2 mb-1 flex-wrap">
+              <div className="flex items-center gap-2">
+                <FileText className="w-4 h-4" style={{ color: '#059669' }} />
+                <h3 className="text-[14px] font-bold" style={{ color: '#0D0E12' }}>Resumen de cobro</h3>
+              </div>
+              {v && sem && (
+                <span className="text-[10.5px] font-bold px-2.5 py-1 rounded-full"
+                  style={{ background: sem.bg, color: sem.fg, border: `1px solid ${sem.bd}` }}>
+                  {badgeTxt}
+                </span>
+              )}
+            </div>
+            <p className="text-[12.5px] mb-3" style={{ color: '#9CA3AF' }}>
+              {hayCobro ? 'Lo que corresponde cobrar ahora (vencido).' : 'Al día. Nada vencido por cobrar; el mes actual se acumula abajo.'}
+              {resumen.usuarios.ilimitado
+                ? ' Usuarios ilimitados (Corporativo).'
+                : ` Usuarios: ${resumen.usuarios.actuales} en uso · ${resumen.usuarios.incluidos} incluidos${resumen.usuarios.extra > 0 ? ` · ${resumen.usuarios.extra} adicional(es)` : ''}.`}
+            </p>
+
+            {hayCobro && (<>
+            <div className="rounded-xl overflow-hidden mb-3" style={{ border: '1px solid #EEECE6' }}>
+              {resumen.lineas.map((l, i) => (
+                <div key={i} className="flex items-center justify-between gap-3 px-3 py-2.5 text-[12.5px]"
+                  style={{ borderTop: i ? '1px solid #F2F0EA' : 'none' }}>
+                  <span style={{ color: '#374151' }}>
+                    {l.descripcion}{l.cantidad > 1 ? ` × ${l.cantidad}` : ''}
+                    {l.concepto === 'usuario_activacion' && <span className="text-[10px] ml-1.5" style={{ color: '#B45309' }}>pago único</span>}
+                    {l.concepto === 'usuario_mant_prorrateado' && <span className="text-[10px] ml-1.5" style={{ color: '#0D7C66' }}>proporcional</span>}
+                  </span>
+                  <span className="tabular-nums font-semibold flex-shrink-0" style={{ color: '#0D0E12' }}>{sol(l.cantidad * l.precioUnitario)}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div>
+                <p className="text-[10.5px] font-semibold uppercase tracking-wider" style={{ color: '#B0A898' }}>Total a cobrar</p>
+                <p className="text-[22px] font-bold tabular-nums" style={{ color: '#059669' }}>{sol(resumen.total)}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setVentaPrefill({
+                    lineas: resumen.lineas.map((l) => ({ descripcion: l.descripcion, cantidad: l.cantidad, precioUnitario: l.precioUnitario, renueva: l.renueva })),
+                    marcar: resumen.marcarActivacionUsuarios,
+                  });
+                  setVentaModal(true);
+                }}
+                className="sv-btn px-5 text-white"
+                style={{ background: '#0D0E12' }}
+              >
+                <ArrowRight className="w-4 h-4" /> Cargar en nueva venta
+              </button>
+            </div>
+            </>)}
+
+            {/* ── EN CURSO: mes actual, informativo. NO se cobra ni entra al total. ── */}
+            {resumen.enCurso.length > 0 && (
+              <div className="mt-4 pt-4" style={{ borderTop: '1px dashed #E5E1D8' }}>
+                <div className="flex items-center gap-2 mb-2 flex-wrap">
+                  <p className="text-[10.5px] font-semibold uppercase tracking-wider" style={{ color: '#B0A898' }}>
+                    En curso · se cobra {resumen.fechaCobroEnCurso ? fmtFecha(resumen.fechaCobroEnCurso) : 'a fin de mes'}
+                  </p>
+                  <span className="text-[9.5px] px-1.5 py-0.5 rounded-full"
+                    style={{ background: '#F5F3EE', color: '#9CA3AF', border: '1px solid #EEECE6' }}>aún no</span>
+                </div>
+                <div className="rounded-xl overflow-hidden" style={{ border: '1px dashed #E5E1D8', background: '#FBFAF7' }}>
+                  {resumen.enCurso.map((l, i) => (
+                    <div key={i} className="flex items-center justify-between gap-3 px-3 py-2 text-[12px]"
+                      style={{ borderTop: i ? '1px solid #F2F0EA' : 'none' }}>
+                      <span style={{ color: '#9CA3AF' }}>{l.descripcion}{l.cantidad > 1 ? ` × ${l.cantidad}` : ''}</span>
+                      <span className="tabular-nums flex-shrink-0" style={{ color: '#9CA3AF' }}>{sol(l.cantidad * l.precioUnitario)}</span>
+                    </div>
+                  ))}
+                  <div className="flex items-center justify-between gap-3 px-3 py-2 text-[11.5px]" style={{ borderTop: '1px solid #F2F0EA' }}>
+                    <span style={{ color: '#B0A898' }}>Subtotal en curso (referencial)</span>
+                    <span className="tabular-nums font-semibold flex-shrink-0" style={{ color: '#9CA3AF' }}>{sol(resumen.totalEnCurso)}</span>
+                  </div>
+                </div>
+                <p className="text-[10.5px] mt-1.5" style={{ color: '#B0A898' }}>No se cobra todavía. Se sumará cuando termine el mes.</p>
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
       {/* ── Plan vigente + consumo del mes ──────────────────── */}
+      {showPlan && (
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         {/* Plan vigente */}
         <div className="rounded-2xl p-5 text-white" style={{ background: 'linear-gradient(135deg, #059669, #047857)', boxShadow: '0 8px 24px rgba(5,150,105,0.25)' }}>
@@ -332,22 +537,38 @@ export default function TabPlan({ empresa, onChange }: TabPlanProps) {
           )}
         </div>
       </div>
+      )}
 
       {/* ── Cobranza / Renovación del ciclo ─────────────────── */}
-      {estado?.suscripcion && (
+      {showCobros && estado?.suscripcion && (
         <div className="rounded-2xl p-5" style={{ background: '#fff', border: '1px solid #EEECE6' }}>
           <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
             <div>
-              <h3 className="text-[14px] font-bold" style={{ color: '#0D0E12' }}>Cobranza del ciclo</h3>
+              <h3 className="text-[14px] font-bold" style={{ color: '#0D0E12' }}>Mantenimiento del mes</h3>
               <p className="text-[12px] mt-0.5" style={{ color: '#9CA3AF' }}>
-                Vence {fmtFecha(estado.suscripcion.fecha_fin)} · pago máximo {fmtFecha(estado.suscripcion.fecha_limite_pago)}
+                {(() => {
+                  const s = estado.suscripcion!;
+                  // "Sin pagos aún": el mantenimiento pagado (fecha_fin) es anterior a la
+                  // implementación (fecha_inicio) → nunca pagó. En ese caso NO mostramos
+                  // "Pagado hasta ..." (sería una fecha confusa anterior a que existiera la
+                  // empresa); solo el próximo cobro / la deuda.
+                  const sinPagos = s.fecha_fin < s.fecha_inicio;
+                  const cobro = (s.cuotas_vencidas ?? 0) === 0
+                    ? `próximo cobro ${fmtFecha(s.fecha_limite_pago)}`
+                    : `debe ${s.cuotas_vencidas} cuota${s.cuotas_vencidas === 1 ? '' : 's'} desde ${fmtFecha(s.fecha_limite_pago)}`;
+                  return sinPagos
+                    ? cobro.charAt(0).toUpperCase() + cobro.slice(1)
+                    : `Pagado hasta ${fmtFecha(s.fecha_fin)} · ${cobro}`;
+                })()}
               </p>
             </div>
             <span className="text-[11px] font-bold px-2.5 py-1 rounded-full"
               style={{ background: COBRANZA[estado.suscripcion.estado_cobranza].bg, color: COBRANZA[estado.suscripcion.estado_cobranza].fg, border: `1px solid ${COBRANZA[estado.suscripcion.estado_cobranza].bd}` }}>
               {estado.suscripcion.estado_cobranza === 'vencido'
-                ? `Venció hace ${Math.abs(estado.suscripcion.dias_para_vencer)} día${Math.abs(estado.suscripcion.dias_para_vencer) === 1 ? '' : 's'}`
-                : `Faltan ${estado.suscripcion.dias_para_vencer} día${estado.suscripcion.dias_para_vencer === 1 ? '' : 's'}`}
+                ? `Suspendido · debe ${estado.suscripcion.cuotas_vencidas ?? 2} cuotas`
+                : estado.suscripcion.estado_cobranza === 'por_vencer'
+                  ? 'Debe 1 cuota'
+                  : 'Al día'}
             </span>
           </div>
 
@@ -364,24 +585,48 @@ export default function TabPlan({ empresa, onChange }: TabPlanProps) {
           </div>
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <p className="text-[11.5px]" style={{ color: '#9CA3AF' }}>
-              Solo renueva el vencimiento un ciclo ({estado.suscripcion.ciclo.toLowerCase()}). No registra un pago: ese se registra con “Nueva venta”.
+              {estado.suscripcion.estado_cobranza === 'vigente'
+                ? <>Al día. "Confirmar pago" se habilita cuando haya una cuota de fin de mes vencida.</>
+                : <>Confirma el pago para saldar las cuotas de mantenimiento vencidas. El comprobante se emite con "Nueva venta".</>}
             </p>
-            <button type="button" onClick={marcarPagado} disabled={pagando} className="sv-btn sv-btn-primary px-5">
-              {pagando ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />} Confirmar pago del mantenimiento
-            </button>
+            <div className="flex items-center gap-2 flex-wrap">
+              {estado.suscripcion.estado_cobranza === 'vencido' && (
+                <button type="button" onClick={() => { setError(null); setConfirmReactivar(true); }} disabled={reactivandoCuenta}
+                  title="Reactivar: muestra la deuda y arranca mantenimiento nuevo desde hoy"
+                  className="flex items-center gap-1.5 px-3 py-2 text-[12.5px] font-semibold rounded-lg transition-colors text-white"
+                  style={{ background: '#059669' }}>
+                  {reactivandoCuenta ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />} Reactivar cuenta
+                </button>
+              )}
+              {/* Revertir: SIEMPRE visible — deshace UN mes de mantenimiento si te confundes al confirmar. */}
+              <button type="button" onClick={revertirCiclo} disabled={revirtiendo}
+                title="Deshacer un mes de mantenimiento (por si confirmaste el pago por error)"
+                className="flex items-center gap-1.5 px-3 py-2 text-[12.5px] font-semibold rounded-lg transition-colors"
+                style={{ background: '#fff', border: '1px solid #FCA5A5', color: '#DC2626' }}>
+                {revirtiendo ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />} Revertir mes
+              </button>
+              <button type="button" onClick={marcarPagado}
+                disabled={pagando || estado.suscripcion.estado_cobranza === 'vigente'}
+                title={estado.suscripcion.estado_cobranza === 'vigente' ? 'No hay cuotas de mantenimiento vencidas por pagar' : undefined}
+                className="sv-btn sv-btn-primary px-5">
+                {pagando ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+                {estado.suscripcion.estado_cobranza === 'vigente' ? 'Al día' : 'Confirmar pago del mantenimiento'}
+              </button>
+            </div>
           </div>
         </div>
       )}
 
       {/* ── Recargar créditos (suma al saldo) — no aplica a planes ilimitados ── */}
-      {estado?.plan && !cr?.ilimitado && (
+      {showCreditos && estado?.plan && !cr?.ilimitado && (
         <form onSubmit={recargar} className="rounded-2xl p-5" style={{ background: '#fff', border: '1px solid #EEECE6' }}>
           <div className="flex items-center gap-2 mb-1">
             <Plus className="w-4 h-4" style={{ color: '#059669' }} />
             <h3 className="text-[14px] font-bold" style={{ color: '#0D0E12' }}>Recargar créditos</h3>
           </div>
           <p className="text-[12.5px] mb-4" style={{ color: '#9CA3AF' }}>
-            Suma créditos al saldo de la empresa (acumulables, no vencen).
+            Suma créditos al saldo de la empresa (acumulables, no vencen). El cobro/comprobante
+            se registra aparte en "Nueva venta".
             Crédito suelto: <b style={{ color: '#64748B' }}>{sol(3.00)}</b> (1–49) ·
             <b style={{ color: '#64748B' }}> {sol(2.85)}</b> (50+), o un paquete con descuento.
           </p>
@@ -445,7 +690,56 @@ export default function TabPlan({ empresa, onChange }: TabPlanProps) {
         </form>
       )}
 
+      {/* ── Quitar créditos (ajuste por error) — no aplica a planes ilimitados ── */}
+      {showCreditos && estado?.plan && !cr?.ilimitado && (
+        <form onSubmit={ajustarQuitar} className="rounded-2xl p-5" style={{ background: '#fff', border: '1px solid #FEE2E2' }}>
+          <div className="flex items-center gap-2 mb-1">
+            <Minus className="w-4 h-4" style={{ color: '#DC2626' }} />
+            <h3 className="text-[14px] font-bold" style={{ color: '#0D0E12' }}>Quitar créditos</h3>
+          </div>
+          <p className="text-[12.5px] mb-4" style={{ color: '#9CA3AF' }}>
+            Corrige un error de asignación restando créditos del saldo.
+            Solo puedes quitar hasta los <b style={{ color: '#64748B' }}>{disponibles}</b> disponibles
+            (lo ya emitido no se recupera). Queda registrado en el historial.
+          </p>
+
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="w-[140px]">
+              <label className="block text-[11px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: '#374151' }}>Cantidad a quitar</label>
+              <input
+                type="number" min={1} max={disponibles} step={1} value={quitar}
+                onChange={(e) => setQuitar(e.target.value)}
+                placeholder="Ej. 90" className="sv-input w-full"
+              />
+            </div>
+            <div className="flex-1 min-w-[180px]">
+              <label className="block text-[11px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: '#374151' }}>Motivo (opcional)</label>
+              <input
+                type="text" value={quitarMotivo}
+                onChange={(e) => setQuitarMotivo(e.target.value)}
+                placeholder="Ej. corrección: se asignaron de más" className="sv-input w-full"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={!quitarValido || ajustando}
+              className="sv-btn px-5"
+              style={{ background: quitarValido && !ajustando ? '#DC2626' : '#F3F4F6', color: quitarValido && !ajustando ? '#fff' : '#9CA3AF', border: 'none' }}
+            >
+              {ajustando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Minus className="w-4 h-4" />} Quitar
+              {quitarValido ? ` ${cantidadQuitar}` : ''}
+            </button>
+          </div>
+          {String(quitar).trim() !== '' && !quitarValido && cantidadQuitar > disponibles && (
+            <p className="text-[12px] mt-3" style={{ color: '#B91C1C' }}>
+              No puedes quitar más de {disponibles} créditos (es el saldo disponible).
+            </p>
+          )}
+        </form>
+      )}
+
       {/* ── Cambiar plan ────────────────────────────────────── */}
+      {showPlan && (
       <form onSubmit={asignar} className="rounded-2xl p-5" style={{ background: '#fff', border: '1px solid #EEECE6' }}>
         <h3 className="text-[14px] font-bold mb-4" style={{ color: '#0D0E12' }}>Asignar / cambiar plan</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -485,8 +779,10 @@ export default function TabPlan({ empresa, onChange }: TabPlanProps) {
           Al cambiar el plan se cierra la suscripción anterior y se crea una nueva vigente desde hoy (queda en el historial).
         </p>
       </form>
+      )}
 
       {/* ── Historial de pagos ──────────────────────────────── */}
+      {showCobros && (
       <div className="rounded-2xl p-5" style={{ background: '#fff', border: '1px solid #EEECE6' }}>
         <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
           <h3 className="text-[14px] font-bold" style={{ color: '#0D0E12' }}>Historial de pagos</h3>
@@ -566,8 +862,10 @@ export default function TabPlan({ empresa, onChange }: TabPlanProps) {
           </>
         )}
       </div>
+      )}
 
       {/* ── Movimientos de créditos (ledger por empresa) ────── */}
+      {showCreditos && (
       <div className="rounded-2xl p-5" style={{ background: '#fff', border: '1px solid #EEECE6' }}>
         <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
           <div className="flex items-center gap-2">
@@ -622,15 +920,77 @@ export default function TabPlan({ empresa, onChange }: TabPlanProps) {
           </>
         )}
       </div>
+      )}
 
       {ventaModal && estado?.plan && (
         <NuevaVentaModal
           empresa={empresa}
           plan={estado.plan}
           ciclo={estado.suscripcion?.ciclo ?? 'Mensual'}
-          onClose={() => setVentaModal(false)}
-          onDone={() => { setVentaModal(false); cargar(); cargarPagos(); cargarMovs(); onChange?.(); }}
+          prefill={ventaPrefill}
+          onClose={() => { setVentaModal(false); setVentaPrefill(null); }}
+          onDone={() => { setVentaModal(false); setVentaPrefill(null); cargar(); cargarPagos(); cargarMovs(); cargarResumen(); onChange?.(); }}
         />
+      )}
+
+      {/* Confirmación de quitar créditos (mismo patrón que TabUsuarios) */}
+      {confirmQuitar && createPortal(
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" style={{ background: 'rgba(13,14,18,0.5)', backdropFilter: 'blur(4px)' }} onMouseDown={() => !ajustando && setConfirmQuitar(false)}>
+          <div className="bg-white rounded-2xl max-w-[400px] w-full p-6" style={{ boxShadow: '0 24px 70px -12px rgba(13,14,18,0.4)' }} onMouseDown={(e) => e.stopPropagation()}>
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-4" style={{ background: '#FEF2F2', color: '#DC2626' }}>
+              <Minus className="w-6 h-6" />
+            </div>
+            <h3 className="text-[17px] font-bold" style={{ color: '#0D0E12' }}>Quitar créditos</h3>
+            <p className="text-[13px] mt-1.5" style={{ color: '#6B7280', lineHeight: 1.5 }}>
+              Se quitarán <b>{cantidadQuitar} créditos</b> del saldo de <b>{empresa.razon_social}</b>
+              {quitarMotivo.trim() && <> (motivo: <i>{quitarMotivo.trim()}</i>)</>}.
+              Queda registrado en el historial de movimientos.
+            </p>
+            {error && <p className="text-[12.5px] mt-3" style={{ color: '#DC2626' }}>{error}</p>}
+            <div className="flex items-center gap-2.5 mt-6">
+              <button onClick={() => setConfirmQuitar(false)} disabled={ajustando} className="sv-btn sv-btn-ghost flex-1">Cancelar</button>
+              <button onClick={doQuitar} disabled={ajustando} className="sv-btn flex-1 text-white" style={{ background: '#DC2626' }}>
+                {ajustando && <Loader2 className="w-4 h-4 animate-spin" />} Quitar {cantidadQuitar}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
+
+      {/* Reactivar: muestra la DEUDA antes de reactivar (debe pagar lo atrasado). */}
+      {confirmReactivar && createPortal(
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" style={{ background: 'rgba(13,14,18,0.5)', backdropFilter: 'blur(4px)' }} onMouseDown={() => !reactivandoCuenta && setConfirmReactivar(false)}>
+          <div className="bg-white rounded-2xl max-w-[430px] w-full p-6" style={{ boxShadow: '0 24px 70px -12px rgba(13,14,18,0.4)' }} onMouseDown={(e) => e.stopPropagation()}>
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-4" style={{ background: '#FEF2F2', color: '#DC2626' }}>
+              <AlertCircle className="w-6 h-6" />
+            </div>
+            <h3 className="text-[17px] font-bold" style={{ color: '#0D0E12' }}>Reactivar {empresa.razon_social}</h3>
+            <p className="text-[13px] mt-1.5" style={{ color: '#6B7280', lineHeight: 1.5 }}>
+              El cliente está <b>suspendido</b> y debe pagar lo atrasado antes de reactivar:
+            </p>
+            <div className="mt-3 rounded-xl px-4 py-3 flex items-center justify-between" style={{ background: '#FEF2F2', border: '1px solid #FECACA' }}>
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: '#B91C1C' }}>Deuda por cobrar</p>
+                <p className="text-[11.5px]" style={{ color: '#9F5757' }}>
+                  {estado?.suscripcion?.cuotas_vencidas ?? 0} cuota{(estado?.suscripcion?.cuotas_vencidas ?? 0) === 1 ? '' : 's'} de mantenimiento vencida{(estado?.suscripcion?.cuotas_vencidas ?? 0) === 1 ? '' : 's'}
+                </p>
+              </div>
+              <p className="text-[22px] font-bold tabular-nums" style={{ color: '#B91C1C' }}>{sol(resumen?.total ?? 0)}</p>
+            </div>
+            <p className="text-[12px] mt-3" style={{ color: '#6B7280' }}>
+              Cobra ese monto con <b>"Nueva venta"</b> (queda el comprobante). Al reactivar, el mantenimiento arranca de nuevo <b>desde hoy</b> (cuenta nueva).
+            </p>
+            {error && <p className="text-[12.5px] mt-3" style={{ color: '#DC2626' }}>{error}</p>}
+            <div className="flex items-center gap-2.5 mt-6">
+              <button onClick={() => setConfirmReactivar(false)} disabled={reactivandoCuenta} className="sv-btn sv-btn-ghost flex-1">Cancelar</button>
+              <button onClick={reactivarCuenta} disabled={reactivandoCuenta} className="sv-btn flex-1 text-white" style={{ background: '#059669' }}>
+                {reactivandoCuenta ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />} Ya pagó, reactivar
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body,
       )}
     </div>
   );
@@ -640,10 +1000,11 @@ export default function TabPlan({ empresa, onChange }: TabPlanProps) {
 interface LineaVenta { descripcion: string; cantidad: number; precioUnitario: number; creditos?: number; renueva?: boolean; }
 
 /** Modal "Nueva venta": constructor de comprobante (agregas líneas como una boleta). */
-function NuevaVentaModal({ empresa, plan, ciclo, onClose, onDone }: {
+function NuevaVentaModal({ empresa, plan, ciclo, prefill, onClose, onDone }: {
   empresa: EmpresaCreditos;
   plan: PlanCatalogo;
   ciclo: string;
+  prefill?: { lineas: LineaVenta[]; marcar: number[] } | null;
   onClose: () => void;
   onDone: () => void;
 }) {
@@ -664,7 +1025,7 @@ function NuevaVentaModal({ empresa, plan, ciclo, onClose, onDone }: {
     { id: 'usr-mant', label: `Mantenimiento usuario adicional (${ciclo})`, precio: Math.round(5 * meses * 100) / 100 },
   ];
 
-  const [lineas, setLineas] = useState<LineaVenta[]>([]);
+  const [lineas, setLineas] = useState<LineaVenta[]>(prefill?.lineas ?? []);
   // Fila de "agregar producto".
   const [sel, setSel]       = useState('');       // id del catálogo o '' (personalizado)
   const [desc, setDesc]     = useState('');
@@ -715,6 +1076,7 @@ function NuevaVentaModal({ empresa, plan, ciclo, onClose, onDone }: {
         items: lineas.map(l => ({ descripcion: l.descripcion, cantidad: l.cantidad, precioUnitario: l.precioUnitario, creditos: l.creditos, renueva: l.renueva })),
         descuento: descuento > 0 ? { tipo: descTipo, valor: descValor } : undefined,
         tipo_comprobante: tipoComp,
+        marcar_activacion_usuarios: prefill?.marcar,
       });
       const c = r.comprobante;
       const ok = c.estado === 'ACEPTADO' || c.estado === 'OBSERVADO' || c.estado === 'EMITIDA';

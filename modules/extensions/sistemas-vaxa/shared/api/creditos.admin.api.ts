@@ -69,10 +69,11 @@ export type EstadoCobranza = 'vigente' | 'por_vencer' | 'vencido';
 
 export interface SuscripcionEmpresa {
   id: number; ciclo: string; estado: string;
-  fecha_inicio: string; fecha_fin: string;
-  fecha_limite_pago: string;     // fecha máxima recomendada de pago (vence − días de aviso)
-  dias_para_vencer: number;      // días hasta el vencimiento (negativo si ya venció)
+  fecha_inicio: string; fecha_fin: string;   // fecha_fin = "mantenimiento pagado hasta" (fin de mes)
+  fecha_limite_pago: string;     // fin de mes de referencia (próximo cobro o 1ra cuota impaga)
+  dias_para_vencer: number;      // al día: días al próximo fin de mes; con deuda: días desde la 1ra cuota impaga (neg)
   estado_cobranza: EstadoCobranza;
+  cuotas_vencidas?: number;      // cuántas cuotas de mantenimiento debe (0 = al día)
 }
 
 export interface EstadoPlanEmpresa {
@@ -126,6 +127,31 @@ export interface PagoHist {
   cpe_numero: string | null;      // F001-3
   cpe_estado: string | null;      // ACEPTADO / RECHAZADO...
   detalle: string | null;         // líneas facturadas: "Implementación · Mantenimiento…"
+}
+
+/** Una línea sugerida del "resumen de lo que debo cobrar". */
+export interface LineaCobro {
+  concepto: 'mantenimiento' | 'usuario_mant' | 'usuario_activacion' | 'usuario_mant_prorrateado';
+  descripcion: string;
+  cantidad: number;
+  precioUnitario: number;
+  renueva?: boolean;
+  usuarioId?: number;
+}
+
+/** Resumen de lo que se le debe cobrar a la empresa (calculado en el backend). */
+export interface ResumenCobro {
+  plan: { id: number; nombre: string; slug: string } | null;
+  ciclo: string | null;
+  vencimiento: { fecha_fin: string; fecha_limite_pago: string; dias_para_vencer: number; estado_cobranza: EstadoCobranza } | null;
+  usuarios: { incluidos: number; actuales: number; extra: number; ilimitado: boolean };
+  lineas: LineaCobro[];
+  total: number;
+  marcarActivacionUsuarios: number[];
+  // Mes en curso (aún no vencido): informativo, NO se cobra ni suma al total.
+  enCurso: LineaCobro[];
+  totalEnCurso: number;
+  fechaCobroEnCurso: string | null;   // fin de mes en que se cobrará, o null
 }
 
 export interface UsuarioEmpresa {
@@ -199,6 +225,15 @@ export const creditosAdminApi = {
       opts(),
     ),
 
+  /** Ajuste manual de créditos. `cantidad` con signo: negativa = quitar créditos
+   *  (p. ej. asignados de más por error). No deja el saldo en negativo. */
+  ajustar: (empresaId: number, cantidad: number, descripcion?: string) =>
+    api.post<{ empresaId: number; saldo: number }>(
+      `/api/admin/creditos/empresas/${empresaId}/ajustar`,
+      { cantidad, descripcion },
+      opts(),
+    ),
+
   movimientos: (empresaId: number, limit = 100) =>
     api.get<MovimientoCredito[]>(
       `/api/admin/creditos/empresas/${empresaId}/movimientos?limit=${limit}`,
@@ -252,9 +287,25 @@ export const creditosAdminApi = {
   marcarPagado: (empresaId: number, dto: MarcarPagadoDto = {}) =>
     api.post<EstadoPlanEmpresa>(`/api/admin/empresas/${empresaId}/marcar-pagado`, dto, opts()),
 
+  /** Revierte la última renovación del ciclo (si se marcó el pago por error). */
+  revertirCiclo: (empresaId: number) =>
+    api.post<EstadoPlanEmpresa>(`/api/admin/empresas/${empresaId}/revertir-ciclo`, {}, opts()),
+
+  /** Reactiva la cuenta de mantenimiento tras suspensión (cuenta nueva desde hoy). */
+  reactivarCuenta: (empresaId: number) =>
+    api.post<EstadoPlanEmpresa>(`/api/admin/empresas/${empresaId}/reactivar-cuenta`, {}, opts()),
+
+  /** Ajuste manual de "mantenimiento pagado hasta" (se guarda como fin del mes elegido). */
+  ajustarPagadoHasta: (empresaId: number, fecha: string) =>
+    api.post<EstadoPlanEmpresa>(`/api/admin/empresas/${empresaId}/pagado-hasta`, { fecha }, opts()),
+
   /** Historial de pagos de una empresa. */
   listPagos: (empresaId: number) =>
     api.get<PagoHist[]>(`/api/admin/empresas/${empresaId}/pagos`, opts()),
+
+  /** Resumen de lo que hay que cobrar (mantenimiento del ciclo + usuarios extra prorrateados). */
+  resumenCobro: (empresaId: number) =>
+    api.get<ResumenCobro>(`/api/admin/empresas/${empresaId}/resumen-cobro`, opts()),
 
   /** Emite la factura electrónica de un pago (plan o certificados adicionales). */
   facturarPago: (pagoId: number) =>
@@ -267,6 +318,7 @@ export const creditosAdminApi = {
     items: Array<{ descripcion: string; cantidad: number; precioUnitario: number; creditos?: number; renueva?: boolean }>;
     descuento?: { tipo: 'monto' | 'pct'; valor: number };
     tipo_comprobante?: '01' | '03' | 'NV';
+    marcar_activacion_usuarios?: number[];   // usuarios cuya activación (S/50) se cobra en esta venta
   }) =>
     api.post<{ comprobante: { numero: string; estado: string; estado_nombre: string; sunat_resp_desc: string | null }; descuento: number; total: number; creditosAgregados: number }>(
       `/api/admin/empresas/${empresaId}/venta`, dto, opts(),

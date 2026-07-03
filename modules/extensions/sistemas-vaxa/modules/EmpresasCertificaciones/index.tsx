@@ -8,6 +8,7 @@ import {
 } from '@/components/ui/icon';
 import HeaderSistemasVaxa from '../../shared/components/HeaderSistemasVaxa';
 import BotonVolver from '../../shared/components/BotonVolver';
+import Pager from '../../shared/components/Pager';
 import { VAXA_CONFIG } from '../../shared/constants';
 import { authStorage } from '@/lib/auth';
 import { ApiError } from '@/lib/api/client';
@@ -23,6 +24,7 @@ export default function EmpresasCertificaciones({ tenantId }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [page, setPage] = useState(1);
 
   // Eliminar empresa desde el listado (con confirmación en modal).
   const [aEliminar, setAEliminar] = useState<EmpresaCreditos | null>(null);
@@ -101,6 +103,12 @@ export default function EmpresasCertificaciones({ tenantId }: Props) {
       e.tenant_slug.toLowerCase().includes(q) ||
       (e.ruc ?? '').toLowerCase().includes(q),
     );
+
+  // Paginación del listado de empresas.
+  const POR_PAGINA = 12;
+  const pages = Math.max(1, Math.ceil(filtradas.length / POR_PAGINA));
+  const pageSafe = Math.min(page, pages);
+  const filtradasPagina = filtradas.slice((pageSafe - 1) * POR_PAGINA, pageSafe * POR_PAGINA);
 
   return (
     <div className="min-h-screen" style={{ background: '#F5F4F0' }}>
@@ -191,13 +199,13 @@ export default function EmpresasCertificaciones({ tenantId }: Props) {
               <span className="w-16" />
             </div>
 
-            {filtradas.map((e, idx) => {
+            {filtradasPagina.map((e, idx) => {
               const ilim = !!e.ilimitado;
               const bajo = !ilim && e.creditos_disponibles <= 0, medio = !ilim && e.creditos_disponibles > 0 && e.creditos_disponibles <= 10;
               return (
                 <div key={e.id}
                   className="grid items-center px-5 py-3.5 gap-3 cursor-pointer group transition-colors"
-                  style={{ gridTemplateColumns: '1fr 80px 96px 80px 64px', borderBottom: idx < filtradas.length - 1 ? '1px solid #F5F4F0' : undefined }}
+                  style={{ gridTemplateColumns: '1fr 80px 96px 80px 64px', borderBottom: idx < filtradasPagina.length - 1 ? '1px solid #F5F4F0' : undefined }}
                   onClick={() => navigate(`/${tenantId}/certificaciones/empresa/${e.id}`)}
                   onMouseEnter={(ev) => { ev.currentTarget.style.background = '#FAFAF8'; }}
                   onMouseLeave={(ev) => { ev.currentTarget.style.background = 'transparent'; }}>
@@ -262,6 +270,12 @@ export default function EmpresasCertificaciones({ tenantId }: Props) {
                 </div>
               );
             })}
+
+            {filtradas.length > 0 && (
+              <div className="px-5">
+                <Pager page={pageSafe} pages={pages} total={filtradas.length} onPage={setPage} />
+              </div>
+            )}
 
             {filtradas.length === 0 && (
               <div className="text-center py-14">

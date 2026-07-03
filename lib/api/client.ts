@@ -1,6 +1,18 @@
 import { authStorage } from '../auth';
 
-const API_URL = (import.meta.env.VITE_API_URL as string) || 'http://localhost:4000';
+export const API_URL = (import.meta.env.VITE_API_URL as string) || 'http://localhost:4000';
+
+/**
+ * Resuelve la URL final de una imagen guardada en la BD. Las imágenes ahora se
+ * guardan como ARCHIVO en el servidor y la BD tiene la ruta `/uploads/...`; hay que
+ * anteponerle el origen del backend (en dev el front y el back están en puertos
+ * distintos). Soporta también base64 (`data:`) y URLs absolutas (legado) → las deja igual.
+ */
+export function imgUrl(src?: string | null): string {
+  if (!src) return '';
+  if (src.startsWith('data:') || src.startsWith('http://') || src.startsWith('https://') || src.startsWith('blob:')) return src;
+  return `${API_URL}${src.startsWith('/') ? '' : '/'}${src}`;
+}
 
 /**
  * El backend revoca la sesión anterior cuando el mismo usuario inicia sesión en

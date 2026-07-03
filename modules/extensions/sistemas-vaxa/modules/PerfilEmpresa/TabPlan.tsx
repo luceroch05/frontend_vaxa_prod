@@ -7,6 +7,7 @@ import {
   creditosAdminApi, type EmpresaCreditos, type PlanCatalogo, type EstadoPlanEmpresa, type PagoHist, type MovimientoCredito, type ResumenCobro,
 } from '../../shared/api/creditos.admin.api';
 import Pager from '../../shared/components/Pager';
+import { esEmpresa, docLabel } from '../../shared/docs';
 
 interface TabPlanProps {
   empresa: EmpresaCreditos;
@@ -138,7 +139,7 @@ export default function TabPlan({ empresa, onChange, section }: TabPlanProps) {
       const r = await creditosAdminApi.facturarPago(pagoId);
       await cargarPagos();
       const ok = r.estado === 'ACEPTADO' || r.estado === 'OBSERVADO';
-      if (ok) { setOkMsg(`Factura ${r.numero} emitida · ${r.estado_nombre}`); setTimeout(() => setOkMsg(null), 4000); }
+      if (ok) { setOkMsg(`${esEmpresa(empresa.tipo_doc) ? 'Factura' : 'Boleta'} ${r.numero} emitida · ${r.estado_nombre}`); setTimeout(() => setOkMsg(null), 4000); }
       else setError(`${r.numero}: ${r.sunat_resp_desc ?? r.estado_nombre}`);
     } catch (e) { setError((e as Error).message); }
     finally { setFacturandoId(null); }
@@ -840,7 +841,7 @@ export default function TabPlan({ empresa, onChange, section }: TabPlanProps) {
                           <button onClick={() => facturarPago(p.id)} disabled={facturandoId === p.id}
                             className="text-[11px] font-semibold flex items-center gap-1 hover:opacity-70" style={{ color: '#059669' }}>
                             {facturandoId === p.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileText className="w-3.5 h-3.5" />}
-                            {facturandoId === p.id ? 'Emitiendo...' : 'Emitir factura'}
+                            {facturandoId === p.id ? 'Emitiendo...' : `Emitir ${esEmpresa(empresa.tipo_doc) ? 'factura' : 'boleta'}`}
                           </button>
                         )}
                       </td>
@@ -1033,6 +1034,17 @@ function NuevaVentaModal({ empresa, plan, ciclo, prefill, onClose, onDone }: {
   const [precio, setPrecio] = useState('');
   const [meta, setMeta]     = useState<{ creditos?: number; renueva?: boolean }>({});
 
+  // Tipo de cliente: Empresa (RUC) puede factura; Persona (DNI/CE) NO — solo boleta/NV.
+  const esEmp = esEmpresa(empresa.tipo_doc);
+  const rucValido = esEmp && !!empresa.ruc;   // factura (01) exige RUC de empresa (SUNAT)
+  // Opciones de comprobante permitidas según el tipo de cliente (a prueba de errores:
+  // el comprobante que NO corresponde ni siquiera aparece).
+  //  - Empresa (RUC):   Factura + Nota de venta (la boleta le borraría el RUC / sin crédito fiscal).
+  //  - Persona (DNI/CE): Boleta  + Nota de venta (la factura exige RUC → SUNAT la rechaza).
+  const OPCIONES_COMP: Array<['01' | '03' | 'NV', string]> = esEmp
+    ? [['01', 'Factura'], ['NV', 'Nota de venta']]
+    : [['03', 'Boleta'], ['NV', 'Nota de venta']];
+
   // Por defecto Nota de venta (NV), NO factura — pedido del usuario.
   const [tipoComp, setTipoComp] = useState<'01' | '03' | 'NV'>('NV');
   const [descTipo, setDescTipo] = useState<'monto' | 'pct'>('pct');
@@ -1066,10 +1078,11 @@ function NuevaVentaModal({ empresa, plan, ciclo, prefill, onClose, onDone }: {
   // Nota de venta = monto simple (sin IGV); factura/boleta = con IGV.
   const base = esNotaVenta ? total : Math.round((total / 1.18) * 100) / 100;
   const igv = esNotaVenta ? 0 : Math.round((total - base) * 100) / 100;
-  const sinRuc = !empresa.ruc;
+  // Factura (01) exige RUC de empresa. Con persona/DNI o sin RUC → inválida (SUNAT la rechaza).
+  const facturaInvalida = tipoComp === '01' && !rucValido;
 
   const registrar = async () => {
-    if (lineas.length === 0 || enviando) return;
+    if (lineas.length === 0 || enviando || facturaInvalida) return;
     setEnviando(true); setResultado(null);
     try {
       const r = await creditosAdminApi.registrarVenta(empresa.id, {
@@ -1094,17 +1107,25 @@ function NuevaVentaModal({ empresa, plan, ciclo, prefill, onClose, onDone }: {
           <h2 className="text-[17px] font-bold" style={{ color: '#0D0E12' }}>Nueva venta</h2>
           <button onClick={onClose}><X className="w-5 h-5" style={{ color: '#9CA3AF' }} /></button>
         </div>
-        <p className="text-[12px] mb-3" style={{ color: '#9CA3AF' }}>{empresa.razon_social}{empresa.ruc ? ` · RUC ${empresa.ruc}` : ''}</p>
+        <p className="text-[12px] mb-3" style={{ color: '#9CA3AF' }}>
+          {empresa.razon_social}{empresa.ruc ? ` · ${docLabel(empresa.tipo_doc)} ${empresa.ruc}` : ''}
+          <span className="ml-1.5 font-semibold" style={{ color: esEmp ? '#059669' : '#1D4ED8' }}>· {esEmp ? 'Empresa' : 'Persona'}</span>
+        </p>
 
-        {/* Tipo de comprobante */}
-        <div className="flex rounded-xl overflow-hidden mb-3" style={{ border: '1px solid #EEECE6' }}>
-          {([['01', 'Factura'], ['03', 'Boleta'], ['NV', 'Nota de venta']] as const).map(([v, label]) => (
+        {/* Tipo de comprobante (Persona/DNI: sin factura — SUNAT no la admite) */}
+        <div className="flex rounded-xl overflow-hidden mb-1" style={{ border: '1px solid #EEECE6' }}>
+          {OPCIONES_COMP.map(([v, label]) => (
             <button key={v} type="button" onClick={() => setTipoComp(v)} className="flex-1 py-2 text-[13px] font-semibold transition-colors"
               style={tipoComp === v ? { background: '#059669', color: '#fff' } : { background: '#fff', color: '#64748B' }}>
               {label}
             </button>
           ))}
         </div>
+        {!esEmp && (
+          <p className="text-[11px] mb-3" style={{ color: '#1D4ED8' }}>
+            Cliente <b>persona</b> ({docLabel(empresa.tipo_doc)}): solo <b>boleta</b>. La factura requiere RUC (empresa).
+          </p>
+        )}
 
         {/* Fila de agregar producto */}
         <div className="rounded-xl p-3 mb-3" style={{ background: '#FAFAF8', border: '1px solid #EEECE6' }}>
@@ -1180,7 +1201,12 @@ function NuevaVentaModal({ empresa, plan, ciclo, prefill, onClose, onDone }: {
           </div>
         </div>
 
-        {sinRuc && tipoComp === '01' && <p className="text-[11.5px] mt-3" style={{ color: '#B45309' }}>⚠️ La empresa no tiene RUC; la factura será rechazada. Agrégalo en Información.</p>}
+        {facturaInvalida && (
+          <p className="text-[11.5px] mt-3" style={{ color: '#B45309' }}>
+            ⚠️ {esEmp ? 'La empresa no tiene RUC; la factura será rechazada por SUNAT. Agrégalo en Información o emite boleta.'
+                     : 'Este cliente es persona (DNI/CE): no se puede emitir factura, solo boleta. La factura requiere RUC.'}
+          </p>
+        )}
         {resultado && (
           <div className="mt-3 p-3 rounded-xl flex items-center gap-2 text-[12.5px]"
             style={resultado.ok ? { background: '#ECFDF5', color: '#047857' } : { background: '#FEF2F2', color: '#B91C1C' }}>
@@ -1188,7 +1214,7 @@ function NuevaVentaModal({ empresa, plan, ciclo, prefill, onClose, onDone }: {
           </div>
         )}
 
-        <button onClick={registrar} disabled={lineas.length === 0 || enviando} className="sv-btn sv-btn-primary w-full py-2.5 mt-4">
+        <button onClick={registrar} disabled={lineas.length === 0 || enviando || facturaInvalida} className="sv-btn sv-btn-primary w-full py-2.5 mt-4">
           {enviando ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
           {enviando ? (esNotaVenta ? 'Registrando...' : 'Registrando y enviando a SUNAT...') : `Registrar venta · ${sol(total)}`}
         </button>

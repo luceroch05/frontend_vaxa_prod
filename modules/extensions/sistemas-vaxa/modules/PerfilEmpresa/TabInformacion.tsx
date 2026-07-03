@@ -1,10 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { Building2, FileText, Globe, CreditCard, Edit, Loader2, Upload, AlertCircle } from '@/components/ui/icon';
+import { Building2, FileText, Globe, CreditCard, Edit, Loader2, Upload, AlertCircle, User } from '@/components/ui/icon';
 
 import { creditosAdminApi, type EmpresaCreditos } from '../../shared/api/creditos.admin.api';
 import CopyLinkCard from '../../shared/components/CopyLinkCard';
+import { DOC_RULES, sanitizeDoc, esEmpresa, tipoClienteLabel, docLabel, nombreLabel } from '../../shared/docs';
 
 interface TabInformacionProps {
   empresa: EmpresaCreditos;
@@ -17,6 +18,7 @@ export default function TabInformacion({ empresa, onChange }: TabInformacionProp
   const [slug, setSlug] = useState(empresa.tenant_slug);
   const [dominio, setDominio] = useState(empresa.dominio ?? '');
   const [ruc, setRuc] = useState(empresa.ruc ?? '');
+  const [tipoDoc, setTipoDoc] = useState(empresa.tipo_doc ?? '6');
   const [activo, setActivo] = useState(empresa.activo === 1);
   const [logo, setLogo] = useState<string | null>(empresa.logo_url);  // base64/data URL
   const [saving, setSaving] = useState(false);
@@ -26,12 +28,13 @@ export default function TabInformacion({ empresa, onChange }: TabInformacionProp
   const huboCambios =
     razon !== empresa.razon_social || slug !== empresa.tenant_slug ||
     dominio !== (empresa.dominio ?? '') || ruc !== (empresa.ruc ?? '') ||
+    tipoDoc !== (empresa.tipo_doc ?? '6') ||
     activo !== (empresa.activo === 1) || (logo ?? '') !== (empresa.logo_url ?? '');
   const puedeGuardar = razon.trim() !== '' && slug.trim() !== '' && huboCambios;
 
   const reset = () => {
     setRazon(empresa.razon_social); setSlug(empresa.tenant_slug);
-    setDominio(empresa.dominio ?? ''); setRuc(empresa.ruc ?? '');
+    setDominio(empresa.dominio ?? ''); setRuc(empresa.ruc ?? ''); setTipoDoc(empresa.tipo_doc ?? '6');
     setActivo(empresa.activo === 1); setLogo(empresa.logo_url);
     setError(null); setEditing(false);
   };
@@ -52,6 +55,7 @@ export default function TabInformacion({ empresa, onChange }: TabInformacionProp
         tenant_slug: slug,
         dominio,
         ruc,
+        tipo_doc: tipoDoc,
         activo,
         logo: logo ?? '',          // '' borra el logo
       });
@@ -91,7 +95,23 @@ export default function TabInformacion({ empresa, onChange }: TabInformacionProp
           </div>
         </div>
 
-        <Field label="Razón social"><input value={razon} onChange={(e) => setRazon(e.target.value)} className={inputCls} /></Field>
+        {/* Tipo de cliente: Empresa (RUC) vs Persona natural (DNI/CE/pasaporte) */}
+        <Field label="Tipo de cliente">
+          <div className="flex gap-2">
+            {[{ v: '6', l: 'Empresa (RUC)' }, { v: '1', l: 'Persona (DNI)' }].map((o) => (
+              <button key={o.v} type="button"
+                onClick={() => { setTipoDoc(o.v); setRuc((r) => sanitizeDoc(r, o.v)); }}
+                className="px-3 py-2 rounded-lg text-[12.5px] font-semibold transition-colors"
+                style={(o.v === '6' ? esEmpresa(tipoDoc) : !esEmpresa(tipoDoc))
+                  ? { background: '#ECFDF5', border: '1.5px solid #059669', color: '#047857' }
+                  : { background: '#fff', border: '1.5px solid #EEECE6', color: '#64748B' }}>
+                {o.l}
+              </button>
+            ))}
+          </div>
+        </Field>
+
+        <Field label={nombreLabel(tipoDoc)}><input value={razon} onChange={(e) => setRazon(e.target.value)} className={inputCls} /></Field>
         <div className="grid grid-cols-2 gap-4">
           <Field label="Identificador / slug (URL)">
             <input value={slug} onChange={(e) => setSlug(e.target.value)} className={inputCls} />
@@ -100,7 +120,22 @@ export default function TabInformacion({ empresa, onChange }: TabInformacionProp
           <Field label="Dominio"><input value={dominio} onChange={(e) => setDominio(e.target.value)} placeholder="techpro.edu.pe" className={inputCls} /></Field>
         </div>
         <div className="grid grid-cols-2 gap-4">
-          <Field label="RUC"><input value={ruc} onChange={(e) => setRuc(e.target.value)} className={inputCls} /></Field>
+          <Field label={docLabel(tipoDoc)}>
+            <div className="flex gap-2">
+              <select value={tipoDoc}
+                onChange={(e) => { const t = e.target.value; setTipoDoc(t); setRuc((r) => sanitizeDoc(r, t)); }}
+                className={inputCls} style={{ width: 110 }}>
+                <option value="6">RUC</option>
+                <option value="1">DNI</option>
+                <option value="4">CE</option>
+                <option value="7">Pasaporte</option>
+              </select>
+              <input value={ruc} onChange={(e) => setRuc(sanitizeDoc(e.target.value, tipoDoc))}
+                inputMode={DOC_RULES[tipoDoc]?.numeric ? 'numeric' : 'text'}
+                maxLength={DOC_RULES[tipoDoc]?.max || 15}
+                className={`${inputCls} flex-1`} />
+            </div>
+          </Field>
           <Field label="Estado">
             <label className="flex items-center gap-2 mt-2.5 cursor-pointer">
               <input type="checkbox" checked={activo} onChange={(e) => setActivo(e.target.checked)} className="w-4 h-4 accent-emerald-600" />
@@ -120,13 +155,14 @@ export default function TabInformacion({ empresa, onChange }: TabInformacionProp
   }
 
   /* ── Modo vista ───────────────────────────────────────────── */
+  const empresaCliente = esEmpresa(empresa.tipo_doc);
   const items = [
-    { icon: Building2,  label: 'Razón social', value: empresa.razon_social },
+    { icon: empresaCliente ? Building2 : User, label: 'Tipo de cliente', value: tipoClienteLabel(empresa.tipo_doc) },
+    { icon: Building2,  label: nombreLabel(empresa.tipo_doc), value: empresa.razon_social },
+    { icon: FileText,   label: docLabel(empresa.tipo_doc), value: empresa.ruc || '—' },
     { icon: Globe,      label: 'Identificador (slug)', value: empresa.tenant_slug },
     { icon: Globe,      label: 'Dominio', value: empresa.dominio || '—' },
-    { icon: FileText,   label: 'RUC', value: empresa.ruc || '—' },
     { icon: CreditCard, label: 'Créditos disponibles', value: String(empresa.creditos_disponibles) },
-    
   ];
 
   const baseUrl =
@@ -145,7 +181,16 @@ export default function TabInformacion({ empresa, onChange }: TabInformacionProp
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
-        <h3 className="text-[15px] font-bold" style={{ color: '#0D0E12' }}>Información de la empresa</h3>
+        <div className="flex items-center gap-2.5">
+          <h3 className="text-[15px] font-bold" style={{ color: '#0D0E12' }}>Información de la empresa</h3>
+          <span className="inline-flex items-center gap-1 text-[10.5px] font-bold px-2 py-0.5 rounded-full"
+            style={empresaCliente
+              ? { background: '#ECFDF5', color: '#047857', border: '1px solid #A7F3D0' }
+              : { background: '#EFF6FF', color: '#1D4ED8', border: '1px solid #BFDBFE' }}>
+            {empresaCliente ? <Building2 className="w-3 h-3" /> : <User className="w-3 h-3" />}
+            {tipoClienteLabel(empresa.tipo_doc)}
+          </span>
+        </div>
         <button onClick={() => setEditing(true)} className="flex items-center gap-1.5 px-3 py-1.5 text-[12.5px] font-semibold rounded-lg transition-colors hover:bg-emerald-50" style={{ color: '#059669' }}>
           <Edit className="w-3.5 h-3.5" /> Editar
         </button>

@@ -8,7 +8,8 @@ import {
 } from '@/components/ui/icon';
 import HeaderSistemasVaxa from '../../shared/components/HeaderSistemasVaxa';
 import BotonVolver from '../../shared/components/BotonVolver';
-import { DOC_RULES, sanitizeDoc } from '../../shared/docs';
+import Pager from '../../shared/components/Pager';
+import { DOC_RULES, sanitizeDoc, docLabel } from '../../shared/docs';
 import { VAXA_CONFIG } from '../../shared/constants';
 import { authStorage } from '@/lib/auth';
 import { ApiError } from '@/lib/api/client';
@@ -38,6 +39,7 @@ export default function CotizacionesCertificaciones({ tenantId }: Props) {
   const [usuario, setUsuario] = useState<Usuario | null>(null);
   const [filas, setFilas] = useState<Cotizacion[]>([]);
   const [empresas, setEmpresas] = useState<EmpresaCreditos[]>([]);
+  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(false);
   const [convertir, setConvertir] = useState<Cotizacion | null>(null);
@@ -84,6 +86,12 @@ export default function CotizacionesCertificaciones({ tenantId }: Props) {
 
   const aceptadas = filas.filter(f => f.estado === 'ACEPTADA').length;
 
+  // Paginación de cotizaciones.
+  const POR_PAGINA = 12;
+  const pages = Math.max(1, Math.ceil(filas.length / POR_PAGINA));
+  const pageSafe = Math.min(page, pages);
+  const filasPagina = filas.slice((pageSafe - 1) * POR_PAGINA, pageSafe * POR_PAGINA);
+
   return (
     <div className="min-h-screen" style={{ background: '#F5F4F0' }}>
       <HeaderSistemasVaxa tenantId={tenantId} usuario={usuario}
@@ -129,7 +137,7 @@ export default function CotizacionesCertificaciones({ tenantId }: Props) {
                     </tr>
                   </thead>
                   <tbody>
-                    {filas.map((c) => {
+                    {filasPagina.map((c) => {
                       const st = ESTADO_STYLE[c.estado];
                       const convertida = !!c.comprobante_id;
                       return (
@@ -178,6 +186,9 @@ export default function CotizacionesCertificaciones({ tenantId }: Props) {
                     })}
                   </tbody>
                 </table>
+                <div className="px-5 pb-1">
+                  <Pager page={pageSafe} pages={pages} total={filas.length} onPage={setPage} />
+                </div>
               </div>
             )}
           </div>
@@ -286,7 +297,7 @@ function ClienteCombo({ empresas, value, onChange }: {
   return (
     <div className="relative">
       <input
-        value={open ? query : (selected ? `${selected.razon_social}${selected.ruc ? ` — RUC ${selected.ruc}` : ''}` : '')}
+        value={open ? query : (selected ? `${selected.razon_social}${selected.ruc ? ` — ${docLabel(selected.tipo_doc)} ${selected.ruc}` : ''}` : '')}
         onFocus={() => { setOpen(true); setQuery(''); }}
         onChange={e => setQuery(e.target.value)}
         onBlur={() => setTimeout(() => setOpen(false), 150)}
@@ -304,7 +315,7 @@ function ClienteCombo({ empresas, value, onChange }: {
               className="block w-full text-left px-3 py-2 text-[12.5px] transition-colors"
               style={{ background: e.id === value ? '#ECFDF5' : 'transparent' }}>
               <span className="font-medium" style={{ color: '#0D0E12' }}>{e.razon_social}</span>
-              {e.ruc && <span style={{ color: '#9CA3AF' }}> — RUC {e.ruc}</span>}
+              {e.ruc && <span style={{ color: '#9CA3AF' }}> — {docLabel(e.tipo_doc)} {e.ruc}</span>}
             </button>
           ))}
         </div>

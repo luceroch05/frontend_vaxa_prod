@@ -171,7 +171,9 @@
       "Bash('/c/Program Files/MySQL/MySQL Server 9.7/bin/mysql.exe' -uroot -padmin vaxa -e 'SELECT s.fecha_inicio, s.fecha_fin, ci.meses_pago, ci.meses_vigencia, ci.nombre AS ciclo, p.nombre plan, p.mantenimiento_mensual, p.usuarios_incluidos FROM empresa_suscripcion s JOIN ciclo_facturacion ci ON ci.id=s.ciclo_id JOIN planes p ON p.id=s.plan_id WHERE s.empresa_id=2 AND s.estado_id=1 ORDER BY s.id DESC LIMIT 1;')",
       "Bash('/c/Program Files/MySQL/MySQL Server 9.7/bin/mysql.exe' -uroot -padmin vaxa -e 'SELECT id, ciclo_id, fecha_inicio, fecha_fin FROM empresa_suscripcion WHERE empresa_id=2 AND estado_id=1 ORDER BY id DESC LIMIT 1; SELECT id, usuarios_incluidos FROM planes WHERE id=2; SELECT id, activacion_cobrada, created_at FROM usuarios WHERE id IN \\(14,15\\);')",
       "Bash('/c/Program Files/MySQL/MySQL Server 9.7/bin/mysql.exe' -uroot -padmin vaxa -e 'SHOW COLUMNS FROM creditos_movimientos;')",
-      "Bash('/c/Program Files/MySQL/MySQL Server 9.7/bin/mysql.exe' -uroot -padmin vaxa -e ' *)"
+      "Bash('/c/Program Files/MySQL/MySQL Server 9.7/bin/mysql.exe' -uroot -padmin vaxa -e ' *)",
+      "Bash(echo \"BACK: $?\")",
+      "Bash(echo \"FRONT: $?\")"
     ],
     "deny": [],
     "ask": []

@@ -17,7 +17,7 @@ import {
 import HeaderSistemasVaxa from '../../shared/components/HeaderSistemasVaxa';
 import { VAXA_CONFIG } from '../../shared/constants';
 import { creditosAdminApi, type PlanCatalogo } from '../../shared/api/creditos.admin.api';
-import { DOC_RULES, sanitizeDoc } from '../../shared/docs';
+import { DOC_RULES, sanitizeDoc, nombreLabel, esEmpresa } from '../../shared/docs';
 import { AlertCircle, CheckCircle } from '@/components/ui/icon';
 
 /** Ciclos de contrato (catálogo fijo: id 1/2/3).
@@ -299,7 +299,10 @@ export default function RegistrarEmpresaCertificaciones({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="md:col-span-2">
                 <label className="block text-[11px] font-semibold uppercase tracking-wider text-gray-600 mb-1.5">
-                  Nombre de la Empresa *
+                  {nombreLabel(formData.tipoDoc)} *
+                  <span className="ml-2 normal-case tracking-normal font-medium" style={{ color: esEmpresa(formData.tipoDoc) ? '#059669' : '#1D4ED8' }}>
+                    · Cliente {esEmpresa(formData.tipoDoc) ? 'Empresa (RUC)' : 'Persona (DNI/CE)'}
+                  </span>
                 </label>
                 <input
                   type="text"
@@ -307,7 +310,7 @@ export default function RegistrarEmpresaCertificaciones({
                   value={formData.nombre}
                   onChange={handleChange}
                   required
-                  placeholder="Instituto TechPro Capacitaciones"
+                  placeholder={esEmpresa(formData.tipoDoc) ? 'Instituto TechPro Capacitaciones' : 'Juan Pérez García'}
                   className="sv-input"
                 />
               </div>

@@ -8,6 +8,7 @@ import {
 } from '@/components/ui/icon';
 import HeaderSistemasVaxa from '../../shared/components/HeaderSistemasVaxa';
 import BotonVolver from '../../shared/components/BotonVolver';
+import Pager from '../../shared/components/Pager';
 import { VAXA_CONFIG } from '../../shared/constants';
 import { authStorage } from '@/lib/auth';
 import { ApiError } from '@/lib/api/client';
@@ -33,6 +34,7 @@ export default function CobranzaCertificaciones({ tenantId }: Props) {
   const [usuario, setUsuario] = useState<Usuario | null>(null);
   const [filas, setFilas] = useState<VencimientoEmpresa[]>([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -64,6 +66,12 @@ export default function CobranzaCertificaciones({ tenantId }: Props) {
   const porVencer  = conPlan.filter((f) => f.cobranza!.estado_cobranza === 'por_vencer').length;
   const alDia      = conPlan.filter((f) => f.cobranza!.estado_cobranza === 'vigente').length;
   const sinPlan    = filas.filter((f) => !f.cobranza).length;
+
+  // Paginación del listado de cobranza.
+  const POR_PAGINA = 12;
+  const pages = Math.max(1, Math.ceil(filas.length / POR_PAGINA));
+  const pageSafe = Math.min(page, pages);
+  const filasPagina = filas.slice((pageSafe - 1) * POR_PAGINA, pageSafe * POR_PAGINA);
 
   const stats = [
     { title: 'Vencidos',   value: vencidos,  icon: AlertCircle, bg: '#FEF2F2', bd: '#FECACA', color: '#B91C1C' },
@@ -132,7 +140,7 @@ export default function CobranzaCertificaciones({ tenantId }: Props) {
                     <span>Empresa</span><span>Plan · ciclo</span><span>Vence</span><span>Pago máx.</span><span>Estado</span><span />
                   </div>
 
-                  {filas.map((f) => {
+                  {filasPagina.map((f) => {
                     const cb = f.cobranza;
                     const est = cb?.estado_cobranza;
                     const style = est ? COBRANZA[est] : { bg: '#F5F4F0', bd: '#EAE7DF', fg: '#6B7280', label: 'Sin plan' };
@@ -190,6 +198,9 @@ export default function CobranzaCertificaciones({ tenantId }: Props) {
                       </div>
                     );
                   })}
+                  <div className="px-5">
+                    <Pager page={pageSafe} pages={pages} total={filas.length} onPage={setPage} />
+                  </div>
                 </div>
               )}
             </div>

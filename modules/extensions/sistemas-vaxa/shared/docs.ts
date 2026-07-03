@@ -19,6 +19,18 @@ export function sanitizeDoc(value: string, tipoDoc: string): string {
   return v;
 }
 
+/** ¿El cliente es una EMPRESA (RUC) o una PERSONA natural (DNI/CE/pasaporte)? */
+export const esEmpresa = (tipoDoc?: string): boolean => (tipoDoc ?? '6') === '6';
+
+/** Etiqueta del tipo de cliente según el documento con que se registró. */
+export const tipoClienteLabel = (tipoDoc?: string): string => (esEmpresa(tipoDoc) ? 'Empresa' : 'Persona');
+
+/** Etiqueta corta del documento ('RUC' / 'DNI' / 'Carné ext.' / 'Pasaporte'). */
+export const docLabel = (tipoDoc?: string): string => DOC_RULES[tipoDoc ?? '6']?.label ?? 'Documento';
+
+/** Etiqueta del "nombre" según el tipo: Razón social (empresa) vs Nombre completo (persona). */
+export const nombreLabel = (tipoDoc?: string): string => (esEmpresa(tipoDoc) ? 'Razón social' : 'Nombre completo');
+
 /** ¿El número tiene el largo exacto que exige su tipo? (para habilitar acciones) */
 export function docCompleto(value: string, tipoDoc: string): boolean {
   const r = DOC_RULES[tipoDoc] ?? DOC_RULES['6'];

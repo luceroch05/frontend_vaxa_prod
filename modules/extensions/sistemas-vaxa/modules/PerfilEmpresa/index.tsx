@@ -13,6 +13,7 @@ import { VAXA_CONFIG } from '../../shared/constants';
 import { authStorage } from '@/lib/auth';
 import { ApiError } from '@/lib/api/client';
 import { creditosAdminApi, type EmpresaCreditos } from '../../shared/api/creditos.admin.api';
+import { esEmpresa, docLabel, tipoClienteLabel } from '../../shared/docs';
 import TabInformacion from './TabInformacion';
 import TabPlan from './TabPlan';
 import TabUsuarios from './TabUsuarios';
@@ -132,7 +133,11 @@ export default function PerfilEmpresa({ tenantId, empresaId }: PerfilEmpresaProp
                   <h1 className="text-[22px] font-bold tracking-tight truncate" style={{ color: '#0D0E12' }}>{empresa.razon_social}</h1>
                   <div className="flex items-center gap-2.5 mt-1 flex-wrap">
                     <span className="text-[12.5px] flex items-center gap-1" style={{ color: '#9CA3AF' }}><Building2 className="w-3.5 h-3.5" />{empresa.tenant_slug}</span>
-                    {empresa.ruc && <span className="text-[12.5px]" style={{ color: '#9CA3AF' }}>· RUC {empresa.ruc}</span>}
+                    {empresa.ruc && <span className="text-[12.5px]" style={{ color: '#9CA3AF' }}>· {docLabel(empresa.tipo_doc)} {empresa.ruc}</span>}
+                    <span className="px-2.5 py-1 rounded-lg text-[10.5px] font-semibold"
+                      style={esEmpresa(empresa.tipo_doc) ? { background: '#ECFDF5', color: '#047857' } : { background: '#EFF6FF', color: '#1D4ED8' }}>
+                      {tipoClienteLabel(empresa.tipo_doc)}
+                    </span>
                     <span className="px-2.5 py-1 rounded-lg text-[10.5px] font-semibold"
                       style={empresa.activo ? { background: '#ECFDF5', color: '#059669' } : { background: '#F3F4F6', color: '#6B7280' }}>
                       {empresa.activo ? 'Activo' : 'Inactivo'}

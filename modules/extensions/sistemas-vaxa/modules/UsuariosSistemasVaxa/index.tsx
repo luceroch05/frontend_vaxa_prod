@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { TenantConfig } from '@/lib/tenants';
 import { ArrowLeft, Plus, User, Mail, Edit, Trash2, Search, Loader2, AlertCircle, X } from '@/components/ui/icon';
 import HeaderSistemasVaxa from '../../shared/components/HeaderSistemasVaxa';
+import Pager from '../../shared/components/Pager';
 import { VAXA_CONFIG } from '../../shared/constants';
 import { authStorage } from '@/lib/auth';
 import { ApiError } from '@/lib/api/client';
@@ -25,6 +26,7 @@ export default function UsuariosSistemasVaxa({ tenantId }: UsuariosSistemasVaxaP
   const [roles, setRoles] = useState<Rol[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [page, setPage] = useState(1);
 
   const [modal, setModal] = useState<'nuevo' | number | null>(null);
   const [form, setForm] = useState(VACIO);
@@ -70,6 +72,12 @@ export default function UsuariosSistemasVaxa({ tenantId }: UsuariosSistemasVaxaP
   const filtrados = (usuarios ?? []).filter((u) =>
     `${u.nombres} ${u.apellidos}`.toLowerCase().includes(q) || u.correo.toLowerCase().includes(q),
   );
+
+  // Paginación del listado de usuarios.
+  const POR_PAGINA = 12;
+  const pages = Math.max(1, Math.ceil(filtrados.length / POR_PAGINA));
+  const pageSafe = Math.min(page, pages);
+  const filtradosPagina = filtrados.slice((pageSafe - 1) * POR_PAGINA, pageSafe * POR_PAGINA);
 
   const abrirNuevo = () => { setError(null); setForm({ ...VACIO, rol_id: roles[0]?.id ?? '' }); setModal('nuevo'); };
   const abrirEditar = (u: UsuarioEmpresa) => {
@@ -163,9 +171,10 @@ export default function UsuariosSistemasVaxa({ tenantId }: UsuariosSistemasVaxaP
               <p className="text-[12.5px]" style={{ color: '#9CA3AF' }}>{searchTerm ? 'Ajusta la búsqueda.' : 'Agrega el primer usuario.'}</p>
             </div>
           ) : (
-            filtrados.map((u, idx) => (
+            <>
+            {filtradosPagina.map((u, idx) => (
               <div key={u.id} className="flex items-center justify-between px-5 py-3.5 transition-colors"
-                style={{ borderBottom: idx < filtrados.length - 1 ? '1px solid #F5F4F0' : undefined }}
+                style={{ borderBottom: idx < filtradosPagina.length - 1 ? '1px solid #F5F4F0' : undefined }}
                 onMouseEnter={(e) => { e.currentTarget.style.background = '#FAFAF8'; }}
                 onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
                 <div className="flex items-center gap-3 min-w-0">
@@ -191,7 +200,11 @@ export default function UsuariosSistemasVaxa({ tenantId }: UsuariosSistemasVaxaP
                   </button>
                 </div>
               </div>
-            ))
+            ))}
+            <div className="px-5">
+              <Pager page={pageSafe} pages={pages} total={filtrados.length} onPage={setPage} />
+            </div>
+            </>
           )}
         </div>
       </main>

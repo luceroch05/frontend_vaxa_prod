@@ -182,6 +182,7 @@ export interface EditarEmpresaDto {
   tenant_slug?: string;
   dominio?: string;
   ruc?: string;
+  tipo_doc?: string;    // cat.06: '6' RUC · '1' DNI · '4' CE · '7' pasaporte
   logo?: string;
   activo?: boolean;
 }
@@ -322,6 +323,12 @@ export const creditosAdminApi = {
   }) =>
     api.post<{ comprobante: { numero: string; estado: string; estado_nombre: string; sunat_resp_desc: string | null }; descuento: number; total: number; creditosAgregados: number }>(
       `/api/admin/empresas/${empresaId}/venta`, dto, opts(),
+    ),
+
+  /** Migra las imágenes base64 de la BD a archivos en /uploads (correr una vez desde el panel). */
+  migrarImagenes: () =>
+    api.post<{ totalMigradas: number; detalle: Array<{ tabla: string; migradas: number; total: number }> }>(
+      '/api/admin/migrar-imagenes', {}, opts(),
     ),
 
   /** Verifica un RUC en SUNAT (dato público) → razón social + estado/condición. */

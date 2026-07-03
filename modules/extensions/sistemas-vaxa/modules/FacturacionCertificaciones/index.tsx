@@ -8,7 +8,8 @@ import {
 } from '@/components/ui/icon';
 import HeaderSistemasVaxa from '../../shared/components/HeaderSistemasVaxa';
 import BotonVolver from '../../shared/components/BotonVolver';
-import { DOC_RULES, sanitizeDoc } from '../../shared/docs';
+import Pager from '../../shared/components/Pager';
+import { DOC_RULES, sanitizeDoc, esEmpresa, docLabel } from '../../shared/docs';
 import { VAXA_CONFIG } from '../../shared/constants';
 import { authStorage } from '@/lib/auth';
 import { ApiError } from '@/lib/api/client';
@@ -46,6 +47,7 @@ export default function FacturacionCertificaciones({ tenantId }: Props) {
   const [empresas, setEmpresas] = useState<EmpresaCreditos[]>([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(false);
+  const [page, setPage] = useState(1);
 
   const cargar = useCallback(async () => {
     setLoading(true);
@@ -95,6 +97,12 @@ export default function FacturacionCertificaciones({ tenantId }: Props) {
 
   const aceptados = filas.filter(f => f.estado === 'ACEPTADO').length;
 
+  // Paginación de comprobantes.
+  const POR_PAGINA = 12;
+  const pages = Math.max(1, Math.ceil(filas.length / POR_PAGINA));
+  const pageSafe = Math.min(page, pages);
+  const filasPagina = filas.slice((pageSafe - 1) * POR_PAGINA, pageSafe * POR_PAGINA);
+
   return (
     <div className="min-h-screen" style={{ background: '#F5F4F0' }}>
       <HeaderSistemasVaxa tenantId={tenantId} usuario={usuario}
@@ -140,7 +148,7 @@ export default function FacturacionCertificaciones({ tenantId }: Props) {
                     </tr>
                   </thead>
                   <tbody>
-                    {filas.map((c) => {
+                    {filasPagina.map((c) => {
                       const st = ESTADO[c.estado] ?? ESTADO.PENDIENTE;
                       return (
                         <tr key={c.id} style={{ borderTop: '1px solid #F2F0EA' }}>
@@ -191,6 +199,9 @@ export default function FacturacionCertificaciones({ tenantId }: Props) {
                     })}
                   </tbody>
                 </table>
+                <div className="px-5 pb-1">
+                  <Pager page={pageSafe} pages={pages} total={filas.length} onPage={setPage} />
+                </div>
               </div>
             )}
           </div>
@@ -290,7 +301,7 @@ function ClienteCombo({ empresas, value, onChange }: {
   return (
     <div className="relative">
       <input
-        value={open ? query : (selected ? `${selected.razon_social} — RUC ${selected.ruc}` : '')}
+        value={open ? query : (selected ? `${selected.razon_social} — ${docLabel(selected.tipo_doc)} ${selected.ruc}` : '')}
         onFocus={() => { setOpen(true); setQuery(''); }}
         onChange={e => setQuery(e.target.value)}
         onBlur={() => setTimeout(() => setOpen(false), 150)}
@@ -310,7 +321,7 @@ function ClienteCombo({ empresas, value, onChange }: {
               onMouseEnter={ev => { ev.currentTarget.style.background = '#FAFAF8'; }}
               onMouseLeave={ev => { ev.currentTarget.style.background = e.id === value ? '#ECFDF5' : 'transparent'; }}>
               <span className="font-medium" style={{ color: '#0D0E12' }}>{e.razon_social}</span>
-              <span style={{ color: '#9CA3AF' }}> — RUC {e.ruc}</span>
+              <span style={{ color: '#9CA3AF' }}> — {docLabel(e.tipo_doc)} {e.ruc}</span>
             </button>
           ))}
         </div>
@@ -323,7 +334,9 @@ function ClienteCombo({ empresas, value, onChange }: {
 function EmitirModal({ empresas, onClose, onDone }: {
   empresas: EmpresaCreditos[]; onClose: () => void; onDone: () => void;
 }) {
-  const conRuc = empresas.filter(e => e.ruc);
+  // Solo EMPRESAS con RUC real (tipo_doc '6'). Ojo: una persona-DNI tiene su DNI en `ruc`,
+  // por eso NO basta con `e.ruc` — hay que exigir que sea empresa (SUNAT: factura solo con RUC).
+  const conRuc = empresas.filter(e => esEmpresa(e.tipo_doc) && e.ruc);
   const [empresaId, setEmpresaId] = useState<number>(conRuc[0]?.id ?? 0);
   const [plan, setPlan] = useState<{ nombre: string; mantenimiento: number; implementacion: number; ciclo: string } | null>(null);
   const [planInfo, setPlanInfo] = useState('');
@@ -392,7 +405,20 @@ function EmitirModal({ empresas, onClose, onDone }: {
   const esNV = tipoComp === 'NV';
   const permiteDni = tipoComp !== '01';                 // factura siempre va a empresa con RUC
   const modo = permiteDni ? clienteModo : 'empresa';
-  const clientesEmpresa = tipoComp === '01' ? conRuc : empresas;   // boleta/NV admiten cualquier empresa
+  // Cliente registrado elegible según el comprobante (regla SUNAT):
+  //  - Factura (01): SOLO empresas con RUC.
+  //  - Boleta (03):  SOLO personas (DNI/CE) — la boleta NO lleva RUC.
+  //  - Nota de venta (NV): cualquiera (interno, no va a SUNAT).
+  const clientesEmpresa =
+    tipoComp === '01' ? conRuc
+    : tipoComp === '03' ? empresas.filter(e => !esEmpresa(e.tipo_doc))
+    : empresas;
+  // Si el cliente elegido ya no aplica al nuevo comprobante (p. ej. una empresa RUC al
+  // pasar a boleta), lo limpiamos para que el personal reelija uno válido.
+  useEffect(() => {
+    setEmpresaId((cur) => (cur && clientesEmpresa.some(e => e.id === cur) ? cur : (clientesEmpresa[0]?.id ?? 0)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tipoComp]);
   // Nota de venta = monto simple (sin IGV); factura/boleta = con IGV.
   const base = esNV ? total : Math.round((total / 1.18) * 100) / 100;
   const igv = esNV ? 0 : Math.round((total - base) * 100) / 100;
@@ -452,7 +478,7 @@ function EmitirModal({ empresas, onClose, onDone }: {
             <div className="mb-3">
               {permiteDni && (
                 <div className="flex rounded-lg overflow-hidden mb-2 w-fit" style={{ border: '1px solid #EEECE6' }}>
-                  {([['empresa', 'Empresa'], ['dni', 'Cliente con DNI']] as const).map(([v, label]) => (
+                  {([['empresa', tipoComp === '03' ? 'Persona registrada' : 'Empresa'], ['dni', 'Cliente con DNI']] as Array<['empresa' | 'dni', string]>).map(([v, label]) => (
                     <button key={v} type="button" onClick={() => setClienteModo(v)} className="px-3 py-1.5 text-[12px] font-semibold transition-colors"
                       style={modo === v ? { background: '#0D0E12', color: '#fff' } : { background: '#fff', color: '#64748B' }}>
                       {label}
@@ -463,11 +489,14 @@ function EmitirModal({ empresas, onClose, onDone }: {
               {modo === 'empresa' ? (
                 <>
                   <label className="block text-[11px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: '#374151' }}>
-                    {tipoComp === '01' ? 'Cliente (empresa con RUC)' : 'Cliente (empresa)'}
+                    {tipoComp === '01' ? 'Cliente (empresa con RUC)' : tipoComp === '03' ? 'Cliente (persona registrada)' : 'Cliente (empresa)'}
                   </label>
                   <ClienteCombo empresas={clientesEmpresa} value={empresaId} onChange={setEmpresaId} />
                   {tipoComp === '01' && clientesEmpresa.length === 0 && (
                     <p className="text-[11px] mt-1.5" style={{ color: '#B45309' }}>No hay empresas con RUC. Usa boleta o nota de venta, o agrega el RUC en Información.</p>
+                  )}
+                  {tipoComp === '03' && clientesEmpresa.length === 0 && (
+                    <p className="text-[11px] mt-1.5" style={{ color: '#B45309' }}>No hay personas registradas. Usa <b>"Cliente con DNI"</b> para ingresar el documento.</p>
                   )}
                   {planInfo && <p className="text-[11px] mt-1.5" style={{ color: '#059669' }}>{planInfo}</p>}
                 </>

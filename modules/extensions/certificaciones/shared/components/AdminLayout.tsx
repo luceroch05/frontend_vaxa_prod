@@ -72,7 +72,8 @@ function VencimientoAlert({ waLink }: { waLink: string }) {
   const s = estado?.suscripcion;
   if (!s || s.estado_cobranza === 'vigente') return null;
 
-  const vencido = s.estado_cobranza === 'vencido';
+  const vencido = s.estado_cobranza === 'vencido';   // suspendido (2+ cuotas)
+  const atrasado = s.dias_para_vencer < 0;           // el pago máximo YA pasó (1+ cuota vencida)
   const dias = Math.abs(s.dias_para_vencer);
   const C = vencido
     ? { bg: '#FEF2F2', bd: '#FECACA', fg: '#B91C1C', ico: '#DC2626' }
@@ -94,13 +95,19 @@ function VencimientoAlert({ waLink }: { waLink: string }) {
         <div className="flex items-center gap-1.5 mb-0.5">
           <AlertTriangle size={16} style={{ color: C.ico }} />
           <p className="text-[14px] font-bold" style={{ color: C.fg }}>
-            {vencido ? `Tu plan venció hace ${dias} ${dias === 1 ? 'día' : 'días'}` : `Tu plan vence en ${dias} ${dias === 1 ? 'día' : 'días'}`}
+            {vencido
+              ? `Tu plan está suspendido · venció hace ${dias} ${dias === 1 ? 'día' : 'días'}`
+              : atrasado
+                ? `Pago pendiente · venció hace ${dias} ${dias === 1 ? 'día' : 'días'}`
+                : `Tu plan vence en ${dias} ${dias === 1 ? 'día' : 'días'}`}
           </p>
         </div>
         <p className="text-[12.5px]" style={{ color: C.fg }}>
           {vencido
-            ? <>Venció el <b>{fmtFechaLarga(s.fecha_fin)}</b>. Renueva el mantenimiento para seguir emitiendo certificados sin cortes.</>
-            : <>Vence el <b>{fmtFechaLarga(s.fecha_fin)}</b>. Paga como máximo el <b>{fmtFechaLarga(s.fecha_limite_pago)}</b> para renovar sin interrupciones.</>}
+            ? <>El mantenimiento venció el <b>{fmtFechaLarga(s.fecha_limite_pago)}</b>. Renueva para seguir emitiendo certificados sin cortes.</>
+            : atrasado
+              ? <>El pago del mantenimiento venció el <b>{fmtFechaLarga(s.fecha_limite_pago)}</b>. Regulariza para renovar sin interrupciones.</>
+              : <>Vence el <b>{fmtFechaLarga(s.fecha_fin)}</b>. Paga como máximo el <b>{fmtFechaLarga(s.fecha_limite_pago)}</b> para renovar sin interrupciones.</>}
         </p>
       </div>
 
@@ -124,7 +131,7 @@ function VigenciaChip() {
   const color = vencido ? '#DC2626' : alerta ? '#D97706' : '#0D7C66';
   const bg    = vencido ? '#FEF2F2' : alerta ? '#FEF3C7' : '#ECFDF5';
   const bd    = vencido ? '#FECACA' : alerta ? '#FDE68A' : '#A7F3D0';
-  const texto = vencido ? `Venció hace ${Math.abs(d)}d` : `Vence en ${d}d`;
+  const texto = d < 0 ? `Venció hace ${Math.abs(d)}d` : `Vence en ${d}d`;
   return (
     <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl" style={{ background: bg, border: `1px solid ${bd}` }}
       title={`Mantenimiento vigente hasta ${fmtFechaLarga(s.fecha_fin)}`}>

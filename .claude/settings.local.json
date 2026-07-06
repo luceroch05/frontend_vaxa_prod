@@ -173,7 +173,14 @@
       "Bash('/c/Program Files/MySQL/MySQL Server 9.7/bin/mysql.exe' -uroot -padmin vaxa -e 'SHOW COLUMNS FROM creditos_movimientos;')",
       "Bash('/c/Program Files/MySQL/MySQL Server 9.7/bin/mysql.exe' -uroot -padmin vaxa -e ' *)",
       "Bash(echo \"BACK: $?\")",
-      "Bash(echo \"FRONT: $?\")"
+      "Bash(echo \"FRONT: $?\")",
+      "Bash(mkdir -p uploads/marca)",
+      "Bash(cp \"C:\\\\Users\\\\Lucero\\\\Desktop\\\\frontend_vaxa_prod\\\\public\\\\vaxa-comprobante.png\" uploads/marca/vaxa-comprobante.png)",
+      "Bash(echo \"TC EXIT: $?\")",
+      "Bash(command -v magick pdftoppm gswin64c mutool)",
+      "Read(//c/Program Files/**)",
+      "Bash(mkdir -p scripts)",
+      "Bash(cp \"C:\\\\Users\\\\Lucero\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-Lucero-Desktop-frontend-vaxa-prod\\\\eac0fbc1-8fdf-4840-8bfd-e95042f492aa\\\\scratchpad\\\\gen-logo.cjs\" scripts/gen-logo.cjs)"
     ],
     "deny": [],
     "ask": []

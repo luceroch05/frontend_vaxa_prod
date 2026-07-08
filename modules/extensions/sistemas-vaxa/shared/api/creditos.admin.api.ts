@@ -316,7 +316,7 @@ export const creditosAdminApi = {
 
   /** Registra una venta con líneas libres (estilo comprobante). */
   registrarVenta: (empresaId: number, dto: {
-    items: Array<{ descripcion: string; cantidad: number; precioUnitario: number; creditos?: number; renueva?: boolean }>;
+    items: Array<{ descripcion: string; cantidad: number; precioUnitario: number; creditos?: number; renueva?: boolean; descuentoTipo?: 'monto' | 'pct'; descuentoValor?: number }>;
     descuento?: { tipo: 'monto' | 'pct'; valor: number };
     tipo_comprobante?: '01' | '03' | 'NV';
     marcar_activacion_usuarios?: number[];   // usuarios cuya activación (S/50) se cobra en esta venta

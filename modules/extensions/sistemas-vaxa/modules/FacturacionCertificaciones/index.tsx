@@ -14,12 +14,15 @@ import { VAXA_CONFIG } from '../../shared/constants';
 import { authStorage } from '@/lib/auth';
 import { ApiError } from '@/lib/api/client';
 import { facturacionApi, type Comprobante, type EstadoComprobante } from '../../shared/api/facturacion.admin.api';
-import { creditosAdminApi, type EmpresaCreditos } from '../../shared/api/creditos.admin.api';
+import { creditosAdminApi, type EmpresaCreditos, type PlanCatalogo } from '../../shared/api/creditos.admin.api';
+import { tarifarioApi, type TarifaPaquete } from '../../shared/api/tarifario.admin.api';
+import { PAQUETES_CREDITOS, USUARIO_EXTRA, WEB_PLANES, DOMINIOS, HOSTING } from '../../shared/data/tarifario';
 
 interface Props { tenantId: string; tenant: TenantConfig; }
 interface Usuario { email: string; nombre: string; role: string; }
 
 const sol = (n: number) => `S/ ${n.toFixed(2)}`;
+const r2 = (n: number) => Math.round((Number(n) || 0) * 100) / 100;
 const fmt = (s: string | null) => (s ? new Date(`${s.slice(0, 10)}T00:00:00`).toLocaleDateString('es-PE', { day: '2-digit', month: 'short', year: 'numeric' }) : '—');
 
 /** Paquetes de créditos (catálogo fijo). */
@@ -284,7 +287,19 @@ function NotaModal({ comprobante, onClose, onDone }: {
   );
 }
 
-interface LineaVenta { descripcion: string; cantidad: number; precioUnitario: number; creditos?: number; renueva?: boolean; }
+interface LineaVenta {
+  descripcion: string; cantidad: number; precioUnitario: number; creditos?: number; renueva?: boolean;
+  descuentoTipo?: 'monto' | 'pct'; descuentoValor?: number;   // descuento propio de la línea
+}
+
+/** Bruto, descuento y neto de una línea (el descuento por línea es independiente del global). */
+const calcLineaVenta = (l: LineaVenta) => {
+  const bruto = r2(l.cantidad * l.precioUnitario);
+  const descuento = l.descuentoValor
+    ? r2((l.descuentoTipo ?? 'pct') === 'pct' ? bruto * Math.min(l.descuentoValor, 100) / 100 : Math.min(l.descuentoValor, bruto))
+    : 0;
+  return { bruto, descuento, neto: r2(bruto - descuento) };
+};
 
 /** Combobox con búsqueda para elegir el cliente (filtra por nombre o RUC). */
 function ClienteCombo({ empresas, value, onChange }: {
@@ -338,15 +353,19 @@ function EmitirModal({ empresas, onClose, onDone }: {
   // por eso NO basta con `e.ruc` — hay que exigir que sea empresa (SUNAT: factura solo con RUC).
   const conRuc = empresas.filter(e => esEmpresa(e.tipo_doc) && e.ruc);
   const [empresaId, setEmpresaId] = useState<number>(conRuc[0]?.id ?? 0);
-  const [plan, setPlan] = useState<{ nombre: string; mantenimiento: number; implementacion: number; ciclo: string } | null>(null);
   const [planInfo, setPlanInfo] = useState('');
+  const [planesCat, setPlanesCat] = useState<PlanCatalogo[]>([]);       // TODOS los planes (mant/impl de cada uno)
+  const [planActualSlug, setPlanActualSlug] = useState<string | null>(null);
+  const [paquetes, setPaquetes] = useState<TarifaPaquete[]>(
+    PAQUETES_CREDITOS.map((p, i) => ({ id: i, slug: p.id, planSlug: p.planSlug, nombre: p.nombre, creditos: p.creditos, precio: p.precio })),
+  );
+  const [usuarioExtra, setUsuarioExtra] = useState({ activacion: USUARIO_EXTRA.activacion, mensual: USUARIO_EXTRA.mensual });
+  // Servicios sueltos (web/dominios/hosting): de la BD; fallback a las constantes.
+  const [servicios, setServicios] = useState<Array<{ id: string; label: string; precio: number; grupo: string }>>(
+    [...WEB_PLANES, ...DOMINIOS, ...HOSTING],
+  );
 
   const [lineas, setLineas] = useState<LineaVenta[]>([]);
-  const [sel, setSel]       = useState('');
-  const [desc, setDesc]     = useState('');
-  const [cant, setCant]     = useState('1');
-  const [precio, setPrecio] = useState('');
-  const [meta, setMeta]     = useState<{ creditos?: number; renueva?: boolean }>({});
 
   // Por defecto Nota de venta (NV), NO factura — pedido del usuario.
   const [tipoComp, setTipoComp] = useState<'01' | '03' | 'NV'>('NV');  // factura | boleta | nota de venta
@@ -360,45 +379,65 @@ function EmitirModal({ empresas, onClose, onDone }: {
   const [enviando, setEnviando] = useState(false);
   const [resultado, setResultado] = useState<{ ok: boolean; msg: string } | null>(null);
 
-  // Al elegir empresa, jala su plan (para el catálogo sugerido).
+  // Catálogo de TODOS los planes (mant/impl de cualquiera) desde la BD.
   useEffect(() => {
-    if (!empresaId) { setPlan(null); setPlanInfo(''); return; }
+    creditosAdminApi.listPlanes().then(setPlanesCat).catch(() => setPlanesCat([]));
+  }, []);
+
+  // Tarifario (paquetes + usuario extra + servicios) desde la BD; si falla, quedan los por defecto.
+  useEffect(() => {
+    tarifarioApi.get().then((t) => {
+      if (t.paquetes?.length) setPaquetes(t.paquetes);
+      if (t.servicios?.length) setServicios(t.servicios.map(s => ({ id: s.slug, label: s.nombre, precio: s.precio, grupo: s.grupo })));
+      setUsuarioExtra({
+        activacion: t.parametros?.usuario_extra_activacion ?? USUARIO_EXTRA.activacion,
+        mensual: t.parametros?.usuario_extra_mensual ?? USUARIO_EXTRA.mensual,
+      });
+    }).catch(() => { /* fallback */ });
+  }, []);
+
+  // Plan vigente de la empresa: info + marca "actual" en el catálogo.
+  useEffect(() => {
+    if (!empresaId) { setPlanInfo(''); setPlanActualSlug(null); return; }
     creditosAdminApi.getPlanEmpresa(empresaId).then((est) => {
       if (est.plan) {
-        const ciclo = est.suscripcion?.ciclo ?? 'Mensual';
-        setPlan({ nombre: est.plan.nombre, mantenimiento: est.plan.mantenimiento_mensual, implementacion: est.plan.implementacion, ciclo });
+        setPlanActualSlug(est.plan.slug);
         setPlanInfo(`${est.plan.nombre} · Mant. ${sol(est.plan.mantenimiento_mensual)}/mes · ${est.creditos.disponibles} créditos`);
-      } else { setPlan(null); setPlanInfo('Sin plan asignado.'); }
-    }).catch(() => { setPlan(null); setPlanInfo(''); });
+      } else { setPlanActualSlug(null); setPlanInfo('Sin plan asignado.'); }
+    }).catch(() => { setPlanInfo(''); setPlanActualSlug(null); });
   }, [empresaId]);
 
-  const meses = plan ? (/semestral/i.test(plan.ciclo) ? 5 : /anual/i.test(plan.ciclo) ? 10 : 1) : 1;
-  const catalogo: Array<{ id: string; label: string; precio: number; creditos?: number; renueva?: boolean }> = [
-    ...(plan ? [
-      { id: 'mant', label: `Mantenimiento ${plan.nombre} (${plan.ciclo})`, precio: Math.round(plan.mantenimiento * meses * 100) / 100, renueva: true },
-      { id: 'impl', label: `Implementación ${plan.nombre}`, precio: plan.implementacion },
-    ] : []),
-    { id: 'p100', label: 'Paquete 100 créditos', precio: 270, creditos: 100 },
-    { id: 'p300', label: 'Paquete 300 créditos', precio: 750, creditos: 300 },
-    { id: 'p700', label: 'Paquete 700 créditos', precio: 1500, creditos: 700 },
+  // Mismo catálogo que Cotizaciones: servicios web/dominios/hosting + mant/impl de
+  // CADA plan (BD) + paquetes de créditos (BD) + usuario adicional (BD).
+  const catalogo: Array<{ id: string; label: string; precio: number; creditos?: number; renueva?: boolean; grupo: string }> = [
+    ...servicios,
+    ...planesCat.flatMap((p) => {
+      const actual = p.slug === planActualSlug ? ' · plan actual' : '';
+      return [
+        { id: `mant-${p.slug}`, label: `Mantenimiento ${p.nombre}${actual} (mensual)`, precio: p.mantenimiento_mensual, renueva: true, grupo: 'Planes' },
+        { id: `impl-${p.slug}`, label: `Implementación ${p.nombre}${actual}`, precio: p.implementacion, grupo: 'Planes' },
+      ];
+    }),
+    ...paquetes.map(pq => ({ id: pq.slug, label: `${pq.nombre} (${pq.creditos} créditos)`, precio: pq.precio, creditos: pq.creditos, grupo: 'Créditos' })),
+    { id: 'user-act', label: 'Usuario adicional — activación (único)', precio: usuarioExtra.activacion, grupo: 'Usuarios' },
+    { id: 'user-mes', label: 'Usuario adicional — mensualidad', precio: usuarioExtra.mensual, grupo: 'Usuarios' },
   ];
 
-  const elegirCatalogo = (id: string) => {
-    setSel(id);
+  // Agrega una línea desde el catálogo (pre-llena) o vacía; luego TODO se edita en la tabla.
+  const addCatalogo = (id: string) => {
     const item = catalogo.find(x => x.id === id);
-    if (item) { setDesc(item.label); setPrecio(String(item.precio)); setMeta({ creditos: item.creditos, renueva: item.renueva }); }
-    else setMeta({});
+    if (!item) return;
+    setLineas(ls => [...ls, {
+      descripcion: item.label, cantidad: 1, precioUnitario: r2(item.precio),
+      creditos: item.creditos, renueva: item.renueva, descuentoTipo: 'pct',
+    }]);
   };
-
-  const agregar = () => {
-    const p = Number(precio); const q = Math.max(1, Math.floor(Number(cant) || 1));
-    if (!desc.trim() || !Number.isFinite(p) || p <= 0) return;
-    setLineas(ls => [...ls, { descripcion: desc.trim(), cantidad: q, precioUnitario: Math.round(p * 100) / 100, creditos: meta.creditos ? meta.creditos * q : undefined, renueva: meta.renueva }]);
-    setSel(''); setDesc(''); setCant('1'); setPrecio(''); setMeta({});
-  };
+  const addVacia = () => setLineas(ls => [...ls, { descripcion: '', cantidad: 1, precioUnitario: 0, descuentoTipo: 'pct' }]);
+  const actualizar = (i: number, patch: Partial<LineaVenta>) =>
+    setLineas(ls => ls.map((l, idx) => (idx === i ? { ...l, ...patch } : l)));
   const quitar = (i: number) => setLineas(ls => ls.filter((_, idx) => idx !== i));
 
-  const subtotal = Math.round(lineas.reduce((a, l) => a + l.cantidad * l.precioUnitario, 0) * 100) / 100;
+  const subtotal = r2(lineas.reduce((a, l) => a + calcLineaVenta(l).neto, 0));
   const descValor = Number(descVal) || 0;
   const descuento = descValor > 0 ? (descTipo === 'pct' ? Math.round(subtotal * Math.min(descValor, 100) / 100 * 100) / 100 : Math.min(descValor, subtotal)) : 0;
   const total = Math.round((subtotal - descuento) * 100) / 100;
@@ -431,9 +470,17 @@ function EmitirModal({ empresas, onClose, onDone }: {
       if (!nombreCli.trim()) { setResultado({ ok: false, msg: 'Ingresa el nombre del cliente.' }); return; }
       if (docTipo !== '0' && !numDoc.trim()) { setResultado({ ok: false, msg: 'Ingresa el documento del cliente.' }); return; }
     }
+    if (lineas.some(l => !l.descripcion.trim() || !(l.precioUnitario > 0))) {
+      setResultado({ ok: false, msg: 'Cada línea necesita descripción y un precio mayor a 0.' }); return;
+    }
     setEnviando(true); setResultado(null);
     try {
-      const itemsDto = lineas.map(l => ({ descripcion: l.descripcion, cantidad: l.cantidad, precioUnitario: l.precioUnitario, creditos: l.creditos, renueva: l.renueva }));
+      const itemsDto = lineas.map(l => ({
+        descripcion: l.descripcion.trim(), cantidad: l.cantidad, precioUnitario: l.precioUnitario,
+        creditos: l.creditos ? l.creditos * l.cantidad : undefined, renueva: l.renueva,
+        descuentoTipo: l.descuentoValor ? l.descuentoTipo : undefined,
+        descuentoValor: l.descuentoValor || undefined,
+      }));
       const descDto = descuento > 0 ? { tipo: descTipo, valor: descValor } : undefined;
       const r = modo === 'dni'
         ? await facturacionApi.registrarVentaManual({
@@ -452,7 +499,7 @@ function EmitirModal({ empresas, onClose, onDone }: {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(13,14,18,0.45)' }}>
-      <div className="w-full max-w-2xl rounded-2xl p-6 max-h-[94vh] overflow-y-auto" style={{ background: '#fff' }}>
+      <div className="w-full max-w-3xl rounded-2xl p-6 max-h-[94vh] overflow-y-auto" style={{ background: '#fff' }}>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-[17px] font-bold" style={{ color: '#0D0E12' }}>Emitir {tipoLabel}</h2>
           <button onClick={onClose}><X className="w-5 h-5" style={{ color: '#9CA3AF' }} /></button>
@@ -516,44 +563,59 @@ function EmitirModal({ empresas, onClose, onDone }: {
               )}
             </div>
 
-            {/* Fila de agregar producto */}
-            <div className="rounded-xl p-3 mb-3" style={{ background: '#FAFAF8', border: '1px solid #EEECE6' }}>
-              <div className="grid gap-2" style={{ gridTemplateColumns: '1fr 70px 110px 40px' }}>
-                <div>
-                  <select value={sel} onChange={e => elegirCatalogo(e.target.value)} className="sv-input w-full mb-1 text-[12px]">
-                    <option value="">+ Agregar producto…</option>
-                    {catalogo.map(x => <option key={x.id} value={x.id}>{x.label}</option>)}
-                  </select>
-                  <input value={desc} onChange={e => setDesc(e.target.value)} placeholder="Descripción" className="sv-input w-full text-[13px]" />
-                </div>
-                <input type="number" min={1} value={cant} onChange={e => setCant(e.target.value)} placeholder="Cant." className="sv-input text-right self-end text-[13px]" />
-                <input type="number" min={0} step="0.01" value={precio} onChange={e => setPrecio(e.target.value)} placeholder="Precio" className="sv-input text-right self-end text-[13px]" />
-                <button type="button" onClick={agregar} className="self-end flex items-center justify-center rounded-lg text-white" style={{ background: '#059669', height: 38 }}>
-                  <Plus className="w-4 h-4" />
-                </button>
-              </div>
-              <p className="text-[10.5px] mt-1.5" style={{ color: '#9CA3AF' }}>Producto sugerido o libre. {esNV ? 'Precio sin IGV (monto simple).' : 'El precio incluye IGV.'}</p>
+            {/* Agregar: catálogo (pre-llena una fila) o línea vacía. Luego se edita TODO en la tabla. */}
+            <div className="flex gap-2 mb-1.5">
+              <select value="" onChange={e => addCatalogo(e.target.value)} className="sv-input flex-1 text-[12.5px]">
+                <option value="">+ Agregar producto del catálogo…</option>
+                {['Desarrollo Web', 'Dominios', 'Hosting', 'Planes', 'Créditos', 'Usuarios'].map((g) => {
+                  const items = catalogo.filter(x => x.grupo === g);
+                  return items.length ? (
+                    <optgroup key={g} label={g}>
+                      {items.map(x => <option key={x.id} value={x.id}>{x.label}</option>)}
+                    </optgroup>
+                  ) : null;
+                })}
+              </select>
+              <button type="button" onClick={addVacia} className="flex items-center gap-1 px-3 rounded-lg text-[12.5px] font-semibold flex-shrink-0"
+                style={{ border: '1px solid #EEECE6', color: '#059669', background: '#fff' }}>
+                <Plus className="w-3.5 h-3.5" /> Línea
+              </button>
             </div>
+            <p className="text-[10.5px] mb-3" style={{ color: '#9CA3AF' }}>Edita descripción, cantidad, precio y descuento directamente en cada fila. {esNV ? 'Precio sin IGV (monto simple).' : 'El precio incluye IGV.'}</p>
 
-            {/* Tabla */}
+            {/* Tabla editable */}
             <div className="rounded-xl overflow-hidden mb-4" style={{ border: '1px solid #EEECE6' }}>
-              <div className="grid px-3 py-2 text-[10.5px] font-semibold uppercase tracking-wider" style={{ gridTemplateColumns: '1fr 50px 90px 90px 28px', background: '#0D0E12', color: '#fff' }}>
-                <span>Producto</span><span className="text-right">Cant.</span><span className="text-right">P. Unit.</span><span className="text-right">Total</span><span />
+              <div className="grid gap-1 px-2 py-2 text-[10.5px] font-semibold uppercase tracking-wider" style={{ gridTemplateColumns: '1fr 56px 86px 120px 74px 22px', background: '#0D0E12', color: '#fff' }}>
+                <span className="pl-1">Producto</span><span className="text-center">Cant.</span><span className="text-right">P. Unit.</span><span className="text-center">Desc.</span><span className="text-right">Total</span><span />
               </div>
               {lineas.length === 0 ? (
                 <p className="text-[12.5px] py-6 text-center" style={{ color: '#B0A898' }}>Agrega productos ↑</p>
-              ) : lineas.map((l, i) => (
-                <div key={i} className="grid items-center px-3 py-2.5 text-[12.5px]" style={{ gridTemplateColumns: '1fr 50px 90px 90px 28px', borderTop: '1px solid #F2F0EA' }}>
-                  <div>
-                    <p style={{ color: '#0D0E12' }}>{l.descripcion}</p>
-                    {(l.creditos || l.renueva) && <p className="text-[10px]" style={{ color: '#059669' }}>{l.creditos ? `+${l.creditos} créditos` : 'renueva suscripción'}</p>}
+              ) : lineas.map((l, i) => {
+                const { descuento, neto } = calcLineaVenta(l);
+                const dt = l.descuentoTipo ?? 'pct';
+                return (
+                  <div key={i} className="grid gap-1 items-start px-2 py-1.5" style={{ gridTemplateColumns: '1fr 56px 86px 120px 74px 22px', borderTop: '1px solid #F2F0EA' }}>
+                    <div>
+                      <input value={l.descripcion} onChange={e => actualizar(i, { descripcion: e.target.value })} placeholder="Descripción" className="sv-cell text-[12px]" />
+                      {(l.creditos || l.renueva) && <p className="text-[9.5px] mt-0.5 pl-1" style={{ color: '#059669' }}>{l.creditos ? `+${l.creditos * l.cantidad} créditos` : 'renueva suscripción'}</p>}
+                    </div>
+                    <input type="number" min={1} value={l.cantidad} onFocus={e => e.target.select()} onChange={e => actualizar(i, { cantidad: Math.max(1, Math.floor(Number(e.target.value) || 1)) })} className="sv-cell text-center text-[12px]" />
+                    <input type="number" min={0} step="0.01" value={l.precioUnitario} onFocus={e => e.target.select()} onChange={e => actualizar(i, { precioUnitario: r2(Number(e.target.value) || 0) })} className="sv-cell text-right text-[12px]" />
+                    <div className="flex gap-1">
+                      <div className="flex rounded-md overflow-hidden flex-shrink-0" style={{ border: '1px solid #EEECE6' }}>
+                        <button type="button" onClick={() => actualizar(i, { descuentoTipo: 'monto' })} className="px-1.5 text-[10px] font-semibold" style={dt === 'monto' ? { background: '#059669', color: '#fff' } : { color: '#9CA3AF' }}>S/</button>
+                        <button type="button" onClick={() => actualizar(i, { descuentoTipo: 'pct' })} className="px-1.5 text-[10px] font-semibold" style={dt === 'pct' ? { background: '#059669', color: '#fff' } : { color: '#9CA3AF' }}>%</button>
+                      </div>
+                      <input type="number" min={0} value={l.descuentoValor ?? ''} onFocus={e => e.target.select()} onChange={e => actualizar(i, { descuentoValor: e.target.value === '' ? undefined : Number(e.target.value) })} placeholder="0" className="sv-cell text-right text-[12px]" title="Descuento de esta línea" />
+                    </div>
+                    <div className="text-right self-center">
+                      <p className="tabular-nums font-semibold text-[12px]" style={{ color: '#0D0E12' }}>{sol(neto)}</p>
+                      {descuento > 0 && <p className="text-[9.5px] tabular-nums" style={{ color: '#B45309' }}>-{sol(descuento)}</p>}
+                    </div>
+                    <button onClick={() => quitar(i)} className="justify-self-end self-center" title="Quitar"><X className="w-3.5 h-3.5" style={{ color: '#C8C3BB' }} /></button>
                   </div>
-                  <span className="text-right tabular-nums" style={{ color: '#64748B' }}>{l.cantidad}</span>
-                  <span className="text-right tabular-nums" style={{ color: '#64748B' }}>{sol(l.precioUnitario)}</span>
-                  <span className="text-right tabular-nums font-semibold" style={{ color: '#0D0E12' }}>{sol(l.cantidad * l.precioUnitario)}</span>
-                  <button onClick={() => quitar(i)} className="justify-self-end"><X className="w-3.5 h-3.5" style={{ color: '#C8C3BB' }} /></button>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             {/* Descuento + Totales */}

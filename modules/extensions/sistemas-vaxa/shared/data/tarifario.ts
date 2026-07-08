@@ -31,3 +31,29 @@ export const CREDITOS_INDIVIDUALES: TramoCredito[] = [
 
 /** Usuario extra (fuera del cupo del plan). */
 export const USUARIO_EXTRA = { activacion: 50, mensual: 5 };
+
+/**
+ * Servicios de pago único / anual que NO viven en la tabla `planes` ni en
+ * `creditos_paquetes`. Fuente única compartida por Cotizaciones y Facturación.
+ * TODO: migrar a BD (tabla `catalogo_servicios`) para poder editarlos sin deploy.
+ */
+export interface ServicioCatalogo { id: string; label: string; precio: number; grupo: string; }
+
+/** Planes de desarrollo web (pago único). */
+export const WEB_PLANES: ServicioCatalogo[] = [
+  { id: 'WEB-EMP', label: 'Plan Emprendedor (desarrollo web)', precio: 300, grupo: 'Desarrollo Web' },
+  { id: 'WEB-NEG', label: 'Plan Negocios (desarrollo web)', precio: 500, grupo: 'Desarrollo Web' },
+];
+
+/** Dominios (anual). */
+export const DOMINIOS: ServicioCatalogo[] = [
+  { id: 'DOM-COM',   label: 'Dominio .com (anual)',    precio: 120, grupo: 'Dominios' },
+  { id: 'DOM-COMPE', label: 'Dominio .com.pe (anual)', precio: 150, grupo: 'Dominios' },
+  { id: 'DOM-PE',    label: 'Dominio .pe (anual)',     precio: 150, grupo: 'Dominios' },
+];
+
+/** Hosting (anual). */
+export const HOSTING: ServicioCatalogo[] = [
+  { id: 'HOST-EMP', label: 'Hosting Individual (Plan Emprendedor, anual)', precio: 100, grupo: 'Hosting' },
+  { id: 'HOST-NEG', label: 'Hosting Business (Plan Negocios, anual)',      precio: 150, grupo: 'Hosting' },
+];

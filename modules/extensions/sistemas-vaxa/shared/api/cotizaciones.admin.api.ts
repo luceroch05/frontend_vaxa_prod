@@ -14,6 +14,9 @@ export interface CotizacionDetalle {
   descripcion: string;
   cantidad: number;
   precio_unitario: number;
+  descuento_tipo: 'monto' | 'pct' | null;
+  descuento_valor: number;
+  descuento_monto: number;
   total: number;
   creditos: number | null;
   renueva: boolean;
@@ -53,7 +56,11 @@ export interface CotizacionConDetalle extends Cotizacion {
 export interface NuevaCotizacionDto {
   empresa_id?: number | null;
   cliente?: { tipoDoc: string; numDoc: string; razonSocial: string; email?: string };
-  items: Array<{ descripcion: string; cantidad: number; precioUnitario: number; creditos?: number; renueva?: boolean }>;
+  items: Array<{
+    descripcion: string; cantidad: number; precioUnitario: number; creditos?: number; renueva?: boolean;
+    /** Descuento propio de esta línea, independiente del descuento global de la cotización. */
+    descuentoTipo?: 'monto' | 'pct'; descuentoValor?: number;
+  }>;
   descuento?: { tipo: 'monto' | 'pct'; valor: number };
   igv_incluido?: boolean;
   notas?: string;
@@ -66,6 +73,13 @@ export const cotizacionesApi = {
   get: (id: number) => api.get<CotizacionConDetalle>(`/api/admin/cotizaciones/${id}`, opts()),
 
   crear: (dto: NuevaCotizacionDto) => api.post<CotizacionConDetalle>('/api/admin/cotizaciones', dto, opts()),
+
+  /** Edita una cotización no convertida (mismo DTO que crear). */
+  actualizar: (id: number, dto: NuevaCotizacionDto) =>
+    api.put<CotizacionConDetalle>(`/api/admin/cotizaciones/${id}`, dto, opts()),
+
+  /** Elimina una cotización no convertida. */
+  eliminar: (id: number) => api.delete<{ ok: boolean }>(`/api/admin/cotizaciones/${id}`, opts()),
 
   cambiarEstado: (id: number, estado_id: number) =>
     api.patch<CotizacionConDetalle>(`/api/admin/cotizaciones/${id}/estado`, { estado_id }, opts()),

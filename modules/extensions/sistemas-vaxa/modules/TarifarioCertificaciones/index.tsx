@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { TenantConfig } from '@/lib/tenants';
 import {
-  DollarSign, CreditCard, Users, FileText, Check, Loader2, PrinterIcon, Sparkles,
+  DollarSign, CreditCard, Users, FileText, Check, Loader2, PrinterIcon, Sparkles, Plus, Trash2, Save,
 } from '@/components/ui/icon';
 import HeaderSistemasVaxa from '../../shared/components/HeaderSistemasVaxa';
 import BotonVolver from '../../shared/components/BotonVolver';
@@ -12,7 +12,7 @@ import { VAXA_CONFIG } from '../../shared/constants';
 import { authStorage } from '@/lib/auth';
 import { ApiError } from '@/lib/api/client';
 import { creditosAdminApi, type PlanCatalogo } from '../../shared/api/creditos.admin.api';
-import { tarifarioApi, type TarifaPaquete, type TarifaTramo } from '../../shared/api/tarifario.admin.api';
+import { tarifarioApi, type TarifaPaquete, type TarifaTramo, type ServicioCatalogo } from '../../shared/api/tarifario.admin.api';
 import { PAQUETES_CREDITOS, CREDITOS_INDIVIDUALES, USUARIO_EXTRA, costoPorCertificado } from '../../shared/data/tarifario';
 
 interface Props { tenantId: string; tenant: TenantConfig; }
@@ -212,6 +212,9 @@ export default function TarifarioCertificaciones({ tenantId }: Props) {
               </div>
             </div>
 
+            {/* ── Editor de servicios (web/dominios/hosting) — persiste en la BD ── */}
+            <div className="no-print"><ServiciosEditor /></div>
+
             <div className="mt-6 flex items-center gap-2 text-[12px] no-print" style={{ color: '#9CA3AF' }}>
               <FileText className="w-4 h-4" />
               ¿Vas a proponerle esto a un cliente? Arma una <button onClick={() => navigate(`/${tenantId}/certificaciones/cotizaciones`)} className="font-semibold underline" style={{ color: '#059669' }}>cotización</button>.
@@ -219,6 +222,126 @@ export default function TarifarioCertificaciones({ tenantId }: Props) {
           </>
         )}
       </main>
+    </div>
+  );
+}
+
+const GRUPOS_SERVICIO = ['Desarrollo Web', 'Dominios', 'Hosting'];
+
+/**
+ * Editor de servicios sueltos (web/dominios/hosting). Persisten en la BD
+ * (tabla catalogo_servicios) — así se editan precios sin re-deploy. Los usan
+ * Cotizaciones y Facturación al armar el catálogo.
+ */
+function ServiciosEditor() {
+  const [rows, setRows] = useState<ServicioCatalogo[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [savingId, setSavingId] = useState<number | 'nuevo' | null>(null);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [nuevo, setNuevo] = useState({ grupo: 'Desarrollo Web', nombre: '', precio: '' });
+
+  const cargar = useCallback(() => {
+    setLoading(true);
+    tarifarioApi.get()
+      .then(t => setRows((t.servicios ?? []).slice().sort((a, b) => a.orden - b.orden)))
+      .catch(() => setRows([]))
+      .finally(() => setLoading(false));
+  }, []);
+  useEffect(() => { cargar(); }, [cargar]);
+
+  const editar = (id: number, patch: Partial<ServicioCatalogo>) =>
+    setRows(rs => rs.map(r => (r.id === id ? { ...r, ...patch } : r)));
+
+  const guardar = async (r: ServicioCatalogo) => {
+    if (savingId) return;
+    if (!r.nombre.trim() || !(r.precio > 0)) { setMsg({ ok: false, text: 'Nombre y precio (> 0) son obligatorios.' }); return; }
+    setSavingId(r.id); setMsg(null);
+    try {
+      await tarifarioApi.actualizarServicio(r.id, { grupo: r.grupo, nombre: r.nombre.trim(), precio: r.precio });
+      setMsg({ ok: true, text: `"${r.nombre.trim()}" guardado.` });
+    } catch (e) { setMsg({ ok: false, text: (e as Error).message }); }
+    finally { setSavingId(null); }
+  };
+
+  const eliminar = async (r: ServicioCatalogo) => {
+    if (savingId) return;
+    if (!window.confirm(`¿Quitar "${r.nombre}" del catálogo?`)) return;
+    setSavingId(r.id); setMsg(null);
+    try { await tarifarioApi.eliminarServicio(r.id); setRows(rs => rs.filter(x => x.id !== r.id)); setMsg({ ok: true, text: 'Servicio eliminado.' }); }
+    catch (e) { setMsg({ ok: false, text: (e as Error).message }); }
+    finally { setSavingId(null); }
+  };
+
+  const agregar = async () => {
+    if (savingId) return;
+    const precio = Number(nuevo.precio);
+    if (!nuevo.nombre.trim() || !(precio > 0)) { setMsg({ ok: false, text: 'Nombre y precio (> 0) son obligatorios.' }); return; }
+    setSavingId('nuevo'); setMsg(null);
+    try {
+      const slug = `SVC-${Date.now().toString(36).toUpperCase()}`;
+      const orden = rows.reduce((m, r) => Math.max(m, r.orden), 0) + 1;
+      const s = await tarifarioApi.crearServicio({ slug, grupo: nuevo.grupo, nombre: nuevo.nombre.trim(), precio, orden });
+      setRows(rs => [...rs, s]);
+      setNuevo({ grupo: nuevo.grupo, nombre: '', precio: '' });
+      setMsg({ ok: true, text: `"${s.nombre}" agregado.` });
+    } catch (e) { setMsg({ ok: false, text: (e as Error).message }); }
+    finally { setSavingId(null); }
+  };
+
+  const COLS = '150px 1fr 110px 76px 40px';
+
+  return (
+    <div className="mt-8 rounded-2xl p-5" style={{ background: '#FFFFFF', border: '1px solid #EEECE6' }}>
+      <div className="flex items-center gap-2 mb-1">
+        <DollarSign className="w-[18px] h-[18px]" style={{ color: '#059669' }} />
+        <h2 className="text-[14.5px] font-bold" style={{ color: '#0D0E12' }}>Servicios (web / dominios / hosting)</h2>
+      </div>
+      <p className="text-[12px] mb-4" style={{ color: '#9CA3AF' }}>
+        Se editan aquí y se guardan en la base de datos. Aparecen en el catálogo de Cotizaciones y Facturación. Precios con IGV.
+      </p>
+
+      {loading ? (
+        <div className="flex justify-center py-8" style={{ color: '#D1D5DB' }}><Loader2 className="w-5 h-5 animate-spin" /></div>
+      ) : (
+        <>
+          <div className="grid gap-2 px-1 pb-1.5 text-[10.5px] font-semibold uppercase tracking-wider" style={{ gridTemplateColumns: COLS, color: '#B0A898' }}>
+            <span>Grupo</span><span>Nombre</span><span className="text-right">Precio S/</span><span /><span />
+          </div>
+          {rows.length === 0 && <p className="text-[12.5px] py-4 text-center" style={{ color: '#B0A898' }}>Aún no hay servicios. Agrega uno abajo.</p>}
+          {rows.map(r => (
+            <div key={r.id} className="grid gap-2 items-center py-1.5" style={{ gridTemplateColumns: COLS, borderTop: '1px solid #F2F0EA' }}>
+              <select value={r.grupo} onChange={e => editar(r.id, { grupo: e.target.value })} className="sv-cell text-[12px]">
+                {GRUPOS_SERVICIO.map(g => <option key={g} value={g}>{g}</option>)}
+              </select>
+              <input value={r.nombre} onChange={e => editar(r.id, { nombre: e.target.value })} className="sv-cell text-[12px]" placeholder="Nombre del servicio" />
+              <input type="number" min={0} step="0.01" value={r.precio} onFocus={e => e.target.select()} onChange={e => editar(r.id, { precio: Math.round((Number(e.target.value) || 0) * 100) / 100 })} className="sv-cell text-right text-[12px]" />
+              <button type="button" onClick={() => guardar(r)} disabled={savingId === r.id} className="flex items-center justify-center gap-1 rounded-lg text-[11px] font-semibold text-white disabled:opacity-50" style={{ background: '#059669', height: 32 }}>
+                {savingId === r.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+              </button>
+              <button type="button" onClick={() => eliminar(r)} disabled={savingId === r.id} title="Eliminar" className="justify-self-center disabled:opacity-50">
+                <Trash2 className="w-4 h-4" style={{ color: '#C8887E' }} />
+              </button>
+            </div>
+          ))}
+
+          {/* Agregar nuevo */}
+          <div className="grid gap-2 items-center py-2 mt-1" style={{ gridTemplateColumns: COLS, borderTop: '1px solid #EEECE6' }}>
+            <select value={nuevo.grupo} onChange={e => setNuevo(n => ({ ...n, grupo: e.target.value }))} className="sv-cell text-[12px]">
+              {GRUPOS_SERVICIO.map(g => <option key={g} value={g}>{g}</option>)}
+            </select>
+            <input value={nuevo.nombre} onChange={e => setNuevo(n => ({ ...n, nombre: e.target.value }))} placeholder="Nuevo servicio…" className="sv-cell text-[12px]" />
+            <input type="number" min={0} step="0.01" value={nuevo.precio} onChange={e => setNuevo(n => ({ ...n, precio: e.target.value }))} placeholder="0.00" className="sv-cell text-right text-[12px]" />
+            <button type="button" onClick={agregar} disabled={savingId === 'nuevo'} className="flex items-center justify-center rounded-lg text-white disabled:opacity-50" style={{ background: '#0D0E12', height: 32 }}>
+              {savingId === 'nuevo' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-4 h-4" />}
+            </button>
+            <span />
+          </div>
+
+          {msg && (
+            <p className="text-[12px] mt-3" style={{ color: msg.ok ? '#047857' : '#B91C1C' }}>{msg.text}</p>
+          )}
+        </>
+      )}
     </div>
   );
 }

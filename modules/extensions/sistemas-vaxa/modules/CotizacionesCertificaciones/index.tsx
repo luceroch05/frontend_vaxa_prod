@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { TenantConfig } from '@/lib/tenants';
 import {
-  FileText, Plus, Loader2, CheckCircle, AlertCircle, Download, X, ClipboardList, ArrowRight,
+  FileText, Plus, Loader2, CheckCircle, AlertCircle, Download, Eye, X, ClipboardList, ArrowRight, Pencil, Trash2,
 } from '@/components/ui/icon';
 import HeaderSistemasVaxa from '../../shared/components/HeaderSistemasVaxa';
 import BotonVolver from '../../shared/components/BotonVolver';
@@ -14,14 +14,16 @@ import { VAXA_CONFIG } from '../../shared/constants';
 import { authStorage } from '@/lib/auth';
 import { ApiError } from '@/lib/api/client';
 import { creditosAdminApi, type EmpresaCreditos, type PlanCatalogo } from '../../shared/api/creditos.admin.api';
-import { cotizacionesApi, type Cotizacion, type EstadoCotizacion, COT_ESTADO } from '../../shared/api/cotizaciones.admin.api';
+import { cotizacionesApi, type Cotizacion, type CotizacionConDetalle, type EstadoCotizacion, COT_ESTADO } from '../../shared/api/cotizaciones.admin.api';
 import { tarifarioApi, type TarifaPaquete } from '../../shared/api/tarifario.admin.api';
-import { PAQUETES_CREDITOS, USUARIO_EXTRA } from '../../shared/data/tarifario';
+import { PAQUETES_CREDITOS, USUARIO_EXTRA, WEB_PLANES, DOMINIOS, HOSTING } from '../../shared/data/tarifario';
 
 interface Props { tenantId: string; tenant: TenantConfig; }
 interface Usuario { email: string; nombre: string; role: string; }
 
 const sol = (n: number) => `S/ ${n.toFixed(2)}`;
+const r2 = (n: number) => Math.round(n * 100) / 100;
+
 const fmt = (s: string | null) => (s ? new Date(`${s.slice(0, 10)}T00:00:00`).toLocaleDateString('es-PE', { day: '2-digit', month: 'short', year: 'numeric' }) : '—');
 
 const ESTADO_STYLE: Record<EstadoCotizacion, { bg: string; fg: string }> = {
@@ -43,6 +45,8 @@ export default function CotizacionesCertificaciones({ tenantId }: Props) {
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(false);
   const [convertir, setConvertir] = useState<Cotizacion | null>(null);
+  const [editando, setEditando] = useState<CotizacionConDetalle | null>(null);
+  const [eliminando, setEliminando] = useState<number | null>(null);
 
   const cargar = useCallback(async () => {
     setLoading(true);
@@ -64,15 +68,35 @@ export default function CotizacionesCertificaciones({ tenantId }: Props) {
     cargar();
   }, [tenantId, navigate, cargar]);
 
-  const descargarPdf = async (c: Cotizacion) => {
+  const [pdfCargando, setPdfCargando] = useState<number | null>(null);
+
+  /** Trae el PDF del backend y devuelve una URL de Blob lista para ver o descargar. */
+  const obtenerPdfUrl = async (c: Cotizacion) => {
+    const { pdf_base64 } = await cotizacionesApi.pdf(c.id);
+    const bytes = Uint8Array.from(atob(pdf_base64), ch => ch.charCodeAt(0));
+    return URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
+  };
+
+  /** Abre el PDF en una pestaña nueva (vista previa, sin forzar descarga). */
+  const verPdf = async (c: Cotizacion) => {
+    if (pdfCargando) return;
+    setPdfCargando(c.id);
     try {
-      const { pdf_base64 } = await cotizacionesApi.pdf(c.id);
-      const bytes = Uint8Array.from(atob(pdf_base64), ch => ch.charCodeAt(0));
-      const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
+      const url = await obtenerPdfUrl(c);
+      window.open(url, '_blank', 'noopener,noreferrer');
+      setTimeout(() => URL.revokeObjectURL(url), 30_000);
+    } catch { /* noop */ } finally { setPdfCargando(null); }
+  };
+
+  const descargarPdf = async (c: Cotizacion) => {
+    if (pdfCargando) return;
+    setPdfCargando(c.id);
+    try {
+      const url = await obtenerPdfUrl(c);
       const a = document.createElement('a');
       a.href = url; a.download = `${c.numero}.pdf`; a.click();
       URL.revokeObjectURL(url);
-    } catch { /* noop */ }
+    } catch { /* noop */ } finally { setPdfCargando(null); }
   };
 
   const cambiarEstado = async (c: Cotizacion, estado: EstadoCotizacion) => {
@@ -80,6 +104,22 @@ export default function CotizacionesCertificaciones({ tenantId }: Props) {
       await cotizacionesApi.cambiarEstado(c.id, COT_ESTADO[estado]);
       cargar();
     } catch { /* noop */ }
+  };
+
+  /** Abre el modal de edición: trae el detalle completo y lo pre-carga. */
+  const abrirEditar = async (c: Cotizacion) => {
+    if (eliminando) return;
+    try { setEditando(await cotizacionesApi.get(c.id)); }
+    catch { /* noop */ }
+  };
+
+  const eliminar = async (c: Cotizacion) => {
+    if (eliminando) return;
+    if (!window.confirm(`¿Eliminar la cotización ${c.numero}? Esta acción no se puede deshacer.`)) return;
+    setEliminando(c.id);
+    try { await cotizacionesApi.eliminar(c.id); cargar(); }
+    catch (e) { window.alert((e as Error).message || 'No se pudo eliminar.'); }
+    finally { setEliminando(null); }
   };
 
   if (!usuario) return null;
@@ -169,15 +209,29 @@ export default function CotizacionesCertificaciones({ tenantId }: Props) {
                           </td>
                           <td className="px-5 py-3">
                             <div className="flex items-center justify-end gap-2.5 flex-wrap">
-                              <button onClick={() => descargarPdf(c)} title="Descargar PDF"
-                                className="text-[11px] font-semibold flex items-center gap-1 hover:opacity-70" style={{ color: '#B45309' }}>
+                              <button onClick={() => verPdf(c)} disabled={pdfCargando === c.id} title="Ver PDF"
+                                className="text-[11px] font-semibold flex items-center gap-1 hover:opacity-70 disabled:opacity-50" style={{ color: '#1D4ED8' }}>
+                                {pdfCargando === c.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Eye className="w-3.5 h-3.5" />} Ver
+                              </button>
+                              <button onClick={() => descargarPdf(c)} disabled={pdfCargando === c.id} title="Descargar PDF"
+                                className="text-[11px] font-semibold flex items-center gap-1 hover:opacity-70 disabled:opacity-50" style={{ color: '#B45309' }}>
                                 <Download className="w-3.5 h-3.5" /> PDF
                               </button>
                               {!convertida && (
-                                <button onClick={() => setConvertir(c)} title="Convertir en venta"
-                                  className="text-[11px] font-semibold flex items-center gap-1 hover:opacity-70" style={{ color: '#059669' }}>
-                                  <ArrowRight className="w-3.5 h-3.5" /> Convertir en venta
-                                </button>
+                                <>
+                                  <button onClick={() => abrirEditar(c)} title="Editar"
+                                    className="text-[11px] font-semibold flex items-center gap-1 hover:opacity-70" style={{ color: '#475569' }}>
+                                    <Pencil className="w-3.5 h-3.5" /> Editar
+                                  </button>
+                                  <button onClick={() => eliminar(c)} disabled={eliminando === c.id} title="Eliminar"
+                                    className="text-[11px] font-semibold flex items-center gap-1 hover:opacity-70 disabled:opacity-50" style={{ color: '#B91C1C' }}>
+                                    {eliminando === c.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />} Eliminar
+                                  </button>
+                                  <button onClick={() => setConvertir(c)} title="Convertir en venta"
+                                    className="text-[11px] font-semibold flex items-center gap-1 hover:opacity-70" style={{ color: '#059669' }}>
+                                    <ArrowRight className="w-3.5 h-3.5" /> Convertir en venta
+                                  </button>
+                                </>
                               )}
                             </div>
                           </td>
@@ -195,8 +249,10 @@ export default function CotizacionesCertificaciones({ tenantId }: Props) {
         )}
       </main>
 
-      {modal && (
-        <NuevaCotizacionModal empresas={empresas} onClose={() => setModal(false)} onDone={() => { setModal(false); cargar(); }} />
+      {(modal || editando) && (
+        <NuevaCotizacionModal empresas={empresas} editar={editando}
+          onClose={() => { setModal(false); setEditando(null); }}
+          onDone={() => { setModal(false); setEditando(null); cargar(); }} />
       )}
       {convertir && (
         <ConvertirModal cotizacion={convertir} onClose={() => setConvertir(null)} onDone={() => { setConvertir(null); cargar(); }} />
@@ -280,7 +336,10 @@ function ConvertirModal({ cotizacion, onClose, onDone }: {
   );
 }
 
-interface LineaCot { descripcion: string; cantidad: number; precioUnitario: number; creditos?: number; renueva?: boolean; }
+interface LineaCot {
+  descripcion: string; cantidad: number; precioUnitario: number; creditos?: number; renueva?: boolean;
+  descuentoTipo?: 'monto' | 'pct'; descuentoValor?: number;
+}
 
 /** Combobox con búsqueda para elegir la empresa (filtra por nombre o RUC). */
 function ClienteCombo({ empresas, value, onChange }: {
@@ -308,7 +367,7 @@ function ClienteCombo({ empresas, value, onChange }: {
         <div className="absolute z-20 mt-1 w-full max-h-60 overflow-y-auto rounded-xl bg-white"
           style={{ border: '1px solid #EEECE6', boxShadow: '0 8px 24px rgba(0,0,0,0.12)' }}>
           {filtered.length === 0 ? (
-            <p className="px-3 py-2.5 text-[12px]" style={{ color: '#9CA3AF' }}>Sin resultados para “{query}”.</p>
+            <p className="px-3 py-2.5 text-[12px]" style={{ color: '#9CA3AF' }}>Sin resultados para "{query}".</p>
           ) : filtered.map(e => (
             <button key={e.id} type="button"
               onMouseDown={() => { onChange(e.id); setQuery(''); setOpen(false); }}
@@ -324,40 +383,52 @@ function ClienteCombo({ empresas, value, onChange }: {
   );
 }
 
-/** Modal "Nueva cotización" = constructor de líneas (empresa o prospecto). */
-function NuevaCotizacionModal({ empresas, onClose, onDone }: {
-  empresas: EmpresaCreditos[]; onClose: () => void; onDone: () => void;
+/** Modal "Nueva cotización" (o edición) = constructor de líneas (empresa o prospecto). */
+function NuevaCotizacionModal({ empresas, editar, onClose, onDone }: {
+  empresas: EmpresaCreditos[]; editar?: CotizacionConDetalle | null; onClose: () => void; onDone: () => void;
 }) {
-  const [clienteModo, setClienteModo] = useState<'empresa' | 'prospecto'>('empresa');
-  const [empresaId, setEmpresaId] = useState<number>(empresas[0]?.id ?? 0);
+  const esEdicion = !!editar;
+  const [clienteModo, setClienteModo] = useState<'empresa' | 'prospecto'>(editar ? (editar.empresa_id ? 'empresa' : 'prospecto') : 'empresa');
+  const [empresaId, setEmpresaId] = useState<number>(editar?.empresa_id ?? empresas[0]?.id ?? 0);
   const [planInfo, setPlanInfo] = useState('');
   const [planesCat, setPlanesCat] = useState<PlanCatalogo[]>([]);       // TODOS los planes (para cotizar migraciones)
   const [planActualSlug, setPlanActualSlug] = useState<string | null>(null);
 
-  // Prospecto
-  const [docTipo, setDocTipo] = useState('6');   // cat.06: 6 RUC · 1 DNI · 4 CE · 0 sin doc
-  const [numDoc, setNumDoc] = useState('');
-  const [nombreCli, setNombreCli] = useState('');
-  const [emailCli, setEmailCli] = useState('');
+  // Prospecto (si se edita un prospecto, se pre-cargan sus datos)
+  const [docTipo, setDocTipo] = useState(editar && !editar.empresa_id ? editar.cliente_tipo_doc : '6');   // cat.06: 6 RUC · 1 DNI · 4 CE · 0 sin doc
+  const [numDoc, setNumDoc] = useState(editar && !editar.empresa_id && editar.cliente_num_doc !== '0' ? editar.cliente_num_doc : '');
+  const [nombreCli, setNombreCli] = useState(editar && !editar.empresa_id ? editar.cliente_razon_social : '');
+  const [emailCli, setEmailCli] = useState(editar?.cliente_email ?? '');
 
-  const [lineas, setLineas] = useState<LineaCot[]>([]);
-  const [sel, setSel] = useState('');
-  const [desc, setDesc] = useState('');
-  const [cant, setCant] = useState('1');
-  const [precio, setPrecio] = useState('');
-  const [meta, setMeta] = useState<{ creditos?: number; renueva?: boolean }>({});
+  const [lineas, setLineas] = useState<LineaCot[]>(
+    editar ? editar.detalle.map(d => ({
+      descripcion: d.descripcion,
+      cantidad: d.cantidad,
+      precioUnitario: d.precio_unitario,
+      // En BD `creditos` es el total de la línea; en el modal se maneja POR UNIDAD.
+      creditos: d.creditos != null && d.cantidad > 0 ? Math.round(d.creditos / d.cantidad) : undefined,
+      renueva: d.renueva,
+      descuentoTipo: d.descuento_tipo ?? 'pct',
+      descuentoValor: d.descuento_valor > 0 ? d.descuento_valor : undefined,
+    })) : [],
+  );
 
-  const [descTipo, setDescTipo] = useState<'monto' | 'pct'>('pct');
-  const [descVal, setDescVal] = useState('');
+  const [descTipo, setDescTipo] = useState<'monto' | 'pct'>(editar?.descuento_tipo ?? 'pct');
+  const [descVal, setDescVal] = useState(editar && editar.descuento_valor > 0 ? String(editar.descuento_valor) : '');
   const [validaHasta, setValidaHasta] = useState(() => {
+    if (editar?.valida_hasta) return editar.valida_hasta.slice(0, 10);
     const d = new Date(); d.setDate(d.getDate() + 15);
     return d.toISOString().slice(0, 10);
   });
-  const [notas, setNotas] = useState('');
+  const [notas, setNotas] = useState(editar?.notas ?? '');
   const [paquetes, setPaquetes] = useState<TarifaPaquete[]>(
     PAQUETES_CREDITOS.map((p, i) => ({ id: i, slug: p.id, planSlug: p.planSlug, nombre: p.nombre, creditos: p.creditos, precio: p.precio })),
   );
   const [usuarioExtra, setUsuarioExtra] = useState({ activacion: USUARIO_EXTRA.activacion, mensual: USUARIO_EXTRA.mensual });
+  // Servicios sueltos (web/dominios/hosting): de la BD; fallback a las constantes.
+  const [servicios, setServicios] = useState<Array<{ id: string; label: string; precio: number; grupo: string }>>(
+    [...WEB_PLANES, ...DOMINIOS, ...HOSTING],
+  );
   const [enviando, setEnviando] = useState(false);
   const [resultado, setResultado] = useState<{ ok: boolean; msg: string } | null>(null);
 
@@ -366,10 +437,11 @@ function NuevaCotizacionModal({ empresas, onClose, onDone }: {
     creditosAdminApi.listPlanes().then(setPlanesCat).catch(() => setPlanesCat([]));
   }, []);
 
-  // Tarifario (paquetes + usuario extra) desde la BD; si falla, quedan los por defecto.
+  // Tarifario (paquetes + usuario extra + servicios) desde la BD; si falla, quedan los por defecto.
   useEffect(() => {
     tarifarioApi.get().then((t) => {
       if (t.paquetes?.length) setPaquetes(t.paquetes);
+      if (t.servicios?.length) setServicios(t.servicios.map(s => ({ id: s.slug, label: s.nombre, precio: s.precio, grupo: s.grupo })));
       setUsuarioExtra({
         activacion: t.parametros?.usuario_extra_activacion ?? USUARIO_EXTRA.activacion,
         mensual: t.parametros?.usuario_extra_mensual ?? USUARIO_EXTRA.mensual,
@@ -391,6 +463,7 @@ function NuevaCotizacionModal({ empresas, onClose, onDone }: {
   // Catálogo sugerido: mantenimiento + implementación de CADA plan, paquetes de
   // créditos y usuario adicional. Igual para empresa registrada y prospecto.
   const catalogo: Array<{ id: string; label: string; precio: number; creditos?: number; renueva?: boolean; grupo: string }> = [
+    ...servicios,
     ...planesCat.flatMap((p) => {
       const actual = p.slug === planActualSlug ? ' · plan actual' : '';
       return [
@@ -403,22 +476,30 @@ function NuevaCotizacionModal({ empresas, onClose, onDone }: {
     { id: 'user-mes', label: 'Usuario adicional — mensualidad', precio: usuarioExtra.mensual, grupo: 'Usuarios' },
   ];
 
-  const elegirCatalogo = (id: string) => {
-    setSel(id);
+  // Agrega una línea desde el catálogo (pre-llena) o vacía; luego TODO se edita en la tabla.
+  const addCatalogo = (id: string) => {
     const item = catalogo.find(x => x.id === id);
-    if (item) { setDesc(item.label); setPrecio(String(item.precio)); setMeta({ creditos: item.creditos, renueva: item.renueva }); }
-    else setMeta({});
+    if (!item) return;
+    setLineas(ls => [...ls, {
+      descripcion: item.label, cantidad: 1, precioUnitario: r2(item.precio),
+      creditos: item.creditos, renueva: item.renueva, descuentoTipo: 'pct',
+    }]);
   };
-
-  const agregar = () => {
-    const p = Number(precio); const q = Math.max(1, Math.floor(Number(cant) || 1));
-    if (!desc.trim() || !Number.isFinite(p) || p <= 0) return;
-    setLineas(ls => [...ls, { descripcion: desc.trim(), cantidad: q, precioUnitario: Math.round(p * 100) / 100, creditos: meta.creditos ? meta.creditos * q : undefined, renueva: meta.renueva }]);
-    setSel(''); setDesc(''); setCant('1'); setPrecio(''); setMeta({});
-  };
+  const addVacia = () => setLineas(ls => [...ls, { descripcion: '', cantidad: 1, precioUnitario: 0, descuentoTipo: 'pct' }]);
+  const actualizar = (i: number, patch: Partial<LineaCot>) =>
+    setLineas(ls => ls.map((l, idx) => (idx === i ? { ...l, ...patch } : l)));
   const quitar = (i: number) => setLineas(ls => ls.filter((_, idx) => idx !== i));
 
-  const subtotal = Math.round(lineas.reduce((a, l) => a + l.cantidad * l.precioUnitario, 0) * 100) / 100;
+  /** Bruto, descuento y neto de una línea (el descuento por línea es independiente del global). */
+  const calcLinea = (l: LineaCot) => {
+    const bruto = r2(l.cantidad * l.precioUnitario);
+    const descuento = l.descuentoValor
+      ? r2(l.descuentoTipo === 'pct' ? bruto * Math.min(l.descuentoValor, 100) / 100 : Math.min(l.descuentoValor, bruto))
+      : 0;
+    return { bruto, descuento, neto: r2(bruto - descuento) };
+  };
+
+  const subtotal = r2(lineas.reduce((a, l) => a + calcLinea(l).neto, 0));
   const descValor = Number(descVal) || 0;
   const descuento = descValor > 0 ? (descTipo === 'pct' ? Math.round(subtotal * Math.min(descValor, 100) / 100 * 100) / 100 : Math.min(descValor, subtotal)) : 0;
   const total = Math.round((subtotal - descuento) * 100) / 100;
@@ -430,17 +511,26 @@ function NuevaCotizacionModal({ empresas, onClose, onDone }: {
       if (!nombreCli.trim()) { setResultado({ ok: false, msg: 'Ingresa el nombre del cliente.' }); return; }
       if (docTipo !== '0' && !numDoc.trim()) { setResultado({ ok: false, msg: 'Ingresa el documento del cliente.' }); return; }
     }
+    if (lineas.some(l => !l.descripcion.trim() || !(l.precioUnitario > 0))) {
+      setResultado({ ok: false, msg: 'Cada línea necesita descripción y un precio mayor a 0.' }); return;
+    }
     setEnviando(true); setResultado(null);
     try {
-      const items = lineas.map(l => ({ descripcion: l.descripcion, cantidad: l.cantidad, precioUnitario: l.precioUnitario, creditos: l.creditos, renueva: l.renueva }));
+      const items = lineas.map(l => ({
+        descripcion: l.descripcion.trim(), cantidad: l.cantidad, precioUnitario: l.precioUnitario,
+        creditos: l.creditos ? l.creditos * l.cantidad : undefined, renueva: l.renueva,
+        descuentoTipo: l.descuentoValor ? l.descuentoTipo : undefined,
+        descuentoValor: l.descuentoValor || undefined,
+      }));
       const desc_ = descuento > 0 ? { tipo: descTipo, valor: descValor } : undefined;
-      const cot = await cotizacionesApi.crear(clienteModo === 'empresa'
+      const dto = clienteModo === 'empresa'
         ? { empresa_id: empresaId, items, descuento: desc_, notas: notas.trim() || undefined, valida_hasta: validaHasta }
         : {
             cliente: { tipoDoc: docTipo, numDoc: docTipo === '0' ? '0' : numDoc.trim(), razonSocial: nombreCli.trim(), email: emailCli.trim() || undefined },
             items, descuento: desc_, notas: notas.trim() || undefined, valida_hasta: validaHasta,
-          });
-      setResultado({ ok: true, msg: `${cot.numero} creada · ${sol(cot.total)}` });
+          };
+      const cot = editar ? await cotizacionesApi.actualizar(editar.id, dto) : await cotizacionesApi.crear(dto);
+      setResultado({ ok: true, msg: `${cot.numero} ${editar ? 'actualizada' : 'creada'} · ${sol(cot.total)}` });
       setTimeout(onDone, 1400);
     } catch (e) {
       setResultado({ ok: false, msg: (e as Error).message });
@@ -449,9 +539,9 @@ function NuevaCotizacionModal({ empresas, onClose, onDone }: {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(13,14,18,0.45)' }}>
-      <div className="w-full max-w-2xl rounded-2xl p-6 max-h-[94vh] overflow-y-auto" style={{ background: '#fff' }}>
+      <div className="w-full max-w-3xl rounded-2xl p-6 max-h-[94vh] overflow-y-auto" style={{ background: '#fff' }}>
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-[17px] font-bold" style={{ color: '#0D0E12' }}>Nueva cotización</h2>
+          <h2 className="text-[17px] font-bold" style={{ color: '#0D0E12' }}>{esEdicion ? `Editar ${editar!.numero}` : 'Nueva cotización'}</h2>
           <button onClick={onClose}><X className="w-5 h-5" style={{ color: '#9CA3AF' }} /></button>
         </div>
 
@@ -490,51 +580,59 @@ function NuevaCotizacionModal({ empresas, onClose, onDone }: {
           )}
         </div>
 
-        {/* Fila de agregar producto */}
-        <div className="rounded-xl p-3 mb-3" style={{ background: '#FAFAF8', border: '1px solid #EEECE6' }}>
-          <div className="grid gap-2" style={{ gridTemplateColumns: '1fr 70px 110px 40px' }}>
-            <div>
-              <select value={sel} onChange={e => elegirCatalogo(e.target.value)} className="sv-input w-full mb-1 text-[12px]">
-                <option value="">+ Agregar producto…</option>
-                {['Planes', 'Créditos', 'Usuarios'].map((g) => {
-                  const items = catalogo.filter(x => x.grupo === g);
-                  return items.length ? (
-                    <optgroup key={g} label={g}>
-                      {items.map(x => <option key={x.id} value={x.id}>{x.label}</option>)}
-                    </optgroup>
-                  ) : null;
-                })}
-              </select>
-              <input value={desc} onChange={e => setDesc(e.target.value)} placeholder="Descripción" className="sv-input w-full text-[13px]" />
-            </div>
-            <input type="number" min={1} value={cant} onChange={e => setCant(e.target.value)} placeholder="Cant." className="sv-input text-right self-end text-[13px]" />
-            <input type="number" min={0} step="0.01" value={precio} onChange={e => setPrecio(e.target.value)} placeholder="Precio" className="sv-input text-right self-end text-[13px]" />
-            <button type="button" onClick={agregar} className="self-end flex items-center justify-center rounded-lg text-white" style={{ background: '#059669', height: 38 }}>
-              <Plus className="w-4 h-4" />
-            </button>
-          </div>
-          <p className="text-[10.5px] mt-1.5" style={{ color: '#9CA3AF' }}>Producto sugerido o libre. Los precios incluyen IGV.</p>
+        {/* Agregar: catálogo (pre-llena una fila) o línea vacía. Luego se edita TODO en la tabla. */}
+        <div className="flex gap-2 mb-1.5">
+          <select value="" onChange={e => addCatalogo(e.target.value)} className="sv-input flex-1 text-[12.5px]">
+            <option value="">+ Agregar producto del catálogo…</option>
+            {['Desarrollo Web', 'Dominios', 'Hosting', 'Planes', 'Créditos', 'Usuarios'].map((g) => {
+              const items = catalogo.filter(x => x.grupo === g);
+              return items.length ? (
+                <optgroup key={g} label={g}>
+                  {items.map(x => <option key={x.id} value={x.id}>{x.label}</option>)}
+                </optgroup>
+              ) : null;
+            })}
+          </select>
+          <button type="button" onClick={addVacia} className="flex items-center gap-1 px-3 rounded-lg text-[12.5px] font-semibold flex-shrink-0"
+            style={{ border: '1px solid #EEECE6', color: '#059669', background: '#fff' }}>
+            <Plus className="w-3.5 h-3.5" /> Línea
+          </button>
         </div>
+        <p className="text-[10.5px] mb-3" style={{ color: '#9CA3AF' }}>Edita descripción, cantidad, precio y descuento directamente en cada fila. Los precios incluyen IGV.</p>
 
-        {/* Tabla */}
+        {/* Tabla editable */}
         <div className="rounded-xl overflow-hidden mb-4" style={{ border: '1px solid #EEECE6' }}>
-          <div className="grid px-3 py-2 text-[10.5px] font-semibold uppercase tracking-wider" style={{ gridTemplateColumns: '1fr 50px 90px 90px 28px', background: '#0D0E12', color: '#fff' }}>
-            <span>Producto</span><span className="text-right">Cant.</span><span className="text-right">P. Unit.</span><span className="text-right">Total</span><span />
+          <div className="grid gap-1 px-2 py-2 text-[10.5px] font-semibold uppercase tracking-wider" style={{ gridTemplateColumns: '1fr 56px 86px 120px 74px 22px', background: '#0D0E12', color: '#fff' }}>
+            <span className="pl-1">Producto</span><span className="text-center">Cant.</span><span className="text-right">P. Unit.</span><span className="text-center">Desc.</span><span className="text-right">Total</span><span />
           </div>
           {lineas.length === 0 ? (
             <p className="text-[12.5px] py-6 text-center" style={{ color: '#B0A898' }}>Agrega productos ↑</p>
-          ) : lineas.map((l, i) => (
-            <div key={i} className="grid items-center px-3 py-2.5 text-[12.5px]" style={{ gridTemplateColumns: '1fr 50px 90px 90px 28px', borderTop: '1px solid #F2F0EA' }}>
-              <div>
-                <p style={{ color: '#0D0E12' }}>{l.descripcion}</p>
-                {(l.creditos || l.renueva) && <p className="text-[10px]" style={{ color: '#059669' }}>{l.creditos ? `+${l.creditos} créditos` : 'renueva suscripción'}</p>}
+          ) : lineas.map((l, i) => {
+            const { descuento, neto } = calcLinea(l);
+            const dt = l.descuentoTipo ?? 'pct';
+            return (
+              <div key={i} className="grid gap-1 items-start px-2 py-1.5" style={{ gridTemplateColumns: '1fr 56px 86px 120px 74px 22px', borderTop: '1px solid #F2F0EA' }}>
+                <div>
+                  <input value={l.descripcion} onChange={e => actualizar(i, { descripcion: e.target.value })} placeholder="Descripción" className="sv-cell text-[12px]" />
+                  {(l.creditos || l.renueva) && <p className="text-[9.5px] mt-0.5 pl-1" style={{ color: '#059669' }}>{l.creditos ? `+${l.creditos * l.cantidad} créditos` : 'renueva suscripción'}</p>}
+                </div>
+                <input type="number" min={1} value={l.cantidad} onFocus={e => e.target.select()} onChange={e => actualizar(i, { cantidad: Math.max(1, Math.floor(Number(e.target.value) || 1)) })} className="sv-cell text-center text-[12px]" />
+                <input type="number" min={0} step="0.01" value={l.precioUnitario} onFocus={e => e.target.select()} onChange={e => actualizar(i, { precioUnitario: r2(Number(e.target.value) || 0) })} className="sv-cell text-right text-[12px]" />
+                <div className="flex gap-1">
+                  <div className="flex rounded-md overflow-hidden flex-shrink-0" style={{ border: '1px solid #EEECE6' }}>
+                    <button type="button" onClick={() => actualizar(i, { descuentoTipo: 'monto' })} className="px-1.5 text-[10px] font-semibold" style={dt === 'monto' ? { background: '#059669', color: '#fff' } : { color: '#9CA3AF' }}>S/</button>
+                    <button type="button" onClick={() => actualizar(i, { descuentoTipo: 'pct' })} className="px-1.5 text-[10px] font-semibold" style={dt === 'pct' ? { background: '#059669', color: '#fff' } : { color: '#9CA3AF' }}>%</button>
+                  </div>
+                  <input type="number" min={0} value={l.descuentoValor ?? ''} onFocus={e => e.target.select()} onChange={e => actualizar(i, { descuentoValor: e.target.value === '' ? undefined : Number(e.target.value) })} placeholder="0" className="sv-cell text-right text-[12px]" title="Descuento de esta línea" />
+                </div>
+                <div className="text-right self-center">
+                  <p className="tabular-nums font-semibold text-[12px]" style={{ color: '#0D0E12' }}>{sol(neto)}</p>
+                  {descuento > 0 && <p className="text-[9.5px] tabular-nums" style={{ color: '#B45309' }}>-{sol(descuento)}</p>}
+                </div>
+                <button onClick={() => quitar(i)} className="justify-self-end self-center" title="Quitar"><X className="w-3.5 h-3.5" style={{ color: '#C8C3BB' }} /></button>
               </div>
-              <span className="text-right tabular-nums" style={{ color: '#64748B' }}>{l.cantidad}</span>
-              <span className="text-right tabular-nums" style={{ color: '#64748B' }}>{sol(l.precioUnitario)}</span>
-              <span className="text-right tabular-nums font-semibold" style={{ color: '#0D0E12' }}>{sol(l.cantidad * l.precioUnitario)}</span>
-              <button onClick={() => quitar(i)} className="justify-self-end"><X className="w-3.5 h-3.5" style={{ color: '#C8C3BB' }} /></button>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Validez + notas */}
@@ -573,7 +671,7 @@ function NuevaCotizacionModal({ empresas, onClose, onDone }: {
 
         <button onClick={guardar} disabled={lineas.length === 0 || enviando} className="sv-btn sv-btn-primary w-full py-2.5 mt-4">
           {enviando ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
-          {enviando ? 'Guardando...' : `Crear cotización · ${sol(total)}`}
+          {enviando ? 'Guardando...' : `${esEdicion ? 'Guardar cambios' : 'Crear cotización'} · ${sol(total)}`}
         </button>
       </div>
     </div>

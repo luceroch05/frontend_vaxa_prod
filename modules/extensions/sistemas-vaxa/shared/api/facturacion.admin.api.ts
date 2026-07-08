@@ -70,7 +70,7 @@ export const facturacionApi = {
   /** Venta a cliente manual (persona con DNI/CE/sin doc), sin empresa. Solo boleta o nota de venta. */
   registrarVentaManual: (dto: {
     cliente: { tipoDoc: string; numDoc: string; razonSocial: string; direccion?: string };
-    items: Array<{ descripcion: string; cantidad: number; precioUnitario: number }>;
+    items: Array<{ descripcion: string; cantidad: number; precioUnitario: number; creditos?: number; renueva?: boolean; descuentoTipo?: 'monto' | 'pct'; descuentoValor?: number }>;
     descuento?: { tipo: 'monto' | 'pct'; valor: number };
     tipo_comprobante: '03' | 'NV';
   }) =>

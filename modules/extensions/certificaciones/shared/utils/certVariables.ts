@@ -9,6 +9,7 @@ export interface CertVarValues {
   participante: string;
   programa: string;
   horas: string | number;
+  creditos?: string | number;
   fecha?: string;        // fecha de emisión
   fechaInicio?: string;
   fechaFin?: string;
@@ -19,6 +20,7 @@ export const VARIABLES_CERTIFICADO: { token: string; desc: string }[] = [
   { token: '{participante}', desc: 'Nombre del participante' },
   { token: '{programa}',     desc: 'Nombre del programa' },
   { token: '{horas}',        desc: 'Horas académicas' },
+  { token: '{creditos}',     desc: 'Créditos académicos' },
   { token: '{fechaInicio}',  desc: 'Fecha de inicio' },
   { token: '{fechaFin}',     desc: 'Fecha de fin' },
   { token: '{fecha}',        desc: 'Fecha de emisión' },
@@ -32,6 +34,7 @@ export function expandirVariablesCertificado(texto: string, v: CertVarValues): s
     .replace(/\{programa\}/gi,     v.programa)
     .replace(/\{curso\}/gi,        v.programa)
     .replace(/\{horas\}/gi,        String(v.horas ?? ''))
+    .replace(/\{creditos\}/gi,     v.creditos ? String(v.creditos) : '')
     .replace(/\{fecha\}/gi,        v.fecha ?? '')
     .replace(/\{fechaInicio\}/gi,  v.fechaInicio ?? '')
     .replace(/\{fechaFin\}/gi,     v.fechaFin ?? '');

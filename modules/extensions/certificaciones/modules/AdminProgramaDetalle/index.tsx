@@ -2,10 +2,11 @@ import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, Plus, Layers, Loader2, AlertCircle, Users, Calendar, Clock,
-  ChevronRight, GraduationCap, ClipboardList, Link2, Ban, RefreshCw, Trash2, FileSpreadsheet,
+  ChevronRight, GraduationCap, ClipboardList, Link2, Ban, RefreshCw, Trash2, FileSpreadsheet, Pencil, X,
 } from '@/components/ui/icon';
 import { useProgramas } from '../../shared/hooks/useProgramas';
 import { useGrupos }    from '../../shared/hooks/useGrupos';
+import { useCatalogos } from '../../shared/hooks/useCatalogos';
 import { useConfirm }   from '../../shared/hooks/useConfirm';
 import { usePlan }      from '../../shared/hooks/usePlan';
 import { useEsAdmin }   from '../../shared/hooks/useEsAdmin';
@@ -13,7 +14,7 @@ import GrupoForm, { DIAS_CORTO } from '../../shared/components/GrupoForm';
 import UnidadesEditor from '../../shared/components/UnidadesEditor';
 import CopyLinkButton from '../../shared/components/CopyLinkButton';
 import ImportarExcelModal from '../../shared/components/ImportarExcelModal';
-import type { CreateGrupoDto, Grupo } from '../../shared/types';
+import type { CreateGrupoDto, Grupo, CreateProgramaDto } from '../../shared/types';
 
 /** Base pública de links para compartir (inscripción / validación). */
 const publicBase = (empresa: string) => `${window.location.origin}/${empresa}/certificados`;
@@ -133,6 +134,7 @@ export default function AdminProgramaDetalle() {
 
   const { programas, loading: progLoading, update, setActivo: setActivoPrograma, eliminar: eliminarPrograma } = useProgramas(empresa!, true);
   const { grupos, loading: gruposLoading, error, create, setActivo: setActivoGrupo, eliminar: eliminarGrupo } = useGrupos(empresa!, true);
+  const { catalogos } = useCatalogos(empresa!);
   const confirm = useConfirm();
   const { estado } = usePlan();
   // La importación por Excel es función de plan (Profesional o superior).
@@ -145,6 +147,8 @@ export default function AdminProgramaDetalle() {
   const [saving,    setSaving]    = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [importAula, setImportAula] = useState<Grupo | null>(null);   // aula sobre la que se importa por Excel
+  const [editProg,  setEditProg]  = useState(false);                  // form de edición del programa
+  const [progForm,  setProgForm]  = useState<CreateProgramaDto | null>(null);
 
   const programa = programas.find(p => p.id === pid);
   const aulas    = grupos.filter(g => g.programa_id === pid);
@@ -214,6 +218,28 @@ export default function AdminProgramaDetalle() {
     finally { setSaving(false); }
   };
 
+  // Abre el form de edición del programa, precargado con sus datos actuales.
+  const abrirEditPrograma = () => {
+    if (!programa) return;
+    setSaveError(null);
+    setProgForm({
+      tipo_programa_id: programa.tipo_programa_id,
+      nombre:           programa.nombre,
+      descripcion:      programa.descripcion ?? '',
+      horas_academicas: programa.horas_academicas,
+      creditos:         programa.creditos,
+    });
+    setEditProg(true);
+  };
+
+  const handleGuardarPrograma = async () => {
+    if (!progForm) return;
+    setSaving(true); setSaveError(null);
+    try { await update(pid, progForm); setEditProg(false); }
+    catch (e: unknown) { setSaveError((e as Error).message); }
+    finally { setSaving(false); }
+  };
+
   const handleVerInscritos = (g: Grupo) =>
     navigate(`/${empresa}/certificados/panel/inscripciones?grupo=${g.id}&nombre=${encodeURIComponent(g.nombre_grupo)}`);
 
@@ -274,6 +300,9 @@ export default function AdminProgramaDetalle() {
             {programa!.horas_academicas > 0 && (
               <span className="text-[12px]" style={{ color: '#9CA3AF' }}>{programa!.horas_academicas}h</span>
             )}
+            {programa!.creditos > 0 && (
+              <span className="text-[12px]" style={{ color: '#9CA3AF' }}>{programa!.creditos} créditos</span>
+            )}
             <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full"
               style={programa!.activo
                 ? { background: '#F0FDF4', color: '#15803D', border: '1px solid #BBF7D0' }
@@ -286,9 +315,17 @@ export default function AdminProgramaDetalle() {
           )}
         </div>
 
-        {/* Archivar / reactivar / borrar el programa — solo ADMINISTRADOR */}
+        {/* Editar / archivar / reactivar / borrar el programa — solo ADMINISTRADOR */}
         {esAdmin && (
         <>
+        <button
+          onClick={abrirEditPrograma}
+          className="flex items-center gap-1.5 text-[12px] font-semibold px-3 py-2 rounded-xl flex-shrink-0 transition-all"
+          style={{ background: '#EFF6FF', color: '#2563EB', border: '1px solid #BFDBFE' }}
+          title="Editar programa"
+        >
+          <Pencil size={13} /> Editar
+        </button>
         <button
           onClick={handleTogglePrograma}
           className="flex items-center gap-1.5 text-[12px] font-semibold px-3 py-2 rounded-xl flex-shrink-0 transition-all"
@@ -311,6 +348,79 @@ export default function AdminProgramaDetalle() {
         </>
         )}
       </div>
+
+      {/* Form editar programa */}
+      {editProg && progForm && (
+        <div className="bg-white rounded-2xl p-5 page-fade" style={{ border: '1px solid rgba(15,24,41,0.07)', boxShadow: '0 4px 20px rgba(0,0,0,0.06)' }}>
+          <div className="flex items-center justify-between mb-5">
+            <div>
+              <p className="text-[15px] font-semibold" style={{ color: '#0D0E12' }}>Editar programa</p>
+              <p className="text-[12px] mt-0.5" style={{ color: '#9CA3AF' }}>Modifica los datos del programa</p>
+            </div>
+            <button type="button" onClick={() => { setEditProg(false); setSaveError(null); }} className="p-1.5 rounded-lg transition-colors hover:bg-gray-100" style={{ color: '#9CA3AF' }}>
+              <X size={16} />
+            </button>
+          </div>
+
+          {saveError && (
+            <div className="flex items-center gap-2 text-[13px] px-3.5 py-2.5 rounded-xl mb-3" style={{ background: '#FEF2F2', border: '1px solid #FECACA', color: '#B91C1C' }}>
+              <AlertCircle size={14} className="flex-shrink-0" />
+              {saveError}
+            </div>
+          )}
+
+          <form onSubmit={e => { e.preventDefault(); handleGuardarPrograma(); }} className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-[12px] font-semibold mb-1.5 uppercase tracking-wider" style={{ color: '#374151' }}>Tipo de programa</label>
+                <select
+                  required
+                  value={progForm.tipo_programa_id}
+                  onChange={e => setProgForm(f => f && ({ ...f, tipo_programa_id: +e.target.value }))}
+                  className="vx-input"
+                >
+                  <option value={0} disabled>Seleccionar...</option>
+                  {catalogos?.tipos_programa.map(tp => (
+                    <option key={tp.id} value={tp.id}>{tp.nombre}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[12px] font-semibold mb-1.5 uppercase tracking-wider" style={{ color: '#374151' }}>
+                  Horas académicas <span className="ml-1.5 normal-case font-normal tracking-normal" style={{ color: '#9CA3AF' }}>(opcional)</span>
+                </label>
+                <input type="number" min={0} value={progForm.horas_academicas || ''} onChange={e => setProgForm(f => f && ({ ...f, horas_academicas: +e.target.value }))} className="vx-input" placeholder="Ej: 40" />
+              </div>
+              <div>
+                <label className="block text-[12px] font-semibold mb-1.5 uppercase tracking-wider" style={{ color: '#374151' }}>
+                  Créditos <span className="ml-1.5 normal-case font-normal tracking-normal" style={{ color: '#9CA3AF' }}>(opcional)</span>
+                </label>
+                <input type="number" min={0} value={progForm.creditos || ''} onChange={e => setProgForm(f => f && ({ ...f, creditos: +e.target.value }))} className="vx-input" placeholder="Ej: 12" />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[12px] font-semibold mb-1.5 uppercase tracking-wider" style={{ color: '#374151' }}>Nombre del programa</label>
+              <input type="text" required maxLength={100} value={progForm.nombre} onChange={e => setProgForm(f => f && ({ ...f, nombre: e.target.value }))} className="vx-input" placeholder="Ej: Curso de Excel Avanzado" />
+            </div>
+
+            <div>
+              <label className="block text-[12px] font-semibold mb-1.5 uppercase tracking-wider" style={{ color: '#374151' }}>
+                Descripción <span className="ml-1.5 normal-case font-normal tracking-normal" style={{ color: '#9CA3AF' }}>opcional</span>
+              </label>
+              <textarea rows={2} maxLength={300} value={progForm.descripcion ?? ''} onChange={e => setProgForm(f => f && ({ ...f, descripcion: e.target.value }))} className="vx-input resize-none" placeholder="Breve descripción del programa..." />
+            </div>
+
+            <div className="flex gap-2 justify-end pt-1">
+              <button type="button" onClick={() => { setEditProg(false); setSaveError(null); }} className="vx-btn vx-btn-ghost px-4 py-2">Cancelar</button>
+              <button type="submit" disabled={saving || !progForm.tipo_programa_id || progForm.nombre.trim() === ''} className="vx-btn vx-btn-primary px-5 py-2">
+                {saving && <Loader2 size={14} className="animate-spin" />}
+                Guardar cambios
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {/* Compartir: links listos para mandar al cliente/alumno */}
       <div className="bg-white rounded-2xl p-5 space-y-3" style={{ border: '1px solid #EEECE6' }}>

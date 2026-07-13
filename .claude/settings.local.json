@@ -183,7 +183,14 @@
       "Bash(cp \"C:\\\\Users\\\\Lucero\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-Lucero-Desktop-frontend-vaxa-prod\\\\eac0fbc1-8fdf-4840-8bfd-e95042f492aa\\\\scratchpad\\\\gen-logo.cjs\" scripts/gen-logo.cjs)",
       "Bash(grep -c \"actualizar\" dist/modules/cotizaciones/cotizacion.repository.js)",
       "Bash(grep -c \"router.put\" dist/modules/cotizaciones/cotizacion.routes.js)",
-      "Bash(stat -c '%y %n' src/modules/cotizaciones/cotizacion.routes.ts dist/modules/cotizaciones/cotizacion.routes.js)"
+      "Bash(stat -c '%y %n' src/modules/cotizaciones/cotizacion.routes.ts dist/modules/cotizaciones/cotizacion.routes.js)",
+      "Bash(grep -rn \"{horas}\\\\|\\\\\\\\\\\\\\\\{horas\\\\\\\\\\\\\\\\}\\\\|horas_academicas\\\\|expandir\\\\|reemplaz\\\\|replace\\(/\\\\\\\\\\\\\\\\{\" src/modules/certificados --include=*.ts -l)",
+      "Bash(ls db *)",
+      "Bash(ls *.sql)",
+      "Bash(ls src/db)",
+      "Bash(printf '%s\\\\n' */)",
+      "Bash(rm -f _regen_tmp.js _migrate_tmp.js)",
+      "Bash(ls _*.js)"
     ],
     "deny": [],
     "ask": []

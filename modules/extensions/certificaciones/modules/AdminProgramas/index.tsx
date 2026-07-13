@@ -1,32 +1,35 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Plus, BookOpen, Loader2, X, AlertCircle, ChevronRight, Ban, RefreshCw, Trash2 } from '@/components/ui/icon';
+import { Plus, BookOpen, Loader2, X, AlertCircle, ChevronRight, Ban, RefreshCw, Trash2, Pencil } from '@/components/ui/icon';
 import { useProgramas }  from '../../shared/hooks/useProgramas';
 import { useCatalogos }  from '../../shared/hooks/useCatalogos';
 import { useConfirm }    from '../../shared/hooks/useConfirm';
 import { useEsAdmin }    from '../../shared/hooks/useEsAdmin';
 import { usePagination } from '../../shared/hooks/usePagination';
 import Pagination from '../../shared/components/Pagination';
-import type { CreateProgramaDto } from '../../shared/types';
+import type { CreateProgramaDto, Programa } from '../../shared/types';
 
 const NOMBRE_MAX = 100;
 const DESC_MAX   = 300;
 
 /* ── Form ───────────────────────────────────────────────────── */
 function ProgramaForm({
-  onSubmit, onCancel, loading,
+  onSubmit, onCancel, loading, initial,
 }: {
   onSubmit: (data: CreateProgramaDto) => void;
   onCancel: () => void;
   loading: boolean;
+  initial?: Programa;   // si viene, el form está en modo EDITAR
 }) {
   const { empresa } = useParams<{ empresa: string }>();
   const { catalogos } = useCatalogos(empresa!);
+  const editando = !!initial;
   const [form, setForm] = useState<CreateProgramaDto>({
-    tipo_programa_id:  0,
-    nombre:            '',
-    descripcion:       '',
-    horas_academicas:  0,
+    tipo_programa_id:  initial?.tipo_programa_id ?? 0,
+    nombre:            initial?.nombre ?? '',
+    descripcion:       initial?.descripcion ?? '',
+    horas_academicas:  initial?.horas_academicas ?? 0,
+    creditos:          initial?.creditos ?? 0,
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -44,8 +47,8 @@ function ProgramaForm({
     >
       <div className="flex items-center justify-between mb-5">
         <div>
-          <p className="text-[15px] font-semibold" style={{ color: '#0D0E12' }}>Nuevo programa</p>
-          <p className="text-[12px] mt-0.5" style={{ color: '#9CA3AF' }}>Completa los datos del programa</p>
+          <p className="text-[15px] font-semibold" style={{ color: '#0D0E12' }}>{editando ? 'Editar programa' : 'Nuevo programa'}</p>
+          <p className="text-[12px] mt-0.5" style={{ color: '#9CA3AF' }}>{editando ? 'Modifica los datos del programa' : 'Completa los datos del programa'}</p>
         </div>
         <button
           type="button"
@@ -88,6 +91,21 @@ function ProgramaForm({
               onChange={e => setForm(f => ({ ...f, horas_academicas: +e.target.value }))}
               className="vx-input"
               placeholder="Ej: 40"
+            />
+          </div>
+
+          <div>
+            <label className="block text-[12px] font-semibold mb-1.5 uppercase tracking-wider" style={{ color: '#374151' }}>
+              Créditos
+              <span className="ml-1.5 normal-case font-normal tracking-normal" style={{ color: '#9CA3AF' }}>(opcional)</span>
+            </label>
+            <input
+              type="number"
+              min={0}
+              value={form.creditos || ''}
+              onChange={e => setForm(f => ({ ...f, creditos: +e.target.value }))}
+              className="vx-input"
+              placeholder="Ej: 12"
             />
           </div>
         </div>
@@ -141,7 +159,7 @@ function ProgramaForm({
             className="vx-btn vx-btn-primary px-5 py-2"
           >
             {loading && <Loader2 size={14} className="animate-spin" />}
-            Guardar programa
+            {editando ? 'Guardar cambios' : 'Guardar programa'}
           </button>
         </div>
       </form>
@@ -154,9 +172,10 @@ export default function AdminProgramas() {
   const { empresa } = useParams<{ empresa: string }>();
   const navigate    = useNavigate();
   const esAdmin = useEsAdmin();   // ADMISION no puede archivar/eliminar programas
-  const { programas, loading, error, create, setActivo, eliminar } = useProgramas(empresa!, true);
+  const { programas, loading, error, create, update, setActivo, eliminar } = useProgramas(empresa!, true);
   const confirm = useConfirm();
   const [showForm,   setShowForm]  = useState(false);
+  const [editing,    setEditing]   = useState<Programa | null>(null);
   const [saving,     setSaving]    = useState(false);
   const [saveError,  setSaveError] = useState<string | null>(null);
 
@@ -203,6 +222,27 @@ export default function AdminProgramas() {
     }
   };
 
+  const handleUpdate = async (data: CreateProgramaDto) => {
+    if (!editing) return;
+    setSaving(true);
+    setSaveError(null);
+    try {
+      await update(editing.id, data);
+      setEditing(null);
+    } catch (e: unknown) {
+      setSaveError((e as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Abre el form de edición (cierra el de crear si estuviera abierto).
+  const abrirEdicion = (p: Programa) => {
+    setShowForm(false);
+    setSaveError(null);
+    setEditing(p);
+  };
+
   const abrirPrograma = (id: number) =>
     navigate(`/${empresa}/certificados/panel/programas/${id}`);
 
@@ -213,9 +253,9 @@ export default function AdminProgramas() {
         <p className="text-[13px]" style={{ color: '#9CA3AF' }}>
           {programas.length} programa{programas.length !== 1 ? 's' : ''} registrado{programas.length !== 1 ? 's' : ''}
         </p>
-        {!showForm && (
+        {!showForm && !editing && (
           <button
-            onClick={() => setShowForm(true)}
+            onClick={() => { setEditing(null); setSaveError(null); setShowForm(true); }}
             className="vx-btn vx-btn-primary px-4 py-2"
           >
             <Plus size={15} />
@@ -224,7 +264,7 @@ export default function AdminProgramas() {
         )}
       </div>
 
-      {/* Form */}
+      {/* Form crear */}
       {showForm && (
         <div>
           {saveError && (
@@ -239,6 +279,28 @@ export default function AdminProgramas() {
           <ProgramaForm
             onSubmit={handleCreate}
             onCancel={() => { setShowForm(false); setSaveError(null); }}
+            loading={saving}
+          />
+        </div>
+      )}
+
+      {/* Form editar */}
+      {editing && (
+        <div>
+          {saveError && (
+            <div
+              className="flex items-center gap-2 text-[13px] px-3.5 py-2.5 rounded-xl mb-3"
+              style={{ background: '#FEF2F2', border: '1px solid #FECACA', color: '#B91C1C' }}
+            >
+              <AlertCircle size={14} className="flex-shrink-0" />
+              {saveError}
+            </div>
+          )}
+          <ProgramaForm
+            key={editing.id}
+            initial={editing}
+            onSubmit={handleUpdate}
+            onCancel={() => { setEditing(null); setSaveError(null); }}
             loading={saving}
           />
         </div>
@@ -287,10 +349,10 @@ export default function AdminProgramas() {
         >
           {/* Table header */}
           <div
-            className="hidden sm:grid grid-cols-[1fr_140px_80px_70px_200px] px-5 py-3 border-b"
+            className="hidden sm:grid grid-cols-[1fr_140px_80px_80px_70px_200px] px-5 py-3 border-b"
             style={{ background: '#FAFAF8', borderColor: 'rgba(15,24,41,0.07)' }}
           >
-            {['Programa', 'Tipo', 'Horas', 'Estado'].map(h => (
+            {['Programa', 'Tipo', 'Horas', 'Créditos', 'Estado'].map(h => (
               <p key={h} className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: '#9CA3AF' }}>
                 {h}
               </p>
@@ -301,7 +363,7 @@ export default function AdminProgramas() {
           {pageItems.map((p, idx) => (
             <div
               key={p.id}
-              className="flex flex-col sm:grid sm:grid-cols-[1fr_140px_80px_70px_200px] items-start sm:items-center px-5 py-4 transition-colors cursor-pointer"
+              className="flex flex-col sm:grid sm:grid-cols-[1fr_140px_80px_80px_70px_200px] items-start sm:items-center px-5 py-4 transition-colors cursor-pointer"
               style={{ borderBottom: idx < pageItems.length - 1 ? '1px solid rgba(15,24,41,0.05)' : undefined }}
               onClick={() => abrirPrograma(p.id)}
               onMouseEnter={e => { e.currentTarget.style.background = '#F7F6F3'; }}
@@ -339,6 +401,16 @@ export default function AdminProgramas() {
                 </p>
               </div>
 
+              {/* Créditos */}
+              <div className="flex sm:block items-center gap-2 sm:gap-0 mb-2 sm:mb-0">
+                <span className="sm:hidden text-[11px] font-semibold uppercase tracking-wider mr-1" style={{ color: '#9CA3AF' }}>
+                  Créditos:
+                </span>
+                <p className="text-[13px] font-medium tabular-nums" style={{ color: '#4B5563' }}>
+                  {p.creditos > 0 ? p.creditos : '—'}
+                </p>
+              </div>
+
               {/* Estado badge */}
               <div>
                 <span
@@ -356,6 +428,14 @@ export default function AdminProgramas() {
               <div className="flex items-center gap-2 justify-end mt-2 sm:mt-0" onClick={e => e.stopPropagation()}>
                 {esAdmin && (
                 <>
+                <button
+                  onClick={() => abrirEdicion(p)}
+                  className="flex items-center justify-center w-8 h-8 rounded-lg transition-all"
+                  style={{ background: '#EFF6FF', color: '#2563EB', border: '1px solid #BFDBFE' }}
+                  title="Editar programa"
+                >
+                  <Pencil size={12} />
+                </button>
                 <button
                   onClick={() => toggleActivo(p)}
                   className="flex items-center gap-1.5 text-[12px] font-semibold px-2.5 py-1.5 rounded-lg transition-all"

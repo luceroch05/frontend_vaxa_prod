@@ -126,6 +126,7 @@ export function CertificadoPDF({ certificado, config, onClose }: Props) {
     participante: certificado.participante_nombre,
     programa:     certificado.programa_nombre,
     horas:        certificado.horas_academicas ?? '',
+    creditos:     certificado.creditos ?? '',
     fecha:        fmtDate(certificado.fecha_emision),
     fechaInicio,
     fechaFin,
@@ -300,7 +301,9 @@ export function CertificadoPDF({ certificado, config, onClose }: Props) {
                 bottom: 60,
                 display: 'flex',
                 justifyContent: 'center',
-                alignItems: 'flex-end',
+                // flex-start: la línea de firma queda a la misma altura en todas
+                // (los nombres largos crecen hacia abajo sin desalinear ni pisar).
+                alignItems: 'flex-start',
                 gap: firmasGap(config.firmas.length),
               }}>
                 {config.firmas.map(f => (
@@ -325,25 +328,37 @@ export function CertificadoPDF({ certificado, config, onClose }: Props) {
                     <div style={{
                       width: SIG_ITEM_W,
                       borderTop: '1.5px solid #475569',
-                      marginBottom: 4,
+                      marginBottom: 6,
                     }} />
+                    {/* Nombre: puede ocupar varias líneas. El cargo va SIEMPRE debajo
+                        (block, sin position absoluta) así nunca se encima; si el
+                        nombre es más largo, el cargo baja solo. lineHeight explícito
+                        es obligatorio para que html2canvas no encime las líneas. */}
                     <p style={{
+                      display: 'block',
+                      width: SIG_ITEM_W,
                       margin: 0,
                       fontSize: 11,
                       fontWeight: 700,
                       color: '#1e293b',
                       textAlign: 'center',
-                      whiteSpace: 'pre-wrap',
+                      lineHeight: '15px',
+                      whiteSpace: 'normal',
+                      wordBreak: 'break-word',
                     }}>
                       {f.nombre_autoridad}
                     </p>
                     <p style={{
-                      margin: '2px 0 0',
+                      display: 'block',
+                      width: SIG_ITEM_W,
+                      margin: '4px 0 0',
                       fontSize: 9,
                       fontStyle: 'italic',
                       color: '#64748b',
                       textAlign: 'center',
-                      whiteSpace: 'pre-wrap',
+                      lineHeight: '12px',
+                      whiteSpace: 'normal',
+                      wordBreak: 'break-word',
                     }}>
                       {f.cargo}
                     </p>

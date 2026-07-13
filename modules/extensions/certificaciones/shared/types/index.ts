@@ -47,6 +47,7 @@ export interface Programa {
   nombre: string;
   descripcion: string | null;
   horas_academicas: number;
+  creditos: number;
   unidad_label: string;
   nota_minima: number;
   activo: number;
@@ -57,6 +58,7 @@ export interface CreateProgramaDto {
   nombre: string;
   descripcion?: string;
   horas_academicas: number;
+  creditos?: number;
   unidad_label?: string;
   nota_minima?: number;
 }
@@ -197,6 +199,7 @@ export interface Certificado {
   programa_nombre: string;
   tipo_programa_nombre?: string;
   horas_academicas?: number;
+  creditos?: number;
   grupo_id?: number;
   nombre_grupo: string;
   fecha_inicio?: string;

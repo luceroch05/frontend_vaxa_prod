@@ -14,6 +14,7 @@ interface Props {
   tipoPrograma?: string;
   programaNombre?: string;
   horas?: number;
+  creditos?: number;
   /** Ancho en px al que se muestra el certificado (se escala desde 1122). */
   displayWidth?: number;
 }
@@ -33,7 +34,7 @@ const EJEMPLO = {
  * dónde caen las firmas y cómo se expande el texto con variables.
  * ─────────────────────────────────────────────────────────────── */
 export default function CertificadoPreview({
-  plantillaUrl, logos, firmas, texto, tipoPrograma, programaNombre, horas, displayWidth = 460,
+  plantillaUrl, logos, firmas, texto, tipoPrograma, programaNombre, horas, creditos, displayWidth = 460,
 }: Props) {
   const scale = displayWidth / W;
 
@@ -47,6 +48,7 @@ export default function CertificadoPreview({
     participante: EJEMPLO.participante,
     programa,
     horas: horas ?? 40,
+    creditos: creditos ?? '',
     fecha: EJEMPLO.fecha,
     fechaInicio: EJEMPLO.fechaInicio,
     fechaFin: EJEMPLO.fechaFin,
@@ -109,15 +111,15 @@ export default function CertificadoPreview({
         {firmas.length > 0 && (
           <div style={{
             position: 'absolute', left: 0, right: 0, bottom: 60,
-            display: 'flex', justifyContent: 'center', alignItems: 'flex-end', gap: firmasGap(firmas.length),
+            display: 'flex', justifyContent: 'center', alignItems: 'flex-start', gap: firmasGap(firmas.length),
           }}>
             {firmas.map(f => (
               <div key={f.id} style={{ width: SIG_ITEM_W, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                 <img src={f.imagen_firma} alt={f.nombre_autoridad}
                   style={{ height: SIG_IMG_H, width: 'auto', maxWidth: SIG_ITEM_W, objectFit: 'contain', marginBottom: -10 }} />
-                <div style={{ width: SIG_ITEM_W, borderTop: '1.5px solid #475569', marginBottom: 4 }} />
-                <p style={{ margin: 0, fontSize: 11, fontWeight: 700, color: '#1e293b', textAlign: 'center' }}>{f.nombre_autoridad}</p>
-                <p style={{ margin: '2px 0 0', fontSize: 9, fontStyle: 'italic', color: '#64748b', textAlign: 'center' }}>{f.cargo}</p>
+                <div style={{ width: SIG_ITEM_W, borderTop: '1.5px solid #475569', marginBottom: 6 }} />
+                <p style={{ display: 'block', width: SIG_ITEM_W, margin: 0, fontSize: 11, fontWeight: 700, color: '#1e293b', textAlign: 'center', lineHeight: '15px', whiteSpace: 'normal', wordBreak: 'break-word' }}>{f.nombre_autoridad}</p>
+                <p style={{ display: 'block', width: SIG_ITEM_W, margin: '4px 0 0', fontSize: 9, fontStyle: 'italic', color: '#64748b', textAlign: 'center', lineHeight: '12px', whiteSpace: 'normal', wordBreak: 'break-word' }}>{f.cargo}</p>
               </div>
             ))}
           </div>

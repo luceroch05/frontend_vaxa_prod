@@ -1037,6 +1037,7 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
                     tipoPrograma={p.tipo_programa_nombre}
                     programaNombre={p.nombre}
                     horas={p.horas_academicas}
+                    creditos={p.creditos}
                     displayWidth={640}
                   />
                 </div>

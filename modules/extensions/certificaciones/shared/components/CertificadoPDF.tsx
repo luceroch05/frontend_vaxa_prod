@@ -40,21 +40,21 @@ export function getLogoSlots(n: number): ('left' | 'center' | 'right')[] {
 export function logoSlotStyle(slot: 'left' | 'center' | 'right'): React.CSSProperties {
   const base: React.CSSProperties = {
     position: 'absolute',
-    top: 60,
-    width: 200,
-    height: 110,
+    top: 55,
+    width: 240,
+    height: 135,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
   };
-  if (slot === 'left')   return { ...base, left: 80 };
-  if (slot === 'right')  return { ...base, right: 80 };
-  return { ...base, left: (W - 200) / 2 };
+  if (slot === 'left')   return { ...base, left: 70 };
+  if (slot === 'right')  return { ...base, right: 70 };
+  return { ...base, left: (W - 240) / 2 };
 }
 
 export const logoImgStyle: React.CSSProperties = {
-  maxHeight: 100,
-  maxWidth: 180,
+  maxHeight: 125,
+  maxWidth: 220,
   width: 'auto',
   height: 'auto',
   display: 'block',
@@ -68,7 +68,7 @@ export function firmasGap(n: number): number {
 }
 
 export const SIG_ITEM_W = 200;
-export const SIG_IMG_H  = 55;
+export const SIG_IMG_H  = 72;
 
 /* ── Componente ─────────────────────────────────────────────── */
 export function CertificadoPDF({ certificado, config, onClose }: Props) {
@@ -254,9 +254,18 @@ export function CertificadoPDF({ certificado, config, onClose }: Props) {
                 {certificado.tipo_programa_nombre ?? 'Certificado'}
               </p>
 
+              {/* Se otorga a */}
+              <p style={{
+                margin: '28px 0 0',
+                fontSize: 18,
+                color: '#475569',
+              }}>
+                Se otorga a:
+              </p>
+
               {/* Nombre del participante */}
               <p style={{
-                margin: '35px 0 0',
+                margin: '10px 0 0',
                 fontSize: 42,
                 fontWeight: 700,
                 color: '#0f172a',

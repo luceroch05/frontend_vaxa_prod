@@ -190,7 +190,11 @@
       "Bash(ls src/db)",
       "Bash(printf '%s\\\\n' */)",
       "Bash(rm -f _regen_tmp.js _migrate_tmp.js)",
-      "Bash(ls _*.js)"
+      "Bash(ls _*.js)",
+      "Bash(ls src/modules/pacientes)",
+      "Bash(ls src/modules/certificados/pacientes)",
+      "Bash(ls \"C:\\\\Users\\\\Lucero\\\\Desktop\\\\frontend_vaxa_prod\\\\modules\\\\extensions\\\\certificaciones\\\\modules\\\\Pacientes\")",
+      "Bash(ls \"C:\\\\Users\\\\Lucero\\\\Desktop\\\\frontend_vaxa_prod\\\\modules\\\\extensions\\\\certificaciones\\\\modules\\\\AdminEstudiantes\")"
     ],
     "deny": [],
     "ask": []

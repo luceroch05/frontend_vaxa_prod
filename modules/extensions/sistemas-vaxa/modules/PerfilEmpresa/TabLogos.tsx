@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Upload, X, Lock, Unlock, Plus, Trash2, FileImage } from '@/components/ui/icon';
+import { imgUrl } from '@/lib/api/client';
 import type { Empresa } from '../../shared/types';
 
 interface TabLogosProps {
@@ -58,7 +59,7 @@ export default function TabLogos({ empresa, tenantId }: TabLogosProps) {
             {empresa.logoUrl || logoPreview ? (
               <div className="relative">
                 <img
-                  src={logoPreview || empresa.logoUrl}
+                  src={logoPreview || imgUrl(empresa.logoUrl)}
                   alt="Logo"
                   className="w-32 h-32 rounded-xl object-contain border-2 border-gray-200 bg-white"
                 />
@@ -145,7 +146,7 @@ export default function TabLogos({ empresa, tenantId }: TabLogosProps) {
               <div className="flex items-start gap-4">
                 <div className="flex-shrink-0">
                   <img
-                    src={firma.url}
+                    src={imgUrl(firma.url)}
                     alt={firma.nombre}
                     className="w-24 h-16 object-contain border border-gray-200 rounded-lg bg-white"
                   />

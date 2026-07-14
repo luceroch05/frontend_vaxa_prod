@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { TenantConfig } from '@/lib/tenants';
+import { tenantPath } from '@/lib/paths';
 import {
   ArrowLeft,
   Building2,
@@ -101,7 +102,7 @@ export default function RegistrarEmpresaCertificaciones({
     const userData = localStorage.getItem(`auth_user_${tenantId}`);
 
     if (!authData || authData !== 'true') {
-      navigate(`/${tenantId}/login`);
+      navigate(tenantPath(tenantId, '/login'));
       return;
     }
 
@@ -110,7 +111,7 @@ export default function RegistrarEmpresaCertificaciones({
         const user = JSON.parse(userData);
         setUsuario(user);
       } catch (error) {
-        navigate(`/${tenantId}/login`);
+        navigate(tenantPath(tenantId, '/login'));
       }
     }
   }, [tenantId, navigate]);
@@ -183,7 +184,7 @@ export default function RegistrarEmpresaCertificaciones({
       });
       // No se emite ningún comprobante al registrar. La factura/boleta se hace
       // manualmente desde Facturación Electrónica.
-      navigate(`/${tenantId}/certificaciones/empresa/${empresa.id}`);
+      navigate(tenantPath(tenantId, `/certificaciones/empresa/${empresa.id}`));
     } catch (err) {
       setError((err as Error).message);
       setLoading(false);
@@ -220,7 +221,7 @@ export default function RegistrarEmpresaCertificaciones({
       <main className="max-w-4xl mx-auto px-5 sm:px-6 lg:px-8 py-7">
         {/* Back button */}
         <button
-          onClick={() => navigate(`/${tenantId}/certificaciones`)}
+          onClick={() => navigate(tenantPath(tenantId, '/certificaciones'))}
           className="flex items-center gap-1.5 mb-5 text-[13px] font-medium transition-colors group"
           style={{ color: '#64748B' }}
         >
@@ -643,7 +644,7 @@ export default function RegistrarEmpresaCertificaciones({
 
           {/* Botones */}
           <div className="flex items-center justify-end gap-2.5 pt-6" style={{ borderTop: '1px solid #F2F0EA' }}>
-            <button type="button" onClick={() => navigate(`/${tenantId}/certificaciones`)} className="sv-btn sv-btn-ghost px-5">
+            <button type="button" onClick={() => navigate(tenantPath(tenantId, '/certificaciones'))} className="sv-btn sv-btn-ghost px-5">
               Cancelar
             </button>
             <button type="submit" disabled={loading || !puedeRegistrar} className="sv-btn sv-btn-primary px-5">

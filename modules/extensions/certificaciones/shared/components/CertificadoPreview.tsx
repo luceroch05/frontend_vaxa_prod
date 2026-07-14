@@ -2,6 +2,7 @@ import {
   W, H, getLogoSlots, logoSlotStyle, logoImgStyle, firmasGap, SIG_ITEM_W, SIG_IMG_H,
 } from './CertificadoPDF';
 import { expandirVariablesCertificado } from '../utils/certVariables';
+import { imgUrl } from '@/lib/api/client';
 
 interface PreviewLogo  { id: number; imagen_logo: string; nombre?: string | null }
 interface PreviewFirma { id: number; imagen_firma: string; nombre_autoridad: string; cargo: string }
@@ -80,13 +81,13 @@ export default function CertificadoPreview({
       }}>
         {/* Fondo */}
         {plantillaUrl && (
-          <img src={plantillaUrl} alt="" style={{ position: 'absolute', inset: 0, width: W, height: H, objectFit: 'cover' }} />
+          <img src={imgUrl(plantillaUrl)} alt="" style={{ position: 'absolute', inset: 0, width: W, height: H, objectFit: 'cover' }} />
         )}
 
         {/* Logos */}
         {logos.map((logo, i) => (
           <div key={logo.id} style={logoSlotStyle(slots[i] ?? 'center')}>
-            <img src={logo.imagen_logo} alt={logo.nombre ?? 'logo'} style={logoImgStyle} />
+            <img src={imgUrl(logo.imagen_logo)} alt={logo.nombre ?? 'logo'} style={logoImgStyle} />
           </div>
         ))}
 
@@ -116,7 +117,7 @@ export default function CertificadoPreview({
           }}>
             {firmas.map(f => (
               <div key={f.id} style={{ width: SIG_ITEM_W, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                <img src={f.imagen_firma} alt={f.nombre_autoridad}
+                <img src={imgUrl(f.imagen_firma)} alt={f.nombre_autoridad}
                   style={{ height: SIG_IMG_H, width: 'auto', maxWidth: SIG_ITEM_W, objectFit: 'contain', marginBottom: -10 }} />
                 <div style={{ width: SIG_ITEM_W, borderTop: '1.5px solid #475569', marginBottom: 6 }} />
                 <p style={{ display: 'block', width: SIG_ITEM_W, margin: 0, fontSize: 11, fontWeight: 700, color: '#1e293b', textAlign: 'center', lineHeight: '15px', whiteSpace: 'normal', wordBreak: 'break-word' }}>{f.nombre_autoridad}</p>

@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { Ban, ArrowLeft, LogIn } from '@/components/ui/icon';
 import { authStorage } from '@/lib/auth';
+import { certPath } from '@/lib/paths';
 
 interface AccessDeniedProps {
   /** Empresa de la URL a la que se intentó entrar. */
@@ -16,10 +17,10 @@ interface AccessDeniedProps {
 export default function AccessDenied({ empresa, sesionEmpresa }: AccessDeniedProps) {
   const navigate = useNavigate();
 
-  const irAMiEmpresa = () => navigate(`/${sesionEmpresa}/certificados/panel`);
+  const irAMiEmpresa = () => navigate(certPath(sesionEmpresa!, '/panel'));
   const loginAqui = () => {
     if (sesionEmpresa) authStorage.clearSession(sesionEmpresa);
-    navigate(`/${empresa}/certificados/login`);
+    navigate(certPath(empresa, '/login'));
   };
 
   return (

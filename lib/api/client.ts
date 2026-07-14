@@ -1,6 +1,24 @@
 import { authStorage } from '../auth';
+import { getHostMode } from '../host';
+import { certPath } from '../paths';
 
 export const API_URL = (import.meta.env.VITE_API_URL as string) || 'http://localhost:4000';
+
+/** ¿Estamos ya en la pantalla de login del panel? (soporta subdominio y legacy) */
+function enLoginCertificados(): boolean {
+  if (typeof window === 'undefined') return false;
+  const p = window.location.pathname;
+  return p.includes('/certificados/login') || p.endsWith('/login');
+}
+
+/** Extrae el slug de empresa de la URL actual, según el modo de host. */
+function empresaDeUrl(): string | undefined {
+  const p = window.location.pathname;
+  if (getHostMode().modo === 'certificados') {
+    return p.split('/').filter(Boolean)[0];
+  }
+  return p.match(/^\/([^/]+)\/certificados\b/)?.[1];
+}
 
 /**
  * Resuelve la URL final de una imagen guardada en la BD. Las imágenes ahora se
@@ -23,7 +41,7 @@ export function imgUrl(src?: string | null): string {
 function handleSessionRevoked(): void {
   if (typeof window === 'undefined') return;
   // Evita bucles si ya estamos en la pantalla de login.
-  if (window.location.pathname.includes('/certificados/login')) return;
+  if (enLoginCertificados()) return;
 
   try { authStorage.clearAllSessions(); } catch { /* ignore */ }
   try { sessionStorage.setItem('vaxa_session_revoked', '1'); } catch { /* ignore */ }
@@ -41,11 +59,11 @@ function handleSessionRevoked(): void {
  */
 function handlePlanVencido(): void {
   if (typeof window === 'undefined') return;
-  if (window.location.pathname.includes('/certificados/login')) return;
+  if (enLoginCertificados()) return;
   try { authStorage.clearAllSessions(); } catch { /* ignore */ }
   try { sessionStorage.setItem('vaxa_plan_vencido', '1'); } catch { /* ignore */ }
-  const empresa = window.location.pathname.match(/^\/([^/]+)\/certificados\b/)?.[1];
-  window.location.href = empresa ? `/${empresa}/certificados/login` : '/';
+  const empresa = empresaDeUrl();
+  window.location.href = empresa ? certPath(empresa, '/login') : '/';
 }
 
 export interface RequestOptions extends RequestInit {

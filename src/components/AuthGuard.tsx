@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getTenantConfig } from '@/lib/tenants';
+import { tenantPath } from '@/lib/paths';
 
 interface AuthGuardProps {
   tenantId: string;
@@ -18,7 +19,7 @@ export default function AuthGuard({ tenantId, children }: AuthGuardProps) {
       const authStatus = localStorage.getItem(`auth_${tenantId}`) === 'true';
       setIsAuthenticated(authStatus);
       if (!authStatus) {
-        navigate(`/${tenantId}/login`);
+        navigate(tenantPath(tenantId, '/login'));
       }
     } else {
       setIsAuthenticated(true);

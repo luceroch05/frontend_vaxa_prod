@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { TenantConfig } from '@/lib/tenants';
+import { tenantPath } from '@/lib/paths';
 import {
   Building2, CreditCard, AlertCircle, CheckCircle, Loader2, ArrowRight, TrendingUp,
 } from '@/components/ui/icon';
@@ -43,7 +44,7 @@ export default function CobranzaCertificaciones({ tenantId }: Props) {
     } catch (e) {
       if (e instanceof ApiError && (e.status === 401 || e.status === 403)) {
         authStorage.clearAllSessions();
-        navigate(`/${tenantId}/login`);
+        navigate(tenantPath(tenantId, '/login'));
       }
     } finally {
       setLoading(false);
@@ -52,7 +53,7 @@ export default function CobranzaCertificaciones({ tenantId }: Props) {
 
   useEffect(() => {
     if (localStorage.getItem(`auth_${tenantId}`) !== 'true' || !authStorage.getToken('vaxa')) {
-      navigate(`/${tenantId}/login`);
+      navigate(tenantPath(tenantId, '/login'));
       return;
     }
     try { setUsuario(JSON.parse(localStorage.getItem(`auth_user_${tenantId}`) ?? 'null')); } catch { /* noop */ }
@@ -89,7 +90,7 @@ export default function CobranzaCertificaciones({ tenantId }: Props) {
       />
 
       <main className="max-w-5xl mx-auto px-5 sm:px-6 lg:px-8 py-7">
-        <BotonVolver to={`/${tenantId}/certificaciones`} />
+        <BotonVolver to={tenantPath(tenantId, '/certificaciones')} />
 
         <div className="mb-6 page-enter">
           <p className="text-[11px] font-semibold uppercase tracking-[0.16em] mb-1" style={{ color: '#059669' }}>
@@ -146,7 +147,7 @@ export default function CobranzaCertificaciones({ tenantId }: Props) {
                     const style = est ? COBRANZA[est] : { bg: '#F5F4F0', bd: '#EAE7DF', fg: '#6B7280', label: 'Sin plan' };
                     return (
                       <div key={f.empresa_id}
-                        onClick={() => navigate(`/${tenantId}/certificaciones/empresa/${f.empresa_id}`)}
+                        onClick={() => navigate(tenantPath(tenantId, `/certificaciones/empresa/${f.empresa_id}`))}
                         className="grid items-center px-5 py-3.5 cursor-pointer transition-colors"
                         style={{ gridTemplateColumns: '2fr 1.2fr 1fr 1fr 1fr 24px', borderBottom: '1px solid #F5F4F0' }}
                         onMouseEnter={(e) => { e.currentTarget.style.background = '#FAFAF8'; }}

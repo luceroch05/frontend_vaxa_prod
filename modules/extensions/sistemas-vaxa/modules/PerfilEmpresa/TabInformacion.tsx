@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { Building2, FileText, Globe, CreditCard, Edit, Loader2, Upload, AlertCircle, User } from '@/components/ui/icon';
 
 import { creditosAdminApi, type EmpresaCreditos } from '../../shared/api/creditos.admin.api';
+import { publicCertUrl } from '@/lib/paths';
+import { imgUrl } from '@/lib/api/client';
 import CopyLinkCard from '../../shared/components/CopyLinkCard';
 import { DOC_RULES, sanitizeDoc, esEmpresa, tipoClienteLabel, docLabel, nombreLabel } from '../../shared/docs';
 
@@ -80,7 +82,7 @@ export default function TabInformacion({ empresa, onChange }: TabInformacionProp
         {/* Logo */}
         <div className="flex items-center gap-5">
           {logo ? (
-            <img src={logo} alt="logo" className="w-20 h-20 rounded-xl object-contain border-2 border-gray-200" />
+            <img src={imgUrl(logo)} alt="logo" className="w-20 h-20 rounded-xl object-contain border-2 border-gray-200" />
           ) : (
             <div className="w-20 h-20 rounded-xl border-2 border-dashed border-gray-300 flex items-center justify-center bg-gray-50">
               <Building2 className="w-9 h-9 text-gray-400" />
@@ -165,15 +167,10 @@ export default function TabInformacion({ empresa, onChange }: TabInformacionProp
     { icon: CreditCard, label: 'Créditos disponibles', value: String(empresa.creditos_disponibles) },
   ];
 
-  const baseUrl =
-  typeof window !== 'undefined'
-    ? window.location.origin
-    : 'https://vaxasys.com';
-
   const links = {
-    inscripcion: `${baseUrl}/${empresa.tenant_slug}/certificados`,
-    validacion: `${baseUrl}/${empresa.tenant_slug}/certificados/validar`,
-    login: `${baseUrl}/${empresa.tenant_slug}/certificados/login`,
+    inscripcion: publicCertUrl(empresa.tenant_slug),
+    validacion:  publicCertUrl(empresa.tenant_slug, '/validar'),
+    login:       publicCertUrl(empresa.tenant_slug, '/login'),
   };
 
  

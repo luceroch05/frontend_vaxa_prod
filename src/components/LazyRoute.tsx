@@ -1,6 +1,7 @@
 import { useParams } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { getTenantConfig } from '@/lib/tenants';
+import { getHostMode } from '@/lib/host';
 import { loadModule } from '@/lib/module-loader';
 import AuthGuard from './AuthGuard';
 
@@ -11,7 +12,9 @@ interface LazyRouteProps {
 
 export default function LazyRoute({ module: moduleName, paramKey }: LazyRouteProps) {
   const params = useParams<{ tenantId: string; loteId?: string; empresaId?: string }>();
-  const tenantId = params.tenantId!;
+  const host = getHostMode();
+  // En el subdominio `sistemas.` el tenant es fijo y NO viene en la URL.
+  const tenantId = host.modo === 'sistemas' ? host.tenant : params.tenantId!;
   const tenant = getTenantConfig(tenantId);
   const [Module, setModule] = useState<React.ComponentType<any> | null>(null);
   const [error, setError] = useState<string | null>(null);

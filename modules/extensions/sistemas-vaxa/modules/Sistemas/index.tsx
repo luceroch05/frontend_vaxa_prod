@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { TenantConfig } from '@/lib/tenants';
+import { tenantPath } from '@/lib/paths';
 import {
   Package,
   Users,
@@ -41,7 +42,7 @@ export default function Sistemas({ tenantId, tenant }: SistemasProps) {
     const userData = localStorage.getItem(`auth_user_${tenantId}`);
 
     if (!authData || authData !== 'true') {
-      navigate(`/${tenantId}/login`);
+      navigate(tenantPath(tenantId, '/login'));
       return;
     }
 
@@ -50,7 +51,7 @@ export default function Sistemas({ tenantId, tenant }: SistemasProps) {
         const user = JSON.parse(userData);
         setUsuario(user);
       } catch (error) {
-        navigate(`/${tenantId}/login`);
+        navigate(tenantPath(tenantId, '/login'));
         return;
       }
     }
@@ -108,7 +109,7 @@ export default function Sistemas({ tenantId, tenant }: SistemasProps) {
               {SISTEMAS_MOCK.map((sistema) => (
                 <button
                   key={sistema.id}
-                  onClick={() => navigate(`/${tenantId}/${sistema.slug}`)}
+                  onClick={() => navigate(tenantPath(tenantId, `/${sistema.slug}`))}
                   className="w-full flex items-center justify-between p-3 rounded-xl transition-all group"
                   style={{ border: '1px solid #EEECE6' }}
                   onMouseEnter={(e) => { e.currentTarget.style.background = '#FAFAF8'; e.currentTarget.style.borderColor = '#A7F3D0'; }}
@@ -142,7 +143,7 @@ export default function Sistemas({ tenantId, tenant }: SistemasProps) {
             </div>
 
             <button
-              onClick={() => navigate(`/${tenantId}/usuarios`)}
+              onClick={() => navigate(tenantPath(tenantId, '/usuarios'))}
               className="w-full flex items-center justify-between p-3 rounded-xl transition-all group"
               style={{ border: '1px solid #EEECE6' }}
               onMouseEnter={(e) => { e.currentTarget.style.background = '#FAFAF8'; e.currentTarget.style.borderColor = '#A7F3D0'; }}

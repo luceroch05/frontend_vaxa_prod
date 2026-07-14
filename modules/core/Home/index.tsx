@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { TenantConfig } from '@/lib/tenants';
+import { tenantPath } from '@/lib/paths';
 
 interface HomeProps {
   tenantId: string;
@@ -33,7 +34,7 @@ export default function Home({ tenantId, tenant }: HomeProps) {
             Vista general del centro con estadísticas y resumen.
           </p>
           <Link
-            to={`/${tenantId}/dashboard`}
+            to={tenantPath(tenantId, '/dashboard')}
             className="text-blue-600 hover:underline"
           >
             Ir al Dashboard →
@@ -46,7 +47,7 @@ export default function Home({ tenantId, tenant }: HomeProps) {
             Gestiona la información de los pacientes del centro.
           </p>
           <Link
-            to={`/${tenantId}/pacientes`}
+            to={tenantPath(tenantId, '/pacientes')}
             className="text-blue-600 hover:underline"
           >
             Ver Pacientes →
@@ -59,7 +60,7 @@ export default function Home({ tenantId, tenant }: HomeProps) {
             Administra las citas y horarios de terapia.
           </p>
           <Link
-            to={`/${tenantId}/citas`}
+            to={tenantPath(tenantId, '/citas')}
             className="text-blue-600 hover:underline"
           >
             Ver Citas →
@@ -72,7 +73,7 @@ export default function Home({ tenantId, tenant }: HomeProps) {
             Gestiona el equipo de terapeutas del centro.
           </p>
           <Link
-            to={`/${tenantId}/terapeutas`}
+            to={tenantPath(tenantId, '/terapeutas')}
             className="text-blue-600 hover:underline"
           >
             Ver Terapeutas →

@@ -1,6 +1,7 @@
 import { useNavigate, useLocation } from 'react-router-dom';
 import { LogOut, Building2, History, Users, Menu, X } from 'lucide-react';
 import { useState } from 'react';
+import { tenantPath } from '@/lib/paths';
 
 interface HeaderProps {
   tenantId: string;
@@ -33,11 +34,11 @@ export default function Header({ tenantId, usuario, config }: HeaderProps) {
   const handleLogout = () => {
     localStorage.removeItem(`auth_${tenantId}`);
     localStorage.removeItem(`auth_user_${tenantId}`);
-    navigate(`/${tenantId}/login`);
+    navigate(tenantPath(tenantId, '/login'));
   };
 
   const handleNavigation = (path: string) => {
-    navigate(`/${tenantId}${path}`);
+    navigate(tenantPath(tenantId, path));
     setShowUserMenu(false);
     setShowMobileMenu(false);
   };

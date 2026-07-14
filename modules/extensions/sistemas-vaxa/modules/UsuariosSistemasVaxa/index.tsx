@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { TenantConfig } from '@/lib/tenants';
+import { tenantPath } from '@/lib/paths';
 import { ArrowLeft, Plus, User, Mail, Edit, Trash2, Search, Loader2, AlertCircle, X } from '@/components/ui/icon';
 import HeaderSistemasVaxa from '../../shared/components/HeaderSistemasVaxa';
 import Pager from '../../shared/components/Pager';
@@ -50,7 +51,7 @@ export default function UsuariosSistemasVaxa({ tenantId }: UsuariosSistemasVaxaP
     } catch (e) {
       if (e instanceof ApiError && (e.status === 401 || e.status === 403)) {
         authStorage.clearAllSessions();
-        navigate(`/${tenantId}/login`);
+        navigate(tenantPath(tenantId, '/login'));
         return;
       }
       setError((e as Error).message);
@@ -59,7 +60,7 @@ export default function UsuariosSistemasVaxa({ tenantId }: UsuariosSistemasVaxaP
 
   useEffect(() => {
     if (localStorage.getItem(`auth_${tenantId}`) !== 'true' || !authStorage.getToken('vaxa')) {
-      navigate(`/${tenantId}/login`);
+      navigate(tenantPath(tenantId, '/login'));
       return;
     }
     try { setUsuario(JSON.parse(localStorage.getItem(`auth_user_${tenantId}`) ?? 'null')); } catch { /* noop */ }
@@ -133,7 +134,7 @@ export default function UsuariosSistemasVaxa({ tenantId }: UsuariosSistemasVaxaP
       />
 
       <main className="max-w-5xl mx-auto px-5 sm:px-6 lg:px-8 py-7">
-        <button onClick={() => navigate(`/${tenantId}/sistemas`)}
+        <button onClick={() => navigate(tenantPath(tenantId, '/sistemas'))}
           className="flex items-center gap-1.5 mb-5 text-[13px] font-medium transition-colors group" style={{ color: '#64748B' }}>
           <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" /> Volver al panel
         </button>

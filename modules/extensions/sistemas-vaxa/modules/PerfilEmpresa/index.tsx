@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { TenantConfig } from '@/lib/tenants';
+import { tenantPath } from '@/lib/paths';
+import { imgUrl } from '@/lib/api/client';
 import {
   Building2, Users, CreditCard, Info, Loader2, AlertCircle,
   Trash2, RefreshCw, AlertTriangle, CheckCircle, DollarSign, Package,
@@ -41,7 +43,7 @@ export default function PerfilEmpresa({ tenantId, empresaId }: PerfilEmpresaProp
     setEliminando(true); setAccionError(null);
     try {
       await creditosAdminApi.eliminarEmpresa(Number(empresaId));
-      navigate(`/${tenantId}/certificaciones/empresas`);
+      navigate(tenantPath(tenantId, '/certificaciones/empresas'));
     } catch (e) { setAccionError((e as Error).message); setEliminando(false); }
   };
 
@@ -63,7 +65,7 @@ export default function PerfilEmpresa({ tenantId, empresaId }: PerfilEmpresaProp
     } catch (e) {
       if (e instanceof ApiError && (e.status === 401 || e.status === 403)) {
         authStorage.clearAllSessions();
-        navigate(`/${tenantId}/login`);
+        navigate(tenantPath(tenantId, '/login'));
         return;
       }
       setError((e as Error).message);
@@ -74,7 +76,7 @@ export default function PerfilEmpresa({ tenantId, empresaId }: PerfilEmpresaProp
 
   useEffect(() => {
     if (localStorage.getItem(`auth_${tenantId}`) !== 'true' || !authStorage.getToken('vaxa')) {
-      navigate(`/${tenantId}/login`);
+      navigate(tenantPath(tenantId, '/login'));
       return;
     }
     try { setUsuario(JSON.parse(localStorage.getItem(`auth_user_${tenantId}`) ?? 'null')); } catch { /* noop */ }
@@ -100,7 +102,7 @@ export default function PerfilEmpresa({ tenantId, empresaId }: PerfilEmpresaProp
       />
 
       <main className="max-w-5xl mx-auto px-5 sm:px-6 lg:px-8 py-7">
-        <BotonVolver to={`/${tenantId}/certificaciones/empresas`}>Volver a empresas</BotonVolver>
+        <BotonVolver to={tenantPath(tenantId, '/certificaciones/empresas')}>Volver a empresas</BotonVolver>
 
         {loading ? (
           <div className="flex justify-center py-20" style={{ color: '#D1D5DB' }}><Loader2 className="w-6 h-6 animate-spin" /></div>
@@ -113,7 +115,7 @@ export default function PerfilEmpresa({ tenantId, empresaId }: PerfilEmpresaProp
           <div className="text-center py-16">
             <Building2 className="w-12 h-12 mx-auto mb-3" style={{ color: '#E5E1D8' }} />
             <h2 className="text-[16px] font-bold mb-3" style={{ color: '#0D0E12' }}>Empresa no encontrada</h2>
-            <button onClick={() => navigate(`/${tenantId}/certificaciones/empresas`)} className="sv-btn sv-btn-primary mx-auto">Volver a empresas</button>
+            <button onClick={() => navigate(tenantPath(tenantId, '/certificaciones/empresas'))} className="sv-btn sv-btn-primary mx-auto">Volver a empresas</button>
           </div>
         ) : (
           <>
@@ -121,7 +123,7 @@ export default function PerfilEmpresa({ tenantId, empresaId }: PerfilEmpresaProp
             <div className="sv-card p-6 mb-4 page-enter">
               <div className="flex items-start gap-4">
                 {empresa.logo_url ? (
-                  <img src={empresa.logo_url} alt={empresa.razon_social}
+                  <img src={imgUrl(empresa.logo_url)} alt={empresa.razon_social}
                     className="w-16 h-16 rounded-2xl object-contain flex-shrink-0 bg-white"
                     style={{ border: '1px solid #EEECE6' }} />
                 ) : (

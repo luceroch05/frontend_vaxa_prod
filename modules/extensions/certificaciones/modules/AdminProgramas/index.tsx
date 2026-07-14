@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Plus, BookOpen, Loader2, X, AlertCircle, ChevronRight, Ban, RefreshCw, Trash2, Pencil } from '@/components/ui/icon';
+import { certPath } from '@/lib/paths';
 import { useProgramas }  from '../../shared/hooks/useProgramas';
 import { useCatalogos }  from '../../shared/hooks/useCatalogos';
 import { useConfirm }    from '../../shared/hooks/useConfirm';
@@ -244,7 +245,7 @@ export default function AdminProgramas() {
   };
 
   const abrirPrograma = (id: number) =>
-    navigate(`/${empresa}/certificados/panel/programas/${id}`);
+    navigate(certPath(empresa!, `/panel/programas/${id}`));
 
   return (
     <div className="space-y-5">

@@ -1,4 +1,6 @@
 import { Routes, Route, Navigate, useParams } from 'react-router-dom';
+import { getHostMode } from '@/lib/host';
+import { certPath } from '@/lib/paths';
 import TenantLayout from './layouts/TenantLayout';
 import HomePage from './pages/HomePage';
 import TenantRedirect from './pages/TenantRedirect';
@@ -22,76 +24,118 @@ import AdminConfig        from '../modules/extensions/certificaciones/modules/Ad
 import PublicRegistro from '../modules/extensions/certificaciones/modules/PublicRegistro';
 import PublicValidar  from '../modules/extensions/certificaciones/modules/PublicValidar';
 
-/** Compatibilidad: la ruta vieja /admin/login redirige al nuevo /login. */
+/** Compatibilidad: la ruta vieja /admin/login redirige al nuevo login. */
 function LoginRedirect() {
   const { empresa } = useParams<{ empresa: string }>();
-  return <Navigate to={`/${empresa}/certificados/login`} replace />;
+  return <Navigate to={certPath(empresa!, '/login')} replace />;
 }
 
-/** Compatibilidad: la ruta vieja /admin (panel) redirige al nuevo /panel. */
+/** Compatibilidad: la ruta vieja /admin (panel) redirige al nuevo panel. */
 function PanelRedirect() {
   const { empresa } = useParams<{ empresa: string }>();
-  return <Navigate to={`/${empresa}/certificados/panel`} replace />;
+  return <Navigate to={certPath(empresa!, '/panel')} replace />;
+}
+
+/* ── Hijos del área de certificados (se montan bajo /:empresa/certificados en
+      legacy y bajo /:empresa en el subdominio; se definen UNA vez). ───────── */
+function certificadosChildren() {
+  return (
+    <>
+      {/* Páginas públicas — sin autenticación (pero el slug debe existir) */}
+      <Route index element={<PublicRegistro />} />
+      <Route path="validar" element={<PublicValidar />} />
+
+      {/* Login del operador */}
+      <Route path="login" element={<AdminLogin />} />
+
+      {/* Área protegida del operador */}
+      <Route path="panel" element={<AdminGuard />}>
+        <Route element={<AdminLayout />}>
+          <Route index element={<AdminDashboard />} />
+          <Route path="programas"     element={<AdminProgramas />} />
+          <Route path="programas/:programaId" element={<AdminProgramaDetalle />} />
+          <Route path="estudiantes"   element={<AdminEstudiantes />} />
+          <Route path="inscripciones" element={<AdminInscripciones />} />
+          <Route path="certificados"  element={<AdminCertificados />} />
+          <Route path="plan"          element={<AdminPlan />} />
+          <Route path="reportes"      element={<AdminReportes />} />
+          <Route path="auditoria"     element={<AdminAuditoria />} />
+          <Route path="config"        element={<AdminConfig />} />
+        </Route>
+      </Route>
+
+      {/* Compat: rutas viejas con /admin → nuevas */}
+      <Route path="admin/login" element={<LoginRedirect />} />
+      <Route path="admin/*"     element={<PanelRedirect />} />
+    </>
+  );
+}
+
+/* ── Hijos de un tenant del sistema interno (se montan bajo /:tenantId en
+      legacy y en la raíz en el subdominio `sistemas.`; se definen UNA vez). ─ */
+function tenantChildren() {
+  return (
+    <>
+      <Route index element={<TenantRedirect />} />
+      <Route path="login"       element={<LazyRoute module="Login" />} />
+      <Route path="dashboard"   element={<LazyRoute module="Dashboard" />} />
+      <Route path="participantes" element={<LazyRoute module="Participantes" />} />
+      <Route path="historial"   element={<LazyRoute module="HistorialLotes" />} />
+      <Route path="historial/:loteId/certificados" element={<LazyRoute module="Certificados" paramKey="loteId" />} />
+      <Route path="validar"     element={<LazyRoute module="Validacion" />} />
+      <Route path="sistemas"    element={<LazyRoute module="Sistemas" />} />
+      <Route path="usuarios"    element={<LazyRoute module="UsuariosSistemasVaxa" />} />
+      <Route path="certificaciones"                       element={<LazyRoute module="DashboardCertificaciones" />} />
+      <Route path="certificaciones/empresas"              element={<LazyRoute module="EmpresasCertificaciones" />} />
+      <Route path="certificaciones/cobranza"              element={<LazyRoute module="CobranzaCertificaciones" />} />
+      <Route path="certificaciones/facturacion"           element={<LazyRoute module="FacturacionCertificaciones" />} />
+      <Route path="certificaciones/tarifario"             element={<LazyRoute module="TarifarioCertificaciones" />} />
+      <Route path="certificaciones/cotizaciones"          element={<LazyRoute module="CotizacionesCertificaciones" />} />
+      <Route path="certificaciones/registrar-empresa"     element={<LazyRoute module="RegistrarEmpresaCertificaciones" />} />
+      <Route path="certificaciones/empresa/:empresaId"    element={<LazyRoute module="PerfilEmpresa" paramKey="empresaId" />} />
+    </>
+  );
 }
 
 export default function App() {
+  const { modo } = getHostMode();
+
+  // ── Subdominio certificados.vaxasys.com → empresa = 1er segmento ──────────
+  if (modo === 'certificados') {
+    return (
+      <Routes>
+        <Route path="/" element={<HomePage />} />
+        <Route path="/:empresa" element={<CertificadosLayout />}>
+          {certificadosChildren()}
+        </Route>
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    );
+  }
+
+  // ── Subdominio sistemas.vaxasys.com → tenant fijo (sistemas-vaxa) ─────────
+  if (modo === 'sistemas') {
+    return (
+      <Routes>
+        <Route path="/" element={<TenantLayout />}>
+          {tenantChildren()}
+        </Route>
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    );
+  }
+
+  // ── Legacy (dominio actual): comportamiento idéntico al de hoy ────────────
   return (
     <Routes>
       <Route path="/" element={<HomePage />} />
 
-      {/* ── Módulo SaaS de Certificados ─────────────────────────────────────
-          Público: /:empresa/certificados/ y /validar
-          Operador: /:empresa/certificados/login  y  /:empresa/certificados/panel
-          URL: /:empresa/certificados/  (empresa = tenant_slug en la BD)
-          ──────────────────────────────────────────────────────────────── */}
       <Route path="/:empresa/certificados" element={<CertificadosLayout />}>
-        {/* Páginas públicas — sin autenticación (pero el slug debe existir) */}
-        <Route index element={<PublicRegistro />} />
-        <Route path="validar" element={<PublicValidar />} />
-
-        {/* Login del operador */}
-        <Route path="login" element={<AdminLogin />} />
-
-        {/* Área protegida del operador */}
-        <Route path="panel" element={<AdminGuard />}>
-          <Route element={<AdminLayout />}>
-            <Route index element={<AdminDashboard />} />
-            <Route path="programas"     element={<AdminProgramas />} />
-            <Route path="programas/:programaId" element={<AdminProgramaDetalle />} />
-            <Route path="estudiantes"   element={<AdminEstudiantes />} />
-            <Route path="inscripciones" element={<AdminInscripciones />} />
-            <Route path="certificados"  element={<AdminCertificados />} />
-            <Route path="plan"          element={<AdminPlan />} />
-            <Route path="reportes"      element={<AdminReportes />} />
-            <Route path="auditoria"     element={<AdminAuditoria />} />
-            <Route path="config"        element={<AdminConfig />} />
-          </Route>
-        </Route>
-
-        {/* Compat: rutas viejas con /admin → nuevas */}
-        <Route path="admin/login" element={<LoginRedirect />} />
-        <Route path="admin/*"     element={<PanelRedirect />} />
+        {certificadosChildren()}
       </Route>
 
-      {/* ── Tenants existentes (module-loader) ──────────────────────────── */}
       <Route path="/:tenantId" element={<TenantLayout />}>
-        <Route index element={<TenantRedirect />} />
-        <Route path="login"       element={<LazyRoute module="Login" />} />
-        <Route path="dashboard"   element={<LazyRoute module="Dashboard" />} />
-        <Route path="participantes" element={<LazyRoute module="Participantes" />} />
-        <Route path="historial"   element={<LazyRoute module="HistorialLotes" />} />
-        <Route path="historial/:loteId/certificados" element={<LazyRoute module="Certificados" paramKey="loteId" />} />
-        <Route path="validar"     element={<LazyRoute module="Validacion" />} />
-        <Route path="sistemas"    element={<LazyRoute module="Sistemas" />} />
-        <Route path="usuarios"    element={<LazyRoute module="UsuariosSistemasVaxa" />} />
-        <Route path="certificaciones"                       element={<LazyRoute module="DashboardCertificaciones" />} />
-        <Route path="certificaciones/empresas"              element={<LazyRoute module="EmpresasCertificaciones" />} />
-        <Route path="certificaciones/cobranza"              element={<LazyRoute module="CobranzaCertificaciones" />} />
-        <Route path="certificaciones/facturacion"           element={<LazyRoute module="FacturacionCertificaciones" />} />
-        <Route path="certificaciones/tarifario"             element={<LazyRoute module="TarifarioCertificaciones" />} />
-        <Route path="certificaciones/cotizaciones"          element={<LazyRoute module="CotizacionesCertificaciones" />} />
-        <Route path="certificaciones/registrar-empresa"     element={<LazyRoute module="RegistrarEmpresaCertificaciones" />} />
-        <Route path="certificaciones/empresa/:empresaId"    element={<LazyRoute module="PerfilEmpresa" paramKey="empresaId" />} />
+        {tenantChildren()}
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

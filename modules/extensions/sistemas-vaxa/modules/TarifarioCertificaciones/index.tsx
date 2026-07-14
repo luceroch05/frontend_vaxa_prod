@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { TenantConfig } from '@/lib/tenants';
+import { tenantPath } from '@/lib/paths';
 import {
   DollarSign, CreditCard, Users, FileText, Check, Loader2, PrinterIcon, Sparkles, Plus, Trash2, Save,
 } from '@/components/ui/icon';
@@ -66,14 +67,14 @@ export default function TarifarioCertificaciones({ tenantId }: Props) {
       }
     } catch (e) {
       if (e instanceof ApiError && (e.status === 401 || e.status === 403)) {
-        authStorage.clearAllSessions(); navigate(`/${tenantId}/login`);
+        authStorage.clearAllSessions(); navigate(tenantPath(tenantId, '/login'));
       }
     } finally { setLoading(false); }
   }, [tenantId, navigate]);
 
   useEffect(() => {
     if (localStorage.getItem(`auth_${tenantId}`) !== 'true' || !authStorage.getToken('vaxa')) {
-      navigate(`/${tenantId}/login`); return;
+      navigate(tenantPath(tenantId, '/login')); return;
     }
     try { setUsuario(JSON.parse(localStorage.getItem(`auth_user_${tenantId}`) ?? 'null')); } catch { /* noop */ }
     cargar();
@@ -87,7 +88,7 @@ export default function TarifarioCertificaciones({ tenantId }: Props) {
         config={{ name: 'Sistemas Vaxa', primaryColor: VAXA_CONFIG.PRIMARY_COLOR, secondaryColor: VAXA_CONFIG.SECONDARY_COLOR }} />
 
       <main className="max-w-5xl mx-auto px-5 sm:px-6 lg:px-8 py-7">
-        <div className="no-print"><BotonVolver to={`/${tenantId}/certificaciones`} /></div>
+        <div className="no-print"><BotonVolver to={tenantPath(tenantId, '/certificaciones')} /></div>
 
         <div className="mb-6 flex items-end justify-between gap-4 page-enter">
           <div>
@@ -217,7 +218,7 @@ export default function TarifarioCertificaciones({ tenantId }: Props) {
 
             <div className="mt-6 flex items-center gap-2 text-[12px] no-print" style={{ color: '#9CA3AF' }}>
               <FileText className="w-4 h-4" />
-              ¿Vas a proponerle esto a un cliente? Arma una <button onClick={() => navigate(`/${tenantId}/certificaciones/cotizaciones`)} className="font-semibold underline" style={{ color: '#059669' }}>cotización</button>.
+              ¿Vas a proponerle esto a un cliente? Arma una <button onClick={() => navigate(tenantPath(tenantId, '/certificaciones/cotizaciones'))} className="font-semibold underline" style={{ color: '#059669' }}>cotización</button>.
             </div>
           </>
         )}

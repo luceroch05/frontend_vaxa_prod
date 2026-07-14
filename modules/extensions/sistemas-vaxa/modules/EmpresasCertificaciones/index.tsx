@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { TenantConfig } from '@/lib/tenants';
+import { tenantPath } from '@/lib/paths';
+import { imgUrl } from '@/lib/api/client';
 import {
   Search, Plus, Building2, Eye, Loader2, AlertCircle, AlertTriangle, Trash2, CheckCircle, RefreshCw,
 } from '@/components/ui/icon';
@@ -72,7 +74,7 @@ export default function EmpresasCertificaciones({ tenantId }: Props) {
     } catch (e) {
       if (e instanceof ApiError && (e.status === 401 || e.status === 403)) {
         authStorage.clearAllSessions();
-        navigate(`/${tenantId}/login`);
+        navigate(tenantPath(tenantId, '/login'));
         return;
       }
       setError((e as Error).message);
@@ -83,7 +85,7 @@ export default function EmpresasCertificaciones({ tenantId }: Props) {
 
   useEffect(() => {
     if (localStorage.getItem(`auth_${tenantId}`) !== 'true' || !authStorage.getToken('vaxa')) {
-      navigate(`/${tenantId}/login`);
+      navigate(tenantPath(tenantId, '/login'));
       return;
     }
     try { setUsuario(JSON.parse(localStorage.getItem(`auth_user_${tenantId}`) ?? 'null')); } catch { /* noop */ }
@@ -119,7 +121,7 @@ export default function EmpresasCertificaciones({ tenantId }: Props) {
       />
 
       <main className="max-w-5xl mx-auto px-5 sm:px-6 lg:px-8 py-7">
-        <BotonVolver to={`/${tenantId}/certificaciones`} />
+        <BotonVolver to={tenantPath(tenantId, '/certificaciones')} />
 
         <div className="mb-5 flex items-end justify-between gap-4 page-enter">
           <div>
@@ -128,7 +130,7 @@ export default function EmpresasCertificaciones({ tenantId }: Props) {
             <p className="text-[13px] mt-1" style={{ color: '#9CA3AF' }}>Gestiona las empresas que usan el sistema de certificados.</p>
           </div>
           <button
-            onClick={() => navigate(`/${tenantId}/certificaciones/registrar-empresa`)}
+            onClick={() => navigate(tenantPath(tenantId, '/certificaciones/registrar-empresa'))}
             className="sv-btn sv-btn-primary flex-shrink-0"
           >
             <Plus className="w-4 h-4" /> Registrar empresa
@@ -206,12 +208,12 @@ export default function EmpresasCertificaciones({ tenantId }: Props) {
                 <div key={e.id}
                   className="grid items-center px-5 py-3.5 gap-3 cursor-pointer group transition-colors"
                   style={{ gridTemplateColumns: '1fr 80px 96px 80px 64px', borderBottom: idx < filtradasPagina.length - 1 ? '1px solid #F5F4F0' : undefined }}
-                  onClick={() => navigate(`/${tenantId}/certificaciones/empresa/${e.id}`)}
+                  onClick={() => navigate(tenantPath(tenantId, `/certificaciones/empresa/${e.id}`))}
                   onMouseEnter={(ev) => { ev.currentTarget.style.background = '#FAFAF8'; }}
                   onMouseLeave={(ev) => { ev.currentTarget.style.background = 'transparent'; }}>
                   <div className="flex items-center gap-3 min-w-0">
                     {e.logo_url ? (
-                      <img src={e.logo_url} alt={e.razon_social}
+                      <img src={imgUrl(e.logo_url)} alt={e.razon_social}
                         className="w-10 h-10 rounded-xl object-contain flex-shrink-0 bg-white"
                         style={{ border: '1px solid #EEECE6' }} />
                     ) : (
@@ -285,7 +287,7 @@ export default function EmpresasCertificaciones({ tenantId }: Props) {
                 </p>
                 {estadoFiltro === 'activas' && (
                   <button
-                    onClick={() => navigate(`/${tenantId}/certificaciones/registrar-empresa`)}
+                    onClick={() => navigate(tenantPath(tenantId, '/certificaciones/registrar-empresa'))}
                     className="sv-btn sv-btn-primary mx-auto"
                   >
                     <Plus className="w-4 h-4" /> Registrar primera empresa

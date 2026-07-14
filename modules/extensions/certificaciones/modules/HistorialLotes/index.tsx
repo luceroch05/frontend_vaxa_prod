@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { TenantConfig } from '@/lib/tenants';
+import { tenantPath } from '@/lib/paths';
 import {
   FileText,
   Download,
@@ -97,7 +98,7 @@ export default function HistorialLotes({ tenantId, tenant }: HistorialLotesProps
     const userData = localStorage.getItem(`auth_user_${tenantId}`);
 
     if (!authData || authData !== 'true') {
-      navigate(`/${tenantId}/login`);
+      navigate(tenantPath(tenantId, '/login'));
       return;
     }
 
@@ -107,7 +108,7 @@ export default function HistorialLotes({ tenantId, tenant }: HistorialLotesProps
         setUsuario(user);
       } catch (error) {
         console.error('Error al parsear usuario:', error);
-        navigate(`/${tenantId}/login`);
+        navigate(tenantPath(tenantId, '/login'));
         return;
       }
     }
@@ -132,7 +133,7 @@ export default function HistorialLotes({ tenantId, tenant }: HistorialLotesProps
   };
 
   const verCertificados = (loteId: number) => {
-    navigate(`/${tenantId}/historial/${loteId}/certificados`);
+    navigate(tenantPath(tenantId, `/historial/${loteId}/certificados`));
   };
 
   const formatearFecha = (fecha: string) => {
@@ -175,7 +176,7 @@ export default function HistorialLotes({ tenantId, tenant }: HistorialLotesProps
         {/* Header */}
         <div className="mb-8">
           <button
-            onClick={() => navigate(`/${tenantId}`)}
+            onClick={() => navigate(tenantPath(tenantId))}
             className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-6 px-3 py-2 rounded-lg transition-colors text-sm font-medium"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -223,7 +224,7 @@ export default function HistorialLotes({ tenantId, tenant }: HistorialLotesProps
               Comienza generando tu primer lote de certificados desde el dashboard principal
             </p>
             <button
-              onClick={() => navigate(`/${tenantId}`)}
+              onClick={() => navigate(tenantPath(tenantId))}
               className="inline-flex items-center gap-2 px-6 py-2.5 text-white rounded-lg hover:opacity-90 transition-all text-sm font-medium"
               style={{ backgroundColor: TENANT_CONFIG.PRIMARY_COLOR }}
             >

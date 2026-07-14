@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate, useParams } from 'react-router-dom';
 import { AlertTriangle } from '@/components/ui/icon';
+import { certPath } from '@/lib/paths';
 
 /**
  * Modal bloqueante de sesión cerrada.
@@ -26,7 +27,7 @@ export default function SessionRevokedModal() {
 
   const irAlLogin = () => {
     setVisible(false);
-    navigate(`/${empresa}/certificados/login`);
+    navigate(certPath(empresa!, '/login'));
   };
 
   return createPortal(

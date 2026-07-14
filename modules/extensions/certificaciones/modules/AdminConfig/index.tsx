@@ -6,6 +6,7 @@ import {
   ChevronDown, ChevronUp, Search, Lock, Layers, Save,
   ChevronLeft, ChevronRight,
 } from '@/components/ui/icon';
+import { imgUrl } from '@/lib/api/client';
 import { useConfirm } from '../../shared/hooks/useConfirm';
 import { logosApi }  from '../../shared/api/logos.api';
 import { firmasApi } from '../../shared/api/firmas.api';
@@ -209,7 +210,7 @@ function SeccionLogos({ empresa, onChanged }: { empresa: string; onChanged: () =
             const esDefault = !!logo.es_default;
             return (
             <div key={logo.id} className="relative group rounded-xl overflow-hidden" style={{ border: `1px solid ${esDefault ? '#A7F3D0' : '#EEECE6'}` }}>
-              <img src={logo.imagen_logo} alt={logo.nombre ?? 'logo'} className="w-full h-20 object-contain p-2" style={{ background: '#FAFAF8' }} />
+              <img src={imgUrl(logo.imagen_logo)} alt={logo.nombre ?? 'logo'} className="w-full h-20 object-contain p-2" style={{ background: '#FAFAF8' }} />
               {esDefault ? (
                 <span className="absolute top-1.5 left-1.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full"
                   style={{ background: '#ECFDF5', color: '#047857', border: '1px solid #A7F3D0' }}
@@ -379,7 +380,7 @@ function SeccionFirmas({ empresa, onChanged }: { empresa: string; onChanged: () 
       <div className="space-y-2.5 overflow-y-auto pr-1" style={{ maxHeight: '20rem' }}>
         {firmasFiltradas.map(firma => (
           <div key={firma.id} className="flex items-center gap-3 rounded-xl p-3" style={{ border: '1px solid #EEECE6' }}>
-            <img src={firma.imagen_firma} alt={firma.nombre_autoridad} className="h-10 w-24 object-contain rounded-lg" style={{ background: '#FAFAF8' }} />
+            <img src={imgUrl(firma.imagen_firma)} alt={firma.nombre_autoridad} className="h-10 w-24 object-contain rounded-lg" style={{ background: '#FAFAF8' }} />
             <div className="flex-1 min-w-0">
               <p className="text-[13px] font-semibold truncate" style={{ color: '#0D0E12' }}>{firma.nombre_autoridad}</p>
               <p className="text-[11px] truncate" style={{ color: '#9CA3AF' }}>{firma.cargo}</p>
@@ -1052,7 +1053,7 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
                   </p>
                   {c.plantilla_url ? (
                     <div className="relative rounded-xl overflow-hidden group" style={{ border: '1px solid #EEECE6', height: 170, background: '#FAFAF8' }}>
-                      <img src={c.plantilla_url} alt="Fondo" className="w-full h-full object-contain" />
+                      <img src={imgUrl(c.plantilla_url)} alt="Fondo" className="w-full h-full object-contain" />
                       <div className="absolute inset-0 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity"
                         style={{ background: 'rgba(13,14,18,0.6)' }}>
                         <label className="flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg cursor-pointer"
@@ -1152,7 +1153,7 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
                               Obligatorio
                             </span>
                           )}
-                          <img src={logo.imagen_logo} alt={logo.nombre ?? 'logo'}
+                          <img src={imgUrl(logo.imagen_logo)} alt={logo.nombre ?? 'logo'}
                             className="w-full h-16 object-contain p-1.5"
                             style={{ background: esDef ? '#ECFDF5' : selected ? '#EFF6FF' : '#FAFAF8' }} />
                           {logo.nombre && (
@@ -1181,7 +1182,7 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
                                   <span className="text-[10px] font-bold" style={{ color: esDef ? '#047857' : '#475569' }}>#{i + 1}</span>
                                   {esDef && <span className="text-[8px] font-bold" style={{ color: '#047857' }}>OBLIG.</span>}
                                 </div>
-                                <img src={logo.imagen_logo} alt={logo.nombre ?? 'logo'} className="w-full h-12 object-contain p-1" />
+                                <img src={imgUrl(logo.imagen_logo)} alt={logo.nombre ?? 'logo'} className="w-full h-12 object-contain p-1" />
                                 <div className="flex items-center justify-between px-1 py-1" style={{ borderTop: '1px solid #F0EEE9' }}>
                                   <button type="button" disabled={i === 0} onClick={() => moveLogo(p.id, logo.id, -1)}
                                     className="w-6 h-6 rounded-md flex items-center justify-center"
@@ -1271,7 +1272,7 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
                           >
                             {selected ? pos : '·'}
                           </div>
-                          <img src={firma.imagen_firma} alt={firma.nombre_autoridad}
+                          <img src={imgUrl(firma.imagen_firma)} alt={firma.nombre_autoridad}
                             className="h-8 w-20 object-contain rounded flex-shrink-0"
                             style={{ background: '#F0EEE9' }} />
                           <div className="min-w-0">

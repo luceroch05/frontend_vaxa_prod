@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Outlet, useOutletContext, useParams } from 'react-router-dom';
 import { Loader2 } from '@/components/ui/icon';
+import { imgUrl } from '@/lib/api/client';
 import { publicApi } from '../api/public.api';
 import EmpresaNotFound from './EmpresaNotFound';
 
@@ -41,7 +42,7 @@ export default function CertificadosLayout() {
         // plataforma para que la validación funcione; el login/inscripción se
         // bloquean según `activo` en cada página.
         setEstado(r.exists ? 'existe' : 'no-existe');
-        setBranding({ slug, razonSocial: r.razon_social ?? null, logoUrl: r.logo_url ?? null, activo: r.activo ?? true });
+        setBranding({ slug, razonSocial: r.razon_social ?? null, logoUrl: r.logo_url ? imgUrl(r.logo_url) : null, activo: r.activo ?? true });
       })
       // Falla ABIERTO: si no se pudo verificar (red caída, CORS, 500), dejamos
       // pasar y que el backend imponga la seguridad. Solo bloqueamos cuando la

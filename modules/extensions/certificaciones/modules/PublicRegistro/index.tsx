@@ -10,6 +10,7 @@ import PhoneField from '../../shared/components/PhoneField';
 import ProgramaGrupoPicker from '../../shared/components/ProgramaGrupoPicker';
 import { aTituloNombre } from '../../shared/utils/text';
 import { ApiError }  from '@/lib/api/client';
+import { certPath }  from '@/lib/paths';
 import type { Catalogos, Grupo, RegistroPublicoDto } from '../../shared/types';
 
 type Paso = 'formulario' | 'exito';
@@ -191,7 +192,7 @@ export default function PublicRegistro() {
               ¿Necesitas validar un certificado ya emitido? Hazlo aquí:
             </p>
             <Link
-              to={`/${empresa}/certificados/validar`}
+              to={certPath(empresa!, '/validar')}
               className="vx-btn vx-btn-primary w-full py-3 inline-flex items-center justify-center gap-2"
             >
               <CheckCircle size={16} /> Validar un certificado
@@ -386,7 +387,7 @@ export default function PublicRegistro() {
 
         <p className="text-center text-[12px] mt-5" style={{ color: '#B7B1A6' }}>
           ¿Ya tienes certificado?{' '}
-          <a href={`/${empresa}/certificados/validar`} className="font-semibold hover:opacity-70 transition-opacity" style={{ color: '#C9962C' }}>
+          <a href={certPath(empresa!, '/validar')} className="font-semibold hover:opacity-70 transition-opacity" style={{ color: '#C9962C' }}>
             Verifícalo aquí
           </a>
         </p>

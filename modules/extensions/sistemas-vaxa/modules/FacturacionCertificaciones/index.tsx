@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { TenantConfig } from '@/lib/tenants';
+import { tenantPath } from '@/lib/paths';
 import {
   FileText, Plus, Loader2, CheckCircle, AlertCircle, Download, X, Building2, Ban,
 } from '@/components/ui/icon';
@@ -59,14 +60,14 @@ export default function FacturacionCertificaciones({ tenantId }: Props) {
       setFilas(c); setEmpresas(e);
     } catch (err) {
       if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
-        authStorage.clearAllSessions(); navigate(`/${tenantId}/login`);
+        authStorage.clearAllSessions(); navigate(tenantPath(tenantId, '/login'));
       }
     } finally { setLoading(false); }
   }, [tenantId, navigate]);
 
   useEffect(() => {
     if (localStorage.getItem(`auth_${tenantId}`) !== 'true' || !authStorage.getToken('vaxa')) {
-      navigate(`/${tenantId}/login`); return;
+      navigate(tenantPath(tenantId, '/login')); return;
     }
     try { setUsuario(JSON.parse(localStorage.getItem(`auth_user_${tenantId}`) ?? 'null')); } catch { /* noop */ }
     cargar();
@@ -112,7 +113,7 @@ export default function FacturacionCertificaciones({ tenantId }: Props) {
         config={{ name: 'Sistemas Vaxa', primaryColor: VAXA_CONFIG.PRIMARY_COLOR, secondaryColor: VAXA_CONFIG.SECONDARY_COLOR }} />
 
       <main className="max-w-5xl mx-auto px-5 sm:px-6 lg:px-8 py-7">
-        <BotonVolver to={`/${tenantId}/certificaciones`} />
+        <BotonVolver to={tenantPath(tenantId, '/certificaciones')} />
 
         <div className="mb-6 flex items-end justify-between gap-4 page-enter">
           <div>

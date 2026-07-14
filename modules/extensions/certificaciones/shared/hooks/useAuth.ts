@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { authApi } from '../api/auth.api';
 import { authStorage } from '@/lib/auth';
 import { ApiError } from '@/lib/api/client';
+import { certPath } from '@/lib/paths';
 
 export function useAuth(empresa: string) {
   const navigate = useNavigate();
@@ -16,7 +17,7 @@ export function useAuth(empresa: string) {
     try {
       const { token, usuario } = await authApi.login(empresa, correo, contrasena);
       authStorage.setSession(empresa, token, usuario);
-      navigate(`/${empresa}/certificados/panel`);
+      navigate(certPath(empresa, '/panel'));
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.status === 401 ? 'Credenciales incorrectas' : err.message);
@@ -30,7 +31,7 @@ export function useAuth(empresa: string) {
 
   const logout = () => {
     authStorage.clearSession(empresa);
-    navigate(`/${empresa}/certificados/login`);
+    navigate(certPath(empresa, '/login'));
   };
 
   return {

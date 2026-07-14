@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import {
   FileBadge, Shield, Zap, QrCode, ArrowRight, ArrowUpRight,
-  Users, FileText, Clock, Layers, Menu, X, Award, Check, MessageCircle,
+  Users, FileText, Clock, Layers, Menu, X, Award, Check, MessageCircle, Sparkles,
 } from '@/components/ui/icon';
 
 /** Contacto de Vaxa para la landing. */
@@ -115,9 +115,9 @@ export default function HomePage() {
 
       {/* ── Productos (bento) ───────────────────────────────── */}
       <section id="productos" className="max-w-[1200px] mx-auto px-6 sm:px-10 py-20 sm:py-28">
-        <Eyebrow num="01" label="Productos" />
+        <Eyebrow num="01" label="Productos & servicios" />
         <h2 style={{ fontFamily: DISPLAY }} className="text-[30px] sm:text-[44px] font-bold leading-[1.06] tracking-[-0.025em] mt-5 max-w-2xl">
-          Dos sistemas, un mismo núcleo de ingeniería.
+          Sistemas y servicios, un mismo núcleo de ingeniería.
         </h2>
 
         <div className="grid lg:grid-cols-2 gap-5 mt-12">
@@ -161,6 +161,31 @@ export default function HomePage() {
               ))}
             </ul>
             <CardLink>Consultar disponibilidad</CardLink>
+          </Card>
+
+          {/* Marca Personal (servicio) — tarjeta ancha */}
+          <Card glow className="lg:col-span-2">
+            <div className="grid lg:grid-cols-[1fr_1.1fr] gap-8 lg:gap-12 items-center">
+              <div>
+                <div className="flex items-center justify-between mb-7">
+                  <IconBox><Sparkles size={22} style={{ color: GREEN_BRIGHT }} strokeWidth={1.75} /></IconBox>
+                  <Tag>SERVICIO</Tag>
+                </div>
+                <h3 style={{ fontFamily: DISPLAY }} className="text-[24px] font-bold tracking-tight">Marca Personal</h3>
+                <p className="text-[14.5px] leading-relaxed mt-3" style={{ color: MUTED }}>
+                  Construimos tu identidad como profesional o negocio: logo, identidad visual y
+                  presencia digital para que destaques, transmitas confianza y te recuerden.
+                </p>
+                <CardLink>Quiero mi marca</CardLink>
+              </div>
+              <ul className="space-y-0">
+                {['Logo e identidad visual', 'Presencia digital y redes', 'Diseño de perfil profesional', 'Piezas para tu comunicación'].map((f, i) => (
+                  <li key={f} className="flex items-center gap-3 py-3 text-[14px]" style={{ borderTop: i === 0 ? 'none' : `1px solid ${BORDER}` }}>
+                    <Check size={15} style={{ color: GREEN }} /> {f}
+                  </li>
+                ))}
+              </ul>
+            </div>
           </Card>
         </div>
       </section>
@@ -304,9 +329,9 @@ function Eyebrow({ num, label }: { num: string; label: string }) {
   );
 }
 
-function Card({ children, glow }: { children: React.ReactNode; glow?: boolean }) {
+function Card({ children, glow, className = '' }: { children: React.ReactNode; glow?: boolean; className?: string }) {
   return (
-    <article className="rounded-2xl p-8 sm:p-9 relative overflow-hidden" style={{ background: SURFACE, border: `1px solid ${BORDER}` }}>
+    <article className={`rounded-2xl p-8 sm:p-9 relative overflow-hidden ${className}`} style={{ background: SURFACE, border: `1px solid ${BORDER}` }}>
       {glow && <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(55% 45% at 90% 0%, rgba(16,185,129,0.16), transparent 70%)' }} />}
       <div className="relative">{children}</div>
     </article>

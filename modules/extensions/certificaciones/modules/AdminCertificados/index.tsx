@@ -5,6 +5,7 @@ import {
   FileBadge, Loader2, AlertCircle, Ban, Download, Sparkles, CheckCircle,
   Search, Check, X, ChevronDown, Layers, Eye, Trash2,
 } from '@/components/ui/icon';
+import { certPath } from '@/lib/paths';
 import { useCertificados }  from '../../shared/hooks/useCertificados';
 import { useInscripciones } from '../../shared/hooks/useInscripciones';
 import { useGrupos }        from '../../shared/hooks/useGrupos';
@@ -93,7 +94,7 @@ export default function AdminCertificados() {
       cancelText: 'Cerrar',
       variant: 'danger',
     });
-    if (ir) navigate(`/${empresa}/certificados/panel/config`);
+    if (ir) navigate(certPath(empresa!, '/panel/config'));
   };
   const { inscripciones } = useInscripciones(empresa!);
   const { grupos } = useGrupos(empresa!);

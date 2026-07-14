@@ -1,5 +1,6 @@
 import { useState, FormEvent } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
+import { certPath } from '@/lib/paths';
 import { Search, Loader2, BadgeCheck, XCircle, QrCode, Download } from '@/components/ui/icon';
 import { useValidarCertificado } from '../../shared/hooks/useCertificados';
 import BrandRow from '../../shared/components/BrandRow';
@@ -213,7 +214,7 @@ export default function PublicValidar() {
 
         <p className="text-center text-[12px] mt-6" style={{ color: '#B7B1A6' }}>
           ¿Quieres inscribirte?{' '}
-          <a href={`/${empresa}/certificados`} className="font-semibold hover:opacity-70 transition-opacity" style={{ color: '#C9962C' }}>
+          <a href={certPath(empresa!)} className="font-semibold hover:opacity-70 transition-opacity" style={{ color: '#C9962C' }}>
             Ir a inscripción
           </a>
         </p>

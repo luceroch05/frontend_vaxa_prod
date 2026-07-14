@@ -5,6 +5,8 @@ import QRCode from 'qrcode';
 import { Download, X } from '@/components/ui/icon';
 import type { Certificado, ConfigCertificado } from '../types';
 import { expandirVariablesCertificado } from '../utils/certVariables';
+import { publicCertUrl } from '@/lib/paths';
+import { imgUrl } from '@/lib/api/client';
 
 interface Props {
   certificado: Certificado & { empresa_nombre: string };
@@ -75,7 +77,7 @@ export function CertificadoPDF({ certificado, config, onClose }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
 
-  const qrUrl = `${window.location.origin}/${certificado.empresa_nombre}/certificados/validar?codigo=${certificado.codigo_unico}`;
+  const qrUrl = publicCertUrl(certificado.empresa_nombre, `/validar?codigo=${certificado.codigo_unico}`);
 
   // Genera el QR localmente como data URL — evita CORS y queda igual en preview y PDF
   useEffect(() => {
@@ -208,7 +210,7 @@ export function CertificadoPDF({ certificado, config, onClose }: Props) {
             {/* Fondo */}
             {config.plantilla_url && (
               <img
-                src={config.plantilla_url}
+                src={imgUrl(config.plantilla_url)}
                 alt=""
                 style={{
                   position: 'absolute', inset: 0,
@@ -221,7 +223,7 @@ export function CertificadoPDF({ certificado, config, onClose }: Props) {
             {config.logos?.map((logo, i) => (
               <div key={logo.id} style={logoSlotStyle(slots[i] ?? 'center')}>
                 <img
-                  src={logo.imagen_logo}
+                  src={imgUrl(logo.imagen_logo)}
                   alt={logo.nombre ?? 'logo'}
                   style={logoImgStyle}
                   crossOrigin="anonymous"
@@ -323,7 +325,7 @@ export function CertificadoPDF({ certificado, config, onClose }: Props) {
                     alignItems: 'center',
                   }}>
                     <img
-                      src={f.imagen_firma}
+                      src={imgUrl(f.imagen_firma)}
                       alt={f.nombre_autoridad}
                       style={{
                         height: SIG_IMG_H,

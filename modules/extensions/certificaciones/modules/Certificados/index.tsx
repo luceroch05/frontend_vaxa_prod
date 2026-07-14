@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { TenantConfig } from '@/lib/tenants';
+import { tenantPath } from '@/lib/paths';
 import {
   Users,
   Search,
@@ -130,7 +131,7 @@ export default function CertificadosLote({ tenantId, tenant, loteId }: Certifica
     const userData = localStorage.getItem(`auth_user_${tenantId}`);
 
     if (!authData || authData !== 'true') {
-      navigate(`/${tenantId}/login`);
+      navigate(tenantPath(tenantId, '/login'));
       return;
     }
 
@@ -140,7 +141,7 @@ export default function CertificadosLote({ tenantId, tenant, loteId }: Certifica
         setUsuario(user);
       } catch (error) {
         console.error('Error al parsear usuario:', error);
-        navigate(`/${tenantId}/login`);
+        navigate(tenantPath(tenantId, '/login'));
         return;
       }
     }
@@ -297,7 +298,7 @@ export default function CertificadosLote({ tenantId, tenant, loteId }: Certifica
         {/* Header */}
         <div className="mb-8">
           <button
-            onClick={() => navigate(`/${tenantId}/historial`)}
+            onClick={() => navigate(tenantPath(tenantId, '/historial'))}
             className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-6 px-3 py-2 rounded-lg transition-colors text-sm font-medium"
           >
             <ArrowLeft className="w-4 h-4" />

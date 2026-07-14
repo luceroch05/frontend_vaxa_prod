@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { TenantConfig } from '@/lib/tenants';
+import { tenantPath } from '@/lib/paths';
 import { Mail, Lock, LogIn, AlertCircle } from '@/components/ui/icon';
 import { api, ApiError } from '@/lib/api/client';
 import { authStorage, type AuthUser } from '@/lib/auth';
@@ -46,7 +47,7 @@ export default function LoginSistemasVaxa({ tenantId, tenant }: LoginProps) {
         role: usuario.rol,
       }));
 
-      navigate(`/${tenantId}/certificaciones`);
+      navigate(tenantPath(tenantId, '/certificaciones'));
     } catch (err) {
       if (err instanceof ApiError) setError(err.status === 401 ? 'Email o contraseña incorrectos' : err.message);
       else setError('Error de conexión con el servidor');

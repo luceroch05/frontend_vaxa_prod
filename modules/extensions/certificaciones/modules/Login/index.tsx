@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { TenantConfig } from '@/lib/tenants';
+import { tenantPath } from '@/lib/paths';
 import { Mail, Lock, Eye, EyeOff, AlertCircle, Loader2, Shield, ArrowRight } from '@/components/ui/icon';
 import { TENANT_CONFIG } from '../../shared/constants';
 
@@ -65,7 +66,7 @@ export default function CertificacionesLogin({ tenantId, tenant }: LoginProps) {
         role: usuario.role
       }));
 
-      navigate(`/${tenantId}/dashboard`);
+      navigate(tenantPath(tenantId, '/dashboard'));
     } catch (err) {
       console.error('Error en login:', err);
       setError('Error de conexión. Por favor, intente nuevamente.');

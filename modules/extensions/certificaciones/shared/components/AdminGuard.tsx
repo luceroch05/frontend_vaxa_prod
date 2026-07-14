@@ -1,5 +1,6 @@
 import { Navigate, Outlet, useParams } from 'react-router-dom';
 import { authStorage } from '@/lib/auth';
+import { certPath } from '@/lib/paths';
 import AccessDenied from './AccessDenied';
 
 const norm = (s?: string) => s?.toLowerCase().trim();
@@ -29,5 +30,5 @@ export default function AdminGuard() {
   }
 
   // Sin sesión en ningún lado → login normal de esta empresa.
-  return <Navigate to={`/${slug}/certificados/login`} replace />;
+  return <Navigate to={certPath(slug, '/login')} replace />;
 }

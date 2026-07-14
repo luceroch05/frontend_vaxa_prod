@@ -14,6 +14,8 @@ const VAXA_SOPORTE = {
   email: 'info@vaxa.com.pe',
 };
 import { authStorage } from '@/lib/auth';
+import { imgUrl } from '@/lib/api/client';
+import { certPath } from '@/lib/paths';
 import { publicApi } from '../api/public.api';
 import { ConfirmProvider } from '../hooks/useConfirm';
 import { PlanProvider, usePlan } from '../hooks/usePlan';
@@ -224,17 +226,17 @@ export default function AdminLayout() {
   useEffect(() => {
     let activo = true;
     publicApi.existeEmpresa(empresa!)
-      .then(r => { if (activo) setBrand({ logo: r.logo_url ?? null, nombre: r.razon_social ?? null }); })
+      .then(r => { if (activo) setBrand({ logo: r.logo_url ? imgUrl(r.logo_url) : null, nombre: r.razon_social ?? null }); })
       .catch(() => { /* sin branding → se usa el slug */ });
     return () => { activo = false; };
   }, [empresa]);
   const marca = brand.nombre ?? empresa;
 
-  const base = `/${empresa}/certificados/panel`;
+  const base = certPath(empresa!, '/panel');
 
   const handleLogout = () => {
     authStorage.clearSession(empresa!);
-    navigate(`/${empresa}/certificados/login`);
+    navigate(certPath(empresa!, '/login'));
   };
 
   const segments  = location.pathname.split('/');
@@ -339,7 +341,7 @@ export default function AdminLayout() {
         </p>
 
         <a
-          href={`/${empresa}/certificados`}
+          href={certPath(empresa!)}
           target="_blank"
           rel="noreferrer"
           className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all hover:bg-[#F5F3EE]"

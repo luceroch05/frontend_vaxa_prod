@@ -3,13 +3,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { TenantConfig } from '@/lib/tenants';
+import { tenantPath } from '@/lib/paths';
 import {
   Building2, FileText, TrendingUp, CreditCard, Plus, ArrowRight, Loader2, ClipboardList, DollarSign,
 } from '@/components/ui/icon';
 import HeaderSistemasVaxa from '../../shared/components/HeaderSistemasVaxa';
 import { VAXA_CONFIG } from '../../shared/constants';
 import { authStorage } from '@/lib/auth';
-import { ApiError } from '@/lib/api/client';
+import { ApiError, imgUrl } from '@/lib/api/client';
 import { creditosAdminApi, type EmpresaCreditos } from '../../shared/api/creditos.admin.api';
 
 interface Props { tenantId: string; tenant: TenantConfig; }
@@ -28,7 +29,7 @@ export default function DashboardCertificaciones({ tenantId }: Props) {
     } catch (e) {
       if (e instanceof ApiError && (e.status === 401 || e.status === 403)) {
         authStorage.clearAllSessions();
-        navigate(`/${tenantId}/login`);
+        navigate(tenantPath(tenantId, '/login'));
       }
     } finally {
       setLoading(false);
@@ -37,7 +38,7 @@ export default function DashboardCertificaciones({ tenantId }: Props) {
 
   useEffect(() => {
     if (localStorage.getItem(`auth_${tenantId}`) !== 'true' || !authStorage.getToken('vaxa')) {
-      navigate(`/${tenantId}/login`);
+      navigate(tenantPath(tenantId, '/login'));
       return;
     }
     try { setUsuario(JSON.parse(localStorage.getItem(`auth_user_${tenantId}`) ?? 'null')); } catch { /* noop */ }
@@ -81,7 +82,7 @@ export default function DashboardCertificaciones({ tenantId }: Props) {
             <p className="text-[13px] mt-1" style={{ color: '#9CA3AF' }}>Gestiona empresas, usuarios y créditos.</p>
           </div>
           <button
-            onClick={() => navigate(`/${tenantId}/certificaciones/registrar-empresa`)}
+            onClick={() => navigate(tenantPath(tenantId, '/certificaciones/registrar-empresa'))}
             className="vx-btn px-4 py-2.5 flex-shrink-0 text-white"
             style={{ background: '#059669', boxShadow: '0 1px 2px rgba(5,150,105,0.25), 0 4px 12px rgba(5,150,105,0.18)' }}
             onMouseEnter={(e) => { e.currentTarget.style.background = '#047857'; }}
@@ -119,12 +120,12 @@ export default function DashboardCertificaciones({ tenantId }: Props) {
             {/* Accesos rápidos */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-5 page-enter stagger-2">
               {[
-                { to: `/${tenantId}/certificaciones/empresas`, Icon: Building2, t: 'Ver todas las empresas', d: 'Empresas, créditos y usuarios' },
-                { to: `/${tenantId}/certificaciones/cotizaciones`, Icon: ClipboardList, t: 'Cotizaciones', d: 'Arma propuestas y conviértelas en venta' },
-                { to: `/${tenantId}/certificaciones/tarifario`, Icon: DollarSign, t: 'Tarifario', d: 'Planes, paquetes y precios 2026' },
-                { to: `/${tenantId}/certificaciones/cobranza`, Icon: CreditCard, t: 'Cobranza y vencimientos', d: 'Quién debe pagar y cuándo vence' },
-                { to: `/${tenantId}/certificaciones/facturacion`, Icon: FileText, t: 'Facturación electrónica', d: 'Emite y consulta comprobantes SUNAT' },
-                { to: `/${tenantId}/certificaciones/registrar-empresa`, Icon: Plus, t: 'Registrar nueva empresa', d: 'Agrega una empresa al sistema' },
+                { to: tenantPath(tenantId, '/certificaciones/empresas'), Icon: Building2, t: 'Ver todas las empresas', d: 'Empresas, créditos y usuarios' },
+                { to: tenantPath(tenantId, '/certificaciones/cotizaciones'), Icon: ClipboardList, t: 'Cotizaciones', d: 'Arma propuestas y conviértelas en venta' },
+                { to: tenantPath(tenantId, '/certificaciones/tarifario'), Icon: DollarSign, t: 'Tarifario', d: 'Planes, paquetes y precios 2026' },
+                { to: tenantPath(tenantId, '/certificaciones/cobranza'), Icon: CreditCard, t: 'Cobranza y vencimientos', d: 'Quién debe pagar y cuándo vence' },
+                { to: tenantPath(tenantId, '/certificaciones/facturacion'), Icon: FileText, t: 'Facturación electrónica', d: 'Emite y consulta comprobantes SUNAT' },
+                { to: tenantPath(tenantId, '/certificaciones/registrar-empresa'), Icon: Plus, t: 'Registrar nueva empresa', d: 'Agrega una empresa al sistema' },
               ].map(({ to, Icon, t, d }) => (
                 <button key={to} onClick={() => navigate(to)}
                   className="rounded-2xl p-5 text-left transition-all hover:-translate-y-0.5 group"
@@ -147,7 +148,7 @@ export default function DashboardCertificaciones({ tenantId }: Props) {
               style={{ background: '#FFFFFF', border: '1px solid #EEECE6' }}>
               <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid #F2F0EA' }}>
                 <h2 className="text-[14px] font-bold" style={{ color: '#0D0E12' }}>Empresas recientes</h2>
-                <button onClick={() => navigate(`/${tenantId}/certificaciones/empresas`)}
+                <button onClick={() => navigate(tenantPath(tenantId, '/certificaciones/empresas'))}
                   className="text-[12.5px] font-semibold flex items-center gap-1 transition-colors hover:opacity-70"
                   style={{ color: '#059669' }}>
                   Ver todas <ArrowRight className="w-3.5 h-3.5" />
@@ -158,14 +159,14 @@ export default function DashboardCertificaciones({ tenantId }: Props) {
               ) : (
                 <div>
                   {recientes.map((e, idx) => (
-                    <div key={e.id} onClick={() => navigate(`/${tenantId}/certificaciones/empresa/${e.id}`)}
+                    <div key={e.id} onClick={() => navigate(tenantPath(tenantId, `/certificaciones/empresa/${e.id}`))}
                       className="flex items-center justify-between px-5 py-3.5 cursor-pointer group transition-colors"
                       style={{ borderBottom: idx < recientes.length - 1 ? '1px solid #F5F4F0' : undefined }}
                       onMouseEnter={(ev) => { ev.currentTarget.style.background = '#FAFAF8'; }}
                       onMouseLeave={(ev) => { ev.currentTarget.style.background = 'transparent'; }}>
                       <div className="flex items-center gap-3 min-w-0">
                         {e.logo_url ? (
-                          <img src={e.logo_url} alt={e.razon_social}
+                          <img src={imgUrl(e.logo_url)} alt={e.razon_social}
                             className="w-10 h-10 rounded-xl object-contain flex-shrink-0 bg-white"
                             style={{ border: '1px solid #EEECE6' }} />
                         ) : (

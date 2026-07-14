@@ -10,6 +10,7 @@ import { useCatalogos } from '../../shared/hooks/useCatalogos';
 import { useConfirm }   from '../../shared/hooks/useConfirm';
 import { usePlan }      from '../../shared/hooks/usePlan';
 import { useEsAdmin }   from '../../shared/hooks/useEsAdmin';
+import { certPath, publicCertUrl } from '@/lib/paths';
 import GrupoForm, { DIAS_CORTO } from '../../shared/components/GrupoForm';
 import UnidadesEditor from '../../shared/components/UnidadesEditor';
 import CopyLinkButton from '../../shared/components/CopyLinkButton';
@@ -17,7 +18,7 @@ import ImportarExcelModal from '../../shared/components/ImportarExcelModal';
 import type { CreateGrupoDto, Grupo, CreateProgramaDto } from '../../shared/types';
 
 /** Base pública de links para compartir (inscripción / validación). */
-const publicBase = (empresa: string) => `${window.location.origin}/${empresa}/certificados`;
+const publicBase = (empresa: string) => publicCertUrl(empresa);
 
 const fmt = (d: string | Date) => {
   if (!d) return '—';
@@ -153,7 +154,7 @@ export default function AdminProgramaDetalle() {
   const programa = programas.find(p => p.id === pid);
   const aulas    = grupos.filter(g => g.programa_id === pid);
 
-  const volver = () => navigate(`/${empresa}/certificados/panel/programas`);
+  const volver = () => navigate(certPath(empresa!, '/panel/programas'));
 
   const handleToggleAula = async (g: Grupo) => {
     const desactivar = !!g.activo;
@@ -241,7 +242,7 @@ export default function AdminProgramaDetalle() {
   };
 
   const handleVerInscritos = (g: Grupo) =>
-    navigate(`/${empresa}/certificados/panel/inscripciones?grupo=${g.id}&nombre=${encodeURIComponent(g.nombre_grupo)}`);
+    navigate(certPath(empresa!, `/panel/inscripciones?grupo=${g.id}&nombre=${encodeURIComponent(g.nombre_grupo)}`));
 
   /* Cargando el programa */
   if (progLoading && !programa) {

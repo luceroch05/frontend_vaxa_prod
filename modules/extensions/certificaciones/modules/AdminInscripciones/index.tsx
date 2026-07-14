@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
+import { certPath } from '@/lib/paths';
 import {
   ClipboardList, Loader2, AlertCircle, Search,
   ChevronLeft, Users, UserCheck, Trash2,
@@ -176,11 +177,11 @@ export default function AdminInscripciones() {
 
   const handleGrupoChange = (val: string) => {
     if (!val) {
-      navigate(`/${empresa}/certificados/panel/inscripciones`);
+      navigate(certPath(empresa!, '/panel/inscripciones'));
     } else {
       const g = grupos.find(g => g.id === Number(val));
       const n = g ? `&nombre=${encodeURIComponent(g.nombre_grupo)}` : '';
-      navigate(`/${empresa}/certificados/panel/inscripciones?grupo=${val}${n}`);
+      navigate(certPath(empresa!, `/panel/inscripciones?grupo=${val}${n}`));
     }
   };
 
@@ -239,8 +240,8 @@ export default function AdminInscripciones() {
           onClick={() => {
             const g = grupos.find(x => x.id === Number(grupoId));
             navigate(g
-              ? `/${empresa}/certificados/panel/programas/${g.programa_id}`
-              : `/${empresa}/certificados/panel/programas`);
+              ? certPath(empresa!, `/panel/programas/${g.programa_id}`)
+              : certPath(empresa!, '/panel/programas'));
           }}
           className="flex items-center gap-1.5 text-[13px] font-medium transition-colors hover:opacity-70"
           style={{ color: '#9CA3AF' }}

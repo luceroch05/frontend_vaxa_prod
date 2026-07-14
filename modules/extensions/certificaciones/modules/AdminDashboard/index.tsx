@@ -1,6 +1,7 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { Users, FileBadge, BookOpen, Layers, GraduationCap, ChevronRight, TrendingUp, AlertCircle, CreditCard } from '@/components/ui/icon';
 import { authStorage }      from '@/lib/auth';
+import { certPath }         from '@/lib/paths';
 import { useProgramas }     from '../../shared/hooks/useProgramas';
 import { useGrupos }        from '../../shared/hooks/useGrupos';
 import { useInscripciones } from '../../shared/hooks/useInscripciones';
@@ -147,7 +148,7 @@ function BarChart({ data }: BarChartProps) {
 export default function AdminDashboard() {
   const { empresa } = useParams<{ empresa: string }>();
   const navigate    = useNavigate();
-  const base        = `/${empresa}/certificados/panel`;
+  const base        = certPath(empresa!, '/panel');
 
   const user = authStorage.getUser(empresa!);
 

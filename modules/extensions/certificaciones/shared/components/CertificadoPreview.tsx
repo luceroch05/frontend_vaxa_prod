@@ -23,9 +23,9 @@ interface Props {
 /* Datos de ejemplo: así el usuario VE cómo queda con un alumno real. */
 const EJEMPLO = {
   participante: 'Ana María Torres López',
-  fechaInicio:  '5 de enero de 2026',
-  fechaFin:     '28 de febrero de 2026',
-  fecha:        '2 de marzo de 2026',
+  fechaInicio:  '15 de agosto de 2026',
+  fechaFin:     '22 de agosto de 2026',
+  fecha:        '25 de agosto de 2026',
 };
 
 /* ── Vista previa del certificado ───────────────────────────────
@@ -42,7 +42,7 @@ export default function CertificadoPreview({
   const programa = programaNombre || 'Nombre del Programa';
   const tipo     = tipoPrograma   || 'Certificado';
 
-  const periodo = `, realizado del ${EJEMPLO.fechaInicio} al ${EJEMPLO.fechaFin}`;
+  const periodo = `, realizado los días 15, 18 y 22 de agosto de 2026`;
   const cuerpoDefault = `Por haber completado satisfactoriamente ${tipo} "${programa}" con una duración de ${horas ?? 40} horas académicas${periodo}.`;
   const cuerpoBase = texto?.trim() || cuerpoDefault;
   const cuerpo = expandirVariablesCertificado(cuerpoBase, {

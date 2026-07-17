@@ -110,8 +110,10 @@ export interface Grupo {
   programa_id: number;
   programa_nombre: string;
   nombre_grupo: string;
-  fecha_inicio: string;
-  fecha_fin: string;
+  fecha_inicio: string;          // Día 1
+  fecha_fin?: string | null;     // legado (rango); aulas nuevas usan los días puntuales
+  fecha_dia2?: string | null;    // Día 2 puntual (opcional)
+  fecha_dia3?: string | null;    // Día 3 puntual (opcional)
   dias_semana?: string | null;   // ISO 1=Lun..7=Dom, separados por coma. Ej: "1,3,5"
   hora_inicio?: string | null;   // "HH:MM"
   hora_fin?: string | null;      // "HH:MM"
@@ -123,8 +125,10 @@ export interface Grupo {
 export interface CreateGrupoDto {
   programa_id: number;
   nombre_grupo: string;
-  fecha_inicio: string;
-  fecha_fin: string;
+  fecha_inicio: string;          // Día 1
+  fecha_fin?: string | null;     // legado (rango)
+  fecha_dia2?: string | null;    // Día 2 puntual (opcional)
+  fecha_dia3?: string | null;    // Día 3 puntual (opcional)
   dias_semana?: string | null;
   hora_inicio?: string | null;
   hora_fin?: string | null;
@@ -204,6 +208,8 @@ export interface Certificado {
   nombre_grupo: string;
   fecha_inicio?: string;
   fecha_fin?: string;
+  fecha_dia2?: string | null;
+  fecha_dia3?: string | null;
   modalidad_nombre?: string;
 }
 
@@ -218,7 +224,9 @@ export interface CertificadoPublico {
   horas_academicas: number;
   nombre_grupo: string;
   fecha_inicio: string;
-  fecha_fin: string;
+  fecha_fin?: string | null;
+  fecha_dia2?: string | null;
+  fecha_dia3?: string | null;
   modalidad: string;
   estado: string;
   empresa_nombre: string;

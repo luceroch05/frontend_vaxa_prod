@@ -318,6 +318,8 @@ export default function TabPlan({ empresa, onChange, section }: TabPlanProps) {
 
   const c = estado?.consumo;
   const cr = estado?.creditos;
+  // Créditos que vinieron del PLAN = total adquirido − recargas compradas aparte.
+  const creditosDelPlan = Math.max(0, (cr?.asignados ?? 0) - (cr?.recargados ?? 0));
   const planSel = planes.find(p => p.id === planId);
   // Ciclo vigente (id) según la suscripción actual, para el dirty-check del botón.
   const cicloVigenteId = CICLOS.find((x) => x.label === estado?.suscripcion?.ciclo)?.id ?? 1;
@@ -505,14 +507,23 @@ export default function TabPlan({ empresa, onChange, section }: TabPlanProps) {
           <p className="text-[32px] font-bold leading-none tabular-nums" style={{ color: (cr?.disponibles ?? 0) > 0 ? '#0D0E12' : '#B45309' }}>
             {cr?.disponibles ?? 0}
           </p>
-          {/* Conteo aparte: cuántos de los asignados son recarga extra (no del plan). */}
-          {(cr?.recargados ?? 0) > 0 ? (
-            <p className="text-[12px] mt-2" style={{ color: '#0D7C66' }}>
-              Incluye <b>{cr?.recargados}</b> crédito{(cr?.recargados ?? 0) === 1 ? '' : 's'} recargado{(cr?.recargados ?? 0) === 1 ? '' : 's'} aparte
+          {/* El saldo (disponibles) = total adquirido − usados. Anclamos el total
+              para que el 210 se lea como "adquirido", no como parte del 208. */}
+          {(cr?.disponibles ?? 0) > 0 ? (
+            <p className="text-[12px] mt-2" style={{ color: '#64748B' }}>
+              de <b>{cr?.asignados ?? 0}</b> adquiridos · <b>{cr?.consumidos ?? 0}</b> usado{(cr?.consumidos ?? 0) === 1 ? '' : 's'}
             </p>
           ) : (
-            <p className="text-[12px] mt-2" style={{ color: '#64748B' }}>
-              {(cr?.disponibles ?? 0) > 0 ? '1 crédito = 1 certificado' : 'Sin saldo · no puede emitir'}
+            <p className="text-[12px] mt-2" style={{ color: '#B45309' }}>Sin saldo · no puede emitir</p>
+          )}
+          {/* Origen de los créditos adquiridos: plan vs recarga comprada aparte. */}
+          {(cr?.asignados ?? 0) > 0 && (
+            <p className="text-[11px] mt-1" style={{ color: '#0D7C66' }}>
+              {(cr?.recargados ?? 0) === 0
+                ? 'Todos incluidos en el plan'
+                : creditosDelPlan === 0
+                  ? `Todos por recarga (${cr?.recargados})`
+                  : `${creditosDelPlan} del plan + ${cr?.recargados} por recarga`}
             </p>
           )}
         </div>
@@ -531,9 +542,11 @@ export default function TabPlan({ empresa, onChange, section }: TabPlanProps) {
           ) : (
             <>
               <p className="text-[32px] font-bold leading-none tabular-nums" style={{ color: '#0D0E12' }}>
-                {cr?.consumidos ?? 0}<span className="text-[18px]" style={{ color: '#9CA3AF' }}> / {cr?.asignados ?? 0}</span>
+                {cr?.consumidos ?? 0}
               </p>
-              <p className="text-[12px] mt-2" style={{ color: '#64748B' }}>certificados emitidos en total</p>
+              <p className="text-[12px] mt-2" style={{ color: '#64748B' }}>
+                certificados emitidos · quedan <b>{cr?.disponibles ?? 0}</b> de {cr?.asignados ?? 0}
+              </p>
             </>
           )}
         </div>

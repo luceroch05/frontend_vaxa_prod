@@ -28,6 +28,12 @@ export function useGrupos(empresa: string, incluirInactivos = false) {
     return nuevo;
   };
 
+  const update = async (id: number, data: CreateGrupoDto) => {
+    const upd = await gruposApi.update(empresa, id, data);
+    setGrupos(prev => prev.map(g => (g.id === id ? upd : g)));
+    return upd;
+  };
+
   /** Archiva/reactiva un aula (soft-delete) y refresca la lista. */
   const setActivo = async (id: number, activo: boolean) => {
     await gruposApi.setActivo(empresa, id, activo);
@@ -40,5 +46,5 @@ export function useGrupos(empresa: string, incluirInactivos = false) {
     setGrupos(prev => prev.filter(g => g.id !== id));
   };
 
-  return { grupos, loading, error, create, setActivo, eliminar, refetch: fetchAll };
+  return { grupos, loading, error, create, update, setActivo, eliminar, refetch: fetchAll };
 }

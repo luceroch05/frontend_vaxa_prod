@@ -4,7 +4,7 @@ import jsPDF from 'jspdf';
 import QRCode from 'qrcode';
 import { Download, X } from '@/components/ui/icon';
 import type { Certificado, ConfigCertificado } from '../types';
-import { expandirVariablesCertificado } from '../utils/certVariables';
+import { expandirVariablesCertificado, periodoCurso } from '../utils/certVariables';
 import { publicCertUrl } from '@/lib/paths';
 import { imgUrl } from '@/lib/api/client';
 
@@ -117,7 +117,10 @@ export function CertificadoPDF({ certificado, config, onClose }: Props) {
   // Texto del cuerpo
   const fechaInicio = fmtDate(certificado.fecha_inicio);
   const fechaFin    = fmtDate(certificado.fecha_fin);
-  const periodo     = fechaInicio && fechaFin ? `, realizado del ${fechaInicio} al ${fechaFin}` : '';
+  // Periodo según los días del curso (hasta 3 días puntuales). Mismo helper que
+  // el backend (pdf.service) para que el PDF real y esta vista coincidan.
+  const periodoFrase = periodoCurso(certificado.fecha_inicio, certificado.fecha_fin, certificado.fecha_dia2, certificado.fecha_dia3);
+  const periodo     = periodoFrase ? `, realizado ${periodoFrase}` : '';
   const cuerpoDefault = `Por haber completado satisfactoriamente ${
     certificado.tipo_programa_nombre ?? 'el programa'
   } "${certificado.programa_nombre}" con una duración de ${

@@ -36,7 +36,7 @@ function fmtHorario(g: { dias_semana?: string | null; hora_inicio?: string | nul
 }
 
 /* ── Fila de aula ───────────────────────────────────────────────── */
-function AulaRow({ aula, empresa, puedeImportar, esAdmin, onVerInscritos, onImportar, onToggleActivo, onEliminar, isLast }: { aula: Grupo; empresa: string; puedeImportar: boolean; esAdmin: boolean; onVerInscritos: (g: Grupo) => void; onImportar: (g: Grupo) => void; onToggleActivo: (g: Grupo) => void; onEliminar: (g: Grupo) => void; isLast: boolean }) {
+function AulaRow({ aula, empresa, puedeImportar, esAdmin, onVerInscritos, onImportar, onEditar, onToggleActivo, onEliminar, isLast }: { aula: Grupo; empresa: string; puedeImportar: boolean; esAdmin: boolean; onVerInscritos: (g: Grupo) => void; onImportar: (g: Grupo) => void; onEditar: (g: Grupo) => void; onToggleActivo: (g: Grupo) => void; onEliminar: (g: Grupo) => void; isLast: boolean }) {
   return (
     <div
       className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-4 transition-colors"
@@ -66,7 +66,12 @@ function AulaRow({ aula, empresa, puedeImportar, esAdmin, onVerInscritos, onImpo
       <div className="flex items-center gap-3 sm:flex-shrink-0">
         <div className="flex items-center gap-1.5 text-[12px]" style={{ color: '#9CA3AF' }}>
           <Calendar size={12} />
-          <span>{fmt(aula.fecha_inicio)} — {fmt(aula.fecha_fin)}</span>
+          <span>{(() => {
+            const ds = [aula.fecha_inicio, aula.fecha_dia2, aula.fecha_dia3].filter(Boolean) as string[];
+            if (ds.length >= 2) return ds.map(f => fmt(f)).join(' · ');           // días puntuales
+            if (aula.fecha_fin) return `${fmt(aula.fecha_inicio)} — ${fmt(aula.fecha_fin)}`;  // rango
+            return fmt(aula.fecha_inicio);                                          // un día
+          })()}</span>
         </div>
         <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full"
           style={aula.activo
@@ -99,9 +104,17 @@ function AulaRow({ aula, empresa, puedeImportar, esAdmin, onVerInscritos, onImpo
             <FileSpreadsheet size={12} /> Importar
           </button>
         )}
-        {/* Archivar / reactivar / borrar aula — solo ADMINISTRADOR */}
+        {/* Editar / archivar / reactivar / borrar aula — solo ADMINISTRADOR */}
         {esAdmin && (
         <>
+        <button
+          onClick={() => onEditar(aula)}
+          className="flex items-center justify-center w-8 h-8 rounded-xl transition-all flex-shrink-0"
+          style={{ background: '#EFF6FF', color: '#2563EB', border: '1px solid #BFDBFE' }}
+          title="Editar aula"
+        >
+          <Pencil size={13} />
+        </button>
         <button
           onClick={() => onToggleActivo(aula)}
           className="flex items-center justify-center w-8 h-8 rounded-xl transition-all flex-shrink-0"
@@ -134,7 +147,7 @@ export default function AdminProgramaDetalle() {
   const pid = Number(programaId);
 
   const { programas, loading: progLoading, update, setActivo: setActivoPrograma, eliminar: eliminarPrograma } = useProgramas(empresa!, true);
-  const { grupos, loading: gruposLoading, error, create, setActivo: setActivoGrupo, eliminar: eliminarGrupo } = useGrupos(empresa!, true);
+  const { grupos, loading: gruposLoading, error, create, update: updateAula, setActivo: setActivoGrupo, eliminar: eliminarGrupo } = useGrupos(empresa!, true);
   const { catalogos } = useCatalogos(empresa!);
   const confirm = useConfirm();
   const { estado } = usePlan();
@@ -145,6 +158,7 @@ export default function AdminProgramaDetalle() {
 
   const [tab,       setTab]       = useState<'aulas' | 'evaluacion'>('aulas');
   const [showForm,  setShowForm]  = useState(false);
+  const [editAula,  setEditAula]  = useState<Grupo | null>(null);   // aula en edición
   const [saving,    setSaving]    = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [importAula, setImportAula] = useState<Grupo | null>(null);   // aula sobre la que se importa por Excel
@@ -215,6 +229,17 @@ export default function AdminProgramaDetalle() {
   const handleCreate = async (data: CreateGrupoDto) => {
     setSaving(true); setSaveError(null);
     try { await create(data); setShowForm(false); }
+    catch (e: unknown) { setSaveError((e as Error).message); }
+    finally { setSaving(false); }
+  };
+
+  // Abre el form de edición de un aula (cierra el de creación si estaba abierto).
+  const abrirEditAula = (g: Grupo) => { setShowForm(false); setSaveError(null); setEditAula(g); };
+
+  const handleUpdateAula = async (data: CreateGrupoDto) => {
+    if (!editAula) return;
+    setSaving(true); setSaveError(null);
+    try { await updateAula(editAula.id, data); setEditAula(null); }
     catch (e: unknown) { setSaveError((e as Error).message); }
     finally { setSaving(false); }
   };
@@ -489,6 +514,25 @@ export default function AdminProgramaDetalle() {
             </div>
           )}
 
+          {editAula && (
+            <div>
+              {saveError && (
+                <div className="flex items-center gap-2 text-[13px] px-3.5 py-2.5 rounded-xl mb-3"
+                  style={{ background: '#FEF2F2', border: '1px solid #FECACA', color: '#B91C1C' }}>
+                  <AlertCircle size={14} className="flex-shrink-0" /> {saveError}
+                </div>
+              )}
+              <GrupoForm
+                key={editAula.id}
+                initial={editAula}
+                lockedPrograma={{ id: programa!.id, nombre: programa!.nombre }}
+                onSubmit={handleUpdateAula}
+                onCancel={() => { setEditAula(null); setSaveError(null); }}
+                loading={saving}
+              />
+            </div>
+          )}
+
           {gruposLoading && <div className="flex justify-center py-12" style={{ color: '#D1D5DB' }}><Loader2 size={20} className="animate-spin" /></div>}
           {error && (
             <div className="flex items-center gap-2 text-[13px] px-4 py-3 rounded-xl"
@@ -513,7 +557,7 @@ export default function AdminProgramaDetalle() {
           {!gruposLoading && aulas.length > 0 && (
             <div className="bg-white rounded-2xl overflow-hidden" style={{ border: '1px solid #EEECE6' }}>
               {aulas.map((a, i) => (
-                <AulaRow key={a.id} aula={a} empresa={empresa!} puedeImportar={puedeImportar} esAdmin={esAdmin} onVerInscritos={handleVerInscritos} onImportar={setImportAula} onToggleActivo={handleToggleAula} onEliminar={handleEliminarAula} isLast={i === aulas.length - 1} />
+                <AulaRow key={a.id} aula={a} empresa={empresa!} puedeImportar={puedeImportar} esAdmin={esAdmin} onVerInscritos={handleVerInscritos} onImportar={setImportAula} onEditar={abrirEditAula} onToggleActivo={handleToggleAula} onEliminar={handleEliminarAula} isLast={i === aulas.length - 1} />
               ))}
             </div>
           )}

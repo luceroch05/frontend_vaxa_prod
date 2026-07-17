@@ -24,4 +24,8 @@ export const gruposApi = {
 
   create: (empresa: string, data: CreateGrupoDto) =>
     api.post<Grupo>('/api/certificados/grupos', data, opts(empresa)),
+
+  /** Edita un aula (todos los campos). */
+  update: (empresa: string, id: number, data: CreateGrupoDto) =>
+    api.patch<Grupo>(`/api/certificados/grupos/${id}`, data, opts(empresa)),
 };

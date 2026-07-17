@@ -194,7 +194,13 @@
       "Bash(ls src/modules/pacientes)",
       "Bash(ls src/modules/certificados/pacientes)",
       "Bash(ls \"C:\\\\Users\\\\Lucero\\\\Desktop\\\\frontend_vaxa_prod\\\\modules\\\\extensions\\\\certificaciones\\\\modules\\\\Pacientes\")",
-      "Bash(ls \"C:\\\\Users\\\\Lucero\\\\Desktop\\\\frontend_vaxa_prod\\\\modules\\\\extensions\\\\certificaciones\\\\modules\\\\AdminEstudiantes\")"
+      "Bash(ls \"C:\\\\Users\\\\Lucero\\\\Desktop\\\\frontend_vaxa_prod\\\\modules\\\\extensions\\\\certificaciones\\\\modules\\\\AdminEstudiantes\")",
+      "Bash(grep -rn \"realizado\\\\| al \\\\${\" src/)",
+      "Bash(cd /c/Users/Lucero/Desktop/backend-vaxa-prod)",
+      "Bash(grep -n \"grupo\\\\|Grupo\" src/modules/certificados/certificados.routes.ts)",
+      "Bash(grep -n \"async \\\\|listAll\\\\|findById\\\\|create\\\\|setActivo\\\\|remove\\\\|update\" src/modules/certificados/grupos/grupo.service.ts)",
+      "Bash(xargs grep -ln \"grupos\\\\|Grupo\")",
+      "Bash(echo \"exit $?\")"
     ],
     "deny": [],
     "ask": []

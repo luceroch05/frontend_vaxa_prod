@@ -3,6 +3,7 @@ import { useParams, useSearchParams } from 'react-router-dom';
 import { certPath } from '@/lib/paths';
 import { Search, Loader2, BadgeCheck, XCircle, QrCode, Download } from '@/components/ui/icon';
 import { useValidarCertificado } from '../../shared/hooks/useCertificados';
+import { periodoCurso } from '../../shared/utils/certVariables';
 import BrandRow from '../../shared/components/BrandRow';
 import BrandAside from '../../shared/components/BrandAside';
 
@@ -179,7 +180,10 @@ export default function PublicValidar() {
                     <Row label="Grupo"     value={resultado.nombre_grupo} />
                     <Row label="Modalidad" value={resultado.modalidad} />
                     <Row label="Duración"  value={`${resultado.horas_academicas} horas académicas`} />
-                    <Row label="Periodo"   value={`${formatDate(resultado.fecha_inicio)} — ${formatDate(resultado.fecha_fin)}`} />
+                    <Row label="Periodo"   value={(() => {
+                      const p = periodoCurso(resultado.fecha_inicio, resultado.fecha_fin, resultado.fecha_dia2, resultado.fecha_dia3);
+                      return p ? p.charAt(0).toUpperCase() + p.slice(1) : formatDate(resultado.fecha_inicio);
+                    })()} />
                     <Row label="Emitido por" value={resultado.empresa_nombre} />
                     <div className="flex items-start justify-between gap-4 py-2.5">
                       <span className="text-[12px] flex-shrink-0" style={{ color: '#9CA3AF' }}>Fecha de emisión</span>

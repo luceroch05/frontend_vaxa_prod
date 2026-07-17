@@ -105,6 +105,7 @@ export default function AdminCertificados() {
 
   const [selected,  setSelected]  = useState<Set<number>>(new Set());
   const [batchRunning, setBatchRunning] = useState(false);
+  const [batchLabel, setBatchLabel] = useState('Emitiendo certificados...');
   const [batchProgress, setBatchProgress] = useState({ done: 0, total: 0, errors: 0 });
 
   const [generando, setGenerando] = useState<number | null>(null);
@@ -240,6 +241,63 @@ export default function AdminCertificados() {
     finally { setAnulando(null); }
   };
 
+  /** Anular en lote: recorre los seleccionados llamando al endpoint de anular de
+   *  a uno (mantiene la auditoría y las reglas de cada certificado). */
+  const handleAnularMasa = async (ids: number[]) => {
+    if (ids.length === 0 || batchRunning) return;
+    const ok = await confirm({
+      title: `Anular ${ids.length} certificado${ids.length === 1 ? '' : 's'}`,
+      message: `Se anularán ${ids.length} certificado${ids.length === 1 ? '' : 's'}. Esta acción no se puede deshacer.`,
+      confirmText: `Anular ${ids.length}`,
+      variant: 'danger',
+    });
+    if (!ok) return;
+    setBatchLabel('Anulando certificados...');
+    setBatchRunning(true);
+    setBatchProgress({ done: 0, total: ids.length, errors: 0 });
+    setErrorMsg(null); setOkMsg(null);
+    let done = 0, errors = 0;
+    for (const id of ids) {
+      try { await anular(id); done++; }
+      catch { errors++; }
+      setBatchProgress({ done: done + errors, total: ids.length, errors });
+    }
+    setBatchRunning(false);
+    clearSelection();
+    if (errors === 0) setOkMsg(`${done} certificado${done === 1 ? '' : 's'} anulado${done === 1 ? '' : 's'}`);
+    else setErrorMsg(`${done} anulado${done === 1 ? '' : 's'} · ${errors} con error`);
+    setTimeout(() => { setOkMsg(null); setErrorMsg(null); }, 4000);
+  };
+
+  /** Eliminar en lote (solo anulados): borra definitivamente y devuelve 1 crédito
+   *  por cada uno. Recorre los seleccionados uno a uno. */
+  const handleEliminarMasa = async (ids: number[]) => {
+    if (ids.length === 0 || batchRunning) return;
+    const ok = await confirm({
+      title: `Eliminar ${ids.length} certificado${ids.length === 1 ? '' : 's'}`,
+      message: `Se eliminarán por completo ${ids.length} certificado${ids.length === 1 ? '' : 's'} anulado${ids.length === 1 ? '' : 's'} y se devolverán ${ids.length} crédito${ids.length === 1 ? '' : 's'} al saldo. No se puede deshacer.`,
+      confirmText: `Eliminar ${ids.length}`,
+      variant: 'danger',
+    });
+    if (!ok) return;
+    setBatchLabel('Eliminando certificados...');
+    setBatchRunning(true);
+    setBatchProgress({ done: 0, total: ids.length, errors: 0 });
+    setErrorMsg(null); setOkMsg(null);
+    let done = 0, errors = 0;
+    for (const id of ids) {
+      try { await eliminar(id); done++; }
+      catch { errors++; }
+      setBatchProgress({ done: done + errors, total: ids.length, errors });
+    }
+    setBatchRunning(false);
+    clearSelection();
+    refrescarPlan();
+    if (errors === 0) setOkMsg(`${done} certificado${done === 1 ? '' : 's'} eliminado${done === 1 ? '' : 's'} · ${done} crédito${done === 1 ? '' : 's'} devuelto${done === 1 ? '' : 's'}`);
+    else setErrorMsg(`${done} eliminado${done === 1 ? '' : 's'} · ${errors} con error`);
+    setTimeout(() => { setOkMsg(null); setErrorMsg(null); }, 4000);
+  };
+
   /** Paso 1: antes de emitir, genera la vista previa REAL (PDF del backend) del
    *  primer seleccionado y la muestra. El cliente confirma viendo cómo saldrá. */
   const handleEmitirMasa = async (ids: number[]) => {
@@ -270,24 +328,49 @@ export default function AdminCertificados() {
     });
   };
 
-  /** Paso 2: emisión real de la tanda, ya confirmada desde la vista previa. */
+  /** Paso 2: emisión real de la tanda, ya confirmada desde la vista previa.
+   *  Se emite POR TANDAS (chunks) en vez de una sola petición gigante:
+   *   - la barra de progreso avanza de verdad entre tanda y tanda, y
+   *   - evita el timeout del servidor al generar cientos de PDFs en una sola llamada.
+   *  Cada tanda registra su propio movimiento de crédito (−N por tanda). */
+  const CHUNK_EMISION = 25;
   const ejecutarEmision = async (ids: number[]) => {
     if (ids.length === 0) return;
+    setBatchLabel('Emitiendo certificados...');
     setBatchRunning(true);
     setBatchProgress({ done: 0, total: ids.length, errors: 0 });
     setErrorMsg(null); setOkMsg(null);
 
-    // Una sola llamada en lote: el backend emite la tanda en una transacción y
-    // registra UN solo movimiento de crédito (-N) en vez de N de -1.
-    let resultado: { emitidos: number; errores: Array<{ id: number; error: string }>; bloqueo: 'creditos' | null } | null = null;
+    let emitidosTot = 0;
+    let erroresTot: Array<{ id: number; error: string }> = [];
+    let procesados = 0;
     let bloqueoFatal: 'plan' | 'creditos' | null = null;
-    try {
-      resultado = await generarLote(ids);
-    } catch (e: unknown) {
-      const raw = (e as Error).message;
-      if (raw.startsWith('SIN_PLAN'))           bloqueoFatal = 'plan';
-      else if (raw.startsWith('SIN_CREDITOS'))  bloqueoFatal = 'creditos';
-      else                                      setErrorMsg(raw);
+    let bloqueoCreditos = false;
+    let faltaConfigMsg: string | null = null;
+
+    for (let i = 0; i < ids.length; i += CHUNK_EMISION) {
+      const chunk = ids.slice(i, i + CHUNK_EMISION);
+      let resultado: { emitidos: number; errores: Array<{ id: number; error: string }>; bloqueo: 'creditos' | null } | null = null;
+      try {
+        resultado = await generarLote(chunk);
+      } catch (e: unknown) {
+        const raw = (e as Error).message;
+        if (raw.startsWith('SIN_PLAN'))           { bloqueoFatal = 'plan'; break; }
+        else if (raw.startsWith('SIN_CREDITOS'))  { bloqueoFatal = 'creditos'; break; }
+        else                                      { setErrorMsg(raw); break; }
+      }
+      if (!resultado) break;
+
+      emitidosTot += resultado.emitidos;
+      erroresTot = erroresTot.concat(resultado.errores);
+      const fc = resultado.errores.find(er => er.error.startsWith('FALTA_CONFIG:'));
+      if (fc && !faltaConfigMsg) faltaConfigMsg = fc.error.replace('FALTA_CONFIG:', '').trim();
+
+      procesados += chunk.length;
+      setBatchProgress({ done: procesados, total: ids.length, errors: erroresTot.length });
+
+      // El saldo se agotó a mitad de la emisión → cortamos y avisamos.
+      if (resultado.bloqueo === 'creditos') { bloqueoCreditos = true; break; }
     }
 
     setBatchRunning(false);
@@ -295,23 +378,16 @@ export default function AdminCertificados() {
     refrescarPlan();
 
     if (bloqueoFatal) { setBloqueoEmision(bloqueoFatal); return; }
-    if (!resultado) return;
-
-    const { emitidos, errores, bloqueo } = resultado;
-    setBatchProgress({ done: emitidos, total: ids.length, errors: errores.length });
-
     // Si nada se emitió por falta de diseño, mostrar el modal de configuración.
-    const faltaConfig = errores.find(er => er.error.startsWith('FALTA_CONFIG:'));
-    if (emitidos === 0 && faltaConfig) { await avisarFaltaConfig(faltaConfig.error.replace('FALTA_CONFIG:', '').trim()); return; }
-    // El saldo se agotó a mitad de la tanda → modal de sin créditos.
-    if (bloqueo === 'creditos') { setBloqueoEmision('creditos'); return; }
+    if (emitidosTot === 0 && faltaConfigMsg) { await avisarFaltaConfig(faltaConfigMsg); return; }
+    if (bloqueoCreditos) { setBloqueoEmision('creditos'); return; }
 
-    if (errores.length === 0) {
-      setOkMsg(`${emitidos} certificado${emitidos === 1 ? '' : 's'} emitido${emitidos === 1 ? '' : 's'} correctamente`);
+    if (erroresTot.length === 0) {
+      setOkMsg(`${emitidosTot} certificado${emitidosTot === 1 ? '' : 's'} emitido${emitidosTot === 1 ? '' : 's'} correctamente`);
     } else {
-      setErrorMsg(`${emitidos} emitido${emitidos === 1 ? '' : 's'} · ${errores.length} con error`);
+      setErrorMsg(`${emitidosTot} emitido${emitidosTot === 1 ? '' : 's'} · ${erroresTot.length} con error`);
     }
-    setTimeout(() => { setOkMsg(null); setErrorMsg(null); }, 4000);
+    setTimeout(() => { setOkMsg(null); setErrorMsg(null); }, 6000);
   };
 
   const [generandoPdf, setGenerandoPdf] = useState<number | null>(null);
@@ -410,7 +486,7 @@ export default function AdminCertificados() {
         <div className="rounded-2xl p-4" style={{ background: '#0D0E12' }}>
           <div className="flex items-center justify-between mb-2.5">
             <p className="text-[13px] font-bold" style={{ color: '#F1F5F9' }}>
-              Emitiendo certificados...
+              {batchLabel}
             </p>
             <p className="text-[13px] font-bold tabular-nums" style={{ color: '#D97706' }}>
               {batchProgress.done} / {batchProgress.total}
@@ -517,12 +593,29 @@ export default function AdminCertificados() {
           onVerPDF={handleVerPDF}
           onAnular={handleAnular}
           esAdmin={esAdmin}
+          selected={selected}
+          batchRunning={batchRunning}
+          onToggleOne={toggleOne}
+          onToggleAll={() => toggleAll(emitidosFiltrados.map(c => c.id))}
+          onClearSelection={clearSelection}
+          onAnularMasa={() => handleAnularMasa(emitidosFiltrados.filter(c => selected.has(c.id)).map(c => c.id))}
         />
       )}
 
       {/* ═══════════ TAB: ANULADOS ═══════════ */}
       {!loading && tab === 'anulados' && (
-        <TablaAnulados items={anuladosFiltrados} eliminando={eliminando} onEliminar={handleEliminar} esAdmin={esAdmin} />
+        <TablaAnulados
+          items={anuladosFiltrados}
+          eliminando={eliminando}
+          onEliminar={handleEliminar}
+          esAdmin={esAdmin}
+          selected={selected}
+          batchRunning={batchRunning}
+          onToggleOne={toggleOne}
+          onToggleAll={() => toggleAll(anuladosFiltrados.map(c => c.id))}
+          onClearSelection={clearSelection}
+          onEliminarMasa={() => handleEliminarMasa(anuladosFiltrados.filter(c => selected.has(c.id)).map(c => c.id))}
+        />
       )}
 
       {/* ── Preview PDF ──────────────────────────────────────── */}
@@ -915,6 +1008,12 @@ function TablaEmitidos({
   onVerPDF,
   onAnular,
   esAdmin,
+  selected,
+  batchRunning,
+  onToggleOne,
+  onToggleAll,
+  onClearSelection,
+  onAnularMasa,
 }: {
   items: Certificado[];
   anulando: number | null;
@@ -923,9 +1022,17 @@ function TablaEmitidos({
   onVerPDF: (c: Certificado) => void;
   onAnular: (id: number) => void;
   esAdmin: boolean;
+  selected: Set<number>;
+  batchRunning: boolean;
+  onToggleOne: (id: number) => void;
+  onToggleAll: () => void;
+  onClearSelection: () => void;
+  onAnularMasa: () => void;
 }) {
   const { page, setPage, totalPages, pageItems, startIndex, endIndex, total } =
     usePagination(items, 15);
+  const selCount = items.filter(c => selected.has(c.id)).length;
+  const allSel   = items.length > 0 && selCount === items.length;
   if (items.length === 0) {
     return (
       <div className="bg-white rounded-2xl py-14 text-center" style={{ border: '1px solid #EEECE6' }}>
@@ -940,31 +1047,59 @@ function TablaEmitidos({
 
   return (
     <div className="space-y-4">
+    {/* Barra de acción en lote (solo ADMINISTRADOR): anular varios de golpe. */}
+    {esAdmin && selCount > 0 && (
+      <div className="flex items-center justify-between px-4 py-3 rounded-2xl page-fade" style={{ background: '#0D0E12' }}>
+        <div className="flex items-center gap-3">
+          <button onClick={onClearSelection} className="p-1.5 rounded-lg transition-colors hover:bg-white/10" style={{ color: '#9CA3AF' }}>
+            <X size={14} />
+          </button>
+          <p className="text-[13px] font-semibold" style={{ color: '#F1F5F9' }}>
+            {selCount} seleccionado{selCount !== 1 ? 's' : ''}
+          </p>
+        </div>
+        <button
+          onClick={onAnularMasa}
+          disabled={batchRunning}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-semibold transition-all"
+          style={{ background: '#DC2626', color: '#fff', opacity: batchRunning ? 0.5 : 1 }}
+        >
+          <Ban size={13} /> Anular seleccionados
+        </button>
+      </div>
+    )}
     <div className="bg-white rounded-2xl overflow-hidden" style={{ border: '1px solid #EEECE6' }}>
-      <div className="hidden sm:grid px-5 py-3 gap-3" style={{
+      <div className="hidden sm:grid px-5 py-3 gap-3 items-center" style={{
         gridTemplateColumns: '1fr 200px 100px 160px',
         background: '#FAFAF8', borderBottom: '1px solid #EEECE6',
       }}>
-        <p className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: '#9CA3AF' }}>Participante</p>
+        <div className="flex items-center gap-2.5">
+          {esAdmin && <Checkbox checked={allSel} onChange={onToggleAll} disabled={batchRunning} />}
+          <p className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: '#9CA3AF' }}>Participante</p>
+        </div>
         <p className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: '#9CA3AF' }}>Programa</p>
         <p className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: '#9CA3AF' }}>Fecha</p>
         <p className="text-[11px] font-semibold uppercase tracking-wider text-right" style={{ color: '#9CA3AF' }}>Acciones</p>
       </div>
 
       <div>
-        {pageItems.map((c, idx) => (
+        {pageItems.map((c, idx) => {
+          const isSelected = selected.has(c.id);
+          return (
           <div
             key={c.id}
             className="flex flex-col sm:grid sm:items-center px-5 py-3 gap-3 transition-colors"
             style={{
               gridTemplateColumns: '1fr 200px 100px 160px',
               borderBottom: idx < pageItems.length - 1 ? '1px solid #F5F4F0' : undefined,
+              background: isSelected ? '#FFFBEB' : 'transparent',
             }}
-            onMouseEnter={e => (e.currentTarget.style.background = '#FAFAF8')}
-            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+            onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = '#FAFAF8'; }}
+            onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = 'transparent'; }}
           >
             {/* Participante */}
             <div className="flex items-center gap-2.5 min-w-0">
+              {esAdmin && <Checkbox checked={isSelected} onChange={() => onToggleOne(c.id)} disabled={batchRunning} />}
               <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: '#F0FDF4' }}>
                 <CheckCircle size={13} style={{ color: '#15803D' }} />
               </div>
@@ -1030,7 +1165,8 @@ function TablaEmitidos({
               )}
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
     </div>
     <Pagination
@@ -1051,14 +1187,23 @@ function TablaEmitidos({
 /* ── Anulados ──────────────────────────────────────────────── */
 function TablaAnulados({
   items, eliminando, onEliminar, esAdmin,
+  selected, batchRunning, onToggleOne, onToggleAll, onClearSelection, onEliminarMasa,
 }: {
   items: Certificado[];
   eliminando: number | null;
   onEliminar: (id: number) => void;
   esAdmin: boolean;
+  selected: Set<number>;
+  batchRunning: boolean;
+  onToggleOne: (id: number) => void;
+  onToggleAll: () => void;
+  onClearSelection: () => void;
+  onEliminarMasa: () => void;
 }) {
   const { page, setPage, totalPages, pageItems, startIndex, endIndex, total } =
     usePagination(items, 15);
+  const selCount = items.filter(c => selected.has(c.id)).length;
+  const allSel   = items.length > 0 && selCount === items.length;
 
   if (items.length === 0) {
     return (
@@ -1073,14 +1218,50 @@ function TablaAnulados({
 
   return (
     <div className="space-y-4">
+    {/* Barra de acción en lote (solo ADMINISTRADOR): eliminar varios anulados. */}
+    {esAdmin && selCount > 0 && (
+      <div className="flex items-center justify-between px-4 py-3 rounded-2xl page-fade" style={{ background: '#0D0E12' }}>
+        <div className="flex items-center gap-3">
+          <button onClick={onClearSelection} className="p-1.5 rounded-lg transition-colors hover:bg-white/10" style={{ color: '#9CA3AF' }}>
+            <X size={14} />
+          </button>
+          <p className="text-[13px] font-semibold" style={{ color: '#F1F5F9' }}>
+            {selCount} seleccionado{selCount !== 1 ? 's' : ''}
+          </p>
+        </div>
+        <button
+          onClick={onEliminarMasa}
+          disabled={batchRunning}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-semibold transition-all"
+          style={{ background: '#DC2626', color: '#fff', opacity: batchRunning ? 0.5 : 1 }}
+        >
+          <Trash2 size={13} /> Eliminar seleccionados
+        </button>
+      </div>
+    )}
     <div className="bg-white rounded-2xl overflow-hidden" style={{ border: '1px solid #EEECE6' }}>
+      {/* Cabecera con "seleccionar todos" (solo ADMINISTRADOR). */}
+      {esAdmin && (
+        <div className="flex items-center gap-2.5 px-5 py-3" style={{ background: '#FAFAF8', borderBottom: '1px solid #EEECE6' }}>
+          <Checkbox checked={allSel} onChange={onToggleAll} disabled={batchRunning} />
+          <p className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: '#9CA3AF' }}>
+            Seleccionar todos ({items.length})
+          </p>
+        </div>
+      )}
       <div>
-        {pageItems.map((c, idx) => (
+        {pageItems.map((c, idx) => {
+          const isSelected = selected.has(c.id);
+          return (
           <div
             key={c.id}
             className="flex items-center justify-between px-5 py-3.5 gap-3"
-            style={{ borderBottom: idx < pageItems.length - 1 ? '1px solid #F5F4F0' : undefined }}
+            style={{
+              borderBottom: idx < pageItems.length - 1 ? '1px solid #F5F4F0' : undefined,
+              background: isSelected ? '#FFFBEB' : 'transparent',
+            }}
           >
+            {esAdmin && <Checkbox checked={isSelected} onChange={() => onToggleOne(c.id)} disabled={batchRunning} />}
             <div className="min-w-0 flex-1">
               <p className="text-[13px] font-medium line-through truncate" style={{ color: '#6B7280' }}>
                 {c.participante_nombre}
@@ -1104,7 +1285,8 @@ function TablaAnulados({
             </button>
             )}
           </div>
-        ))}
+          );
+        })}
       </div>
     </div>
     <Pagination

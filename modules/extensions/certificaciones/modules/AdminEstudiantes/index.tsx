@@ -12,6 +12,7 @@ import { usePagination } from '../../shared/hooks/usePagination';
 import Pagination from '../../shared/components/Pagination';
 import ProgramaGrupoPicker from '../../shared/components/ProgramaGrupoPicker';
 import PhoneField from '../../shared/components/PhoneField';
+import SelectVx from '../../shared/components/SelectVx';
 import { isPossiblePhoneNumber } from 'libphonenumber-js';
 import type { Participante } from '../../shared/types';
 
@@ -44,6 +45,8 @@ function InscribirModal({ empresa, onClose, onDone }: {
   const [email,     setEmail]     = useState('');
   const [telefono,  setTelefono]  = useState('');
   const [grupoId,    setGrupoId]    = useState<number>(0);
+  const [calidad,    setCalidad]    = useState('Participante');
+  const [calidadOtra, setCalidadOtra] = useState(false);
 
   const [yaRegistrado, setYaRegistrado] = useState(false);
   const [buscando, setBuscando] = useState(false);
@@ -102,6 +105,7 @@ function InscribirModal({ empresa, onClose, onDone }: {
         email: email.trim() || undefined,
         telefono: telefono.trim() || undefined,
         grupo_id: grupoId,
+        calidad: calidad.trim() || 'Participante',
       });
       onDone();                                   // refresca la lista detrás
       setOkMsg('✓ Inscrito correctamente');
@@ -209,6 +213,45 @@ function InscribirModal({ empresa, onClose, onDone }: {
 
           {/* Programa / Grupo — mismo selector buscable que la inscripción pública */}
           <ProgramaGrupoPicker grupos={grupos} value={grupoId} onChange={setGrupoId} />
+
+          {/* Calidad de participación — sale en el certificado ("en calidad de: ___").
+              Desplegable con opciones base + "Otra…". La web pública siempre queda Participante. */}
+          <div>
+            <label className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: '#9CA3AF' }}>
+              Calidad de participación
+            </label>
+            <div className="mt-1">
+              <SelectVx
+                value={calidadOtra ? '__otra__' : calidad}
+                onChange={v => {
+                  if (v === '__otra__') { setCalidadOtra(true); setCalidad(''); }
+                  else { setCalidadOtra(false); setCalidad(v); }
+                }}
+                options={[
+                  { value: 'Participante', label: 'Participante' },
+                  { value: 'Organizador', label: 'Organizador' },
+                  { value: 'Ponente',     label: 'Ponente' },
+                  { value: 'Moderador',   label: 'Moderador' },
+                  { value: 'Asistente',   label: 'Asistente' },
+                  { value: 'Expositor',   label: 'Expositor' },
+                  { value: '__otra__',    label: 'Otra…' },
+                ]}
+                placeholder="Participante"
+              />
+            </div>
+            {calidadOtra && (
+              <input
+                value={calidad}
+                onChange={e => setCalidad(e.target.value)}
+                placeholder="Escribe la calidad (ej. Invitado de honor)"
+                className="vx-input w-full mt-2"
+                autoFocus
+              />
+            )}
+            <p className="text-[11px] mt-1" style={{ color: '#B0A898' }}>
+              Aparece en el certificado ("en calidad de: ___"). Por defecto "Participante".
+            </p>
+          </div>
         </div>
 
         <div className="flex items-center justify-end gap-2.5 px-5 py-4" style={{ borderTop: '1px solid #EEECE6' }}>

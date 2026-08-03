@@ -7,6 +7,8 @@ import type { Certificado, ConfigCertificado } from '../types';
 import { expandirVariablesCertificado, periodoCurso } from '../utils/certVariables';
 import { publicCertUrl } from '@/lib/paths';
 import { imgUrl } from '@/lib/api/client';
+import LienzoCampos from '../../personalizado/LienzoCampos';
+import { layoutActivo, parseLayout } from '../../personalizado/layout';
 
 interface Props {
   certificado: Certificado & { empresa_nombre: string };
@@ -26,6 +28,26 @@ function fmtDate(d: string | Date | undefined | null) {
   return new Date(s + 'T12:00:00').toLocaleDateString('es-PE', {
     day: 'numeric', month: 'long', year: 'numeric',
   });
+}
+
+/* Nombre corto = primer nombre + apellidos (para {nombreCorto}). El front solo
+   tiene el nombre completo; heurística: 1er palabra + las 2 últimas (apellidos).
+   Con <4 palabras deja el nombre tal cual. */
+function nombreCortoDe(full?: string | null): string {
+  const parts = (full ?? '').trim().split(/\s+/).filter(Boolean);
+  if (parts.length < 4) return (full ?? '').trim();
+  return `${parts[0]} ${parts[parts.length - 2]} ${parts[parts.length - 1]}`;
+}
+
+/* Mes + año, ej. "septiembre 2026" (para {mesEmision}). Espejo del backend. */
+const MESES_MESANIO = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+function fmtMesAnio(d: string | Date | undefined | null) {
+  if (!d) return '';
+  const s = typeof d === 'string' ? d.substring(0, 10) : d.toISOString().substring(0, 10);
+  if (!s || s === '0000-00-00') return '';
+  const [y, m] = s.split('-').map(Number);
+  if (!y || !m) return '';
+  return `${MESES_MESANIO[m - 1]} ${y}`;
 }
 
 /* Layout de logos:
@@ -144,6 +166,23 @@ export function CertificadoPDF({ certificado, config, onClose }: Props) {
   // Logos
   const slots = getLogoSlots(config.logos?.length ?? 0);
 
+  // Modo "Diseño Personalizado (Lienzo)": si está activo, se dibuja el fondo del
+  // cliente + los campos posicionados, en vez del diseño por defecto.
+  const layout     = parseLayout(config.layout_personalizado);
+  const usarLienzo = layoutActivo(layout);
+  const varsLienzo: Record<string, string> = {
+    nombre: certificado.participante_nombre, participante: certificado.participante_nombre,
+    nombreCorto: nombreCortoDe(certificado.participante_nombre),
+    calidad: (certificado as any).calidad ?? 'Participante',
+    programa: certificado.programa_nombre, curso: certificado.programa_nombre,
+    tipo: certificado.tipo_programa_nombre ?? 'Certificado',
+    fecha: fmtDate(certificado.fecha_emision), fechaInicio, fechaFin,
+    mesEmision: fmtMesAnio(certificado.fecha_emision),
+    horas: String(certificado.horas_academicas ?? ''),
+    creditos: certificado.creditos ? String(certificado.creditos) : '',
+    codigo: certificado.codigo_unico,
+  };
+
   return (
     <div style={{
       position: 'fixed', inset: 0, zIndex: 50,
@@ -217,11 +256,16 @@ export function CertificadoPDF({ certificado, config, onClose }: Props) {
                 alt=""
                 style={{
                   position: 'absolute', inset: 0,
-                  width: W, height: H, objectFit: 'cover',
+                  width: W, height: H, objectFit: usarLienzo ? 'fill' : 'cover',
                 }}
               />
             )}
 
+            {usarLienzo ? (
+              /* ── Modo lienzo: solo el fondo del cliente + los campos posicionados ── */
+              <LienzoCampos layout={layout!} vars={varsLienzo} codigo={certificado.codigo_unico} qrDataUrl={qrDataUrl} logos={config.logos ?? []} firmas={config.firmas ?? []} />
+            ) : (
+            <>
             {/* ── LOGOS (slot 200x110, img respeta aspect ratio) ── */}
             {config.logos?.map((logo, i) => (
               <div key={logo.id} style={logoSlotStyle(slots[i] ?? 'center')}>
@@ -437,6 +481,8 @@ export function CertificadoPDF({ certificado, config, onClose }: Props) {
             }}>
               Certificado generado por {certificado.empresa_nombre} — Sistema de Certificación
             </p>
+            </>
+            )}
           </div>
           {/* ═══════════ /CERTIFICADO ═══════════ */}
         </div>

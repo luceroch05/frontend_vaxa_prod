@@ -15,6 +15,8 @@ import { useProgramas } from '../../shared/hooks/useProgramas';
 import { useGrupos }    from '../../shared/hooks/useGrupos';
 import CertificadoPreview from '../../shared/components/CertificadoPreview';
 import { VARIABLES_CERTIFICADO } from '../../shared/utils/certVariables';
+import EditorLienzo from '../../personalizado/EditorLienzo';
+import { LayoutLienzo, parseLayout } from '../../personalizado/layout';
 import type { Logo, Firma } from '../../shared/types';
 
 /* ── Campo de texto del certificado con variables insertables ──── */
@@ -422,6 +424,8 @@ type ProgramCfg = {
   texto_personalizado: string;
   logos:  number[];
   firmas: number[];
+  /** Modo "Diseño Personalizado (Lienzo)". null = diseño por defecto de Vaxa. */
+  layout: LayoutLienzo | null;
 };
 
 /* ── GrupoCombobox: select con búsqueda integrada ───────────── */
@@ -625,12 +629,13 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
 
   const cfgKey = (progId: number, grupoId: number) => `${progId}-${grupoId}`;
   const cfg = (progId: number, grupoId: number = 0): ProgramCfg =>
-    configs[cfgKey(progId, grupoId)] ?? { plantilla_url: '', texto_personalizado: '', logos: [], firmas: [] };
+    configs[cfgKey(progId, grupoId)] ?? { plantilla_url: '', texto_personalizado: '', logos: [], firmas: [], layout: null };
 
   /* Firma normalizada de una config para comparar cambios (orden de ids no importa). */
   const normCfg = (c: ProgramCfg) => JSON.stringify({
     plantilla_url: c.plantilla_url ?? '',
     texto_personalizado: c.texto_personalizado ?? '',
+    layout: c.layout ?? null,
     logos: [...c.logos].sort((a, b) => a - b),
     firmas: [...c.firmas].sort((a, b) => a - b),
   });
@@ -660,6 +665,7 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
           const cargado: ProgramCfg = {
             plantilla_url:      c.plantilla_url ?? '',
             texto_personalizado: c.texto_personalizado ?? '',
+            layout: parseLayout(c.layout_personalizado),
             logos:  c.logos?.map(l => l.id)  ?? [],
             firmas: c.firmas?.map(f => f.id) ?? [],
           };
@@ -667,7 +673,7 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
           setBaselines(prev => ({ ...prev, [cfgKey(p.id, 0)]: normCfg(cargado) }));
         })
         .catch(() => {
-          const vacio: ProgramCfg = { plantilla_url: '', texto_personalizado: '', logos: [], firmas: [] };
+          const vacio: ProgramCfg = { plantilla_url: '', texto_personalizado: '', logos: [], firmas: [], layout: null };
           setConfigs(prev => ({ ...prev, [cfgKey(p.id, 0)]: vacio }));
           setBaselines(prev => ({ ...prev, [cfgKey(p.id, 0)]: normCfg(vacio) }));
         });
@@ -686,6 +692,7 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
       const cargado: ProgramCfg = {
         plantilla_url:      c.plantilla_url ?? '',
         texto_personalizado: c.texto_personalizado ?? '',
+        layout: parseLayout(c.layout_personalizado),
         logos:  c.logos?.map(l => l.id)  ?? [],
         firmas: c.firmas?.map(f => f.id) ?? [],
       };
@@ -693,7 +700,7 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
       setBaselines(prev => ({ ...prev, [cfgKey(progId, grupoId)]: normCfg(cargado) }));
     } catch {
       // Si el grupo no tiene config, arrancamos vacío
-      const vacio: ProgramCfg = { plantilla_url: '', texto_personalizado: '', logos: [], firmas: [] };
+      const vacio: ProgramCfg = { plantilla_url: '', texto_personalizado: '', logos: [], firmas: [], layout: null };
       setConfigs(prev => ({ ...prev, [cfgKey(progId, grupoId)]: vacio }));
       setBaselines(prev => ({ ...prev, [cfgKey(progId, grupoId)]: normCfg(vacio) }));
     }
@@ -763,6 +770,7 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
       await configApi.upsert(empresa, progId, {
         plantilla_url:      c.plantilla_url || null,
         texto_personalizado: c.texto_personalizado || null,
+        layout_personalizado: c.layout ? JSON.stringify(c.layout) : null,
         logo_ids:  logoIds,
         firma_ids: firmaIds,
         grupo_id:  g,
@@ -1039,6 +1047,7 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
                     programaNombre={p.nombre}
                     horas={p.horas_academicas}
                     creditos={p.creditos}
+                    layout={c.layout}
                     displayWidth={640}
                   />
                 </div>
@@ -1095,6 +1104,12 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
                   placeholder={`Por haber completado satisfactoriamente el programa "${p.nombre}" con una duración de ${p.horas_academicas} horas académicas...`}
                 />
               </div>
+
+              {/* Diseño personalizado (Lienzo) — servicio a medida */}
+              <EditorLienzo
+                value={c.layout}
+                onChange={l => setCfg(p.id, g, { layout: l })}
+              />
 
               {/* Logos — multi-select */}
               <div>

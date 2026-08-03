@@ -273,6 +273,8 @@ export interface ConfigCertificado {
   programa_id:         number;
   plantilla_url:       string | null;
   texto_personalizado: string | null;
+  /** JSON del modo "Diseño Personalizado (Lienzo)". null = diseño por defecto. */
+  layout_personalizado?: string | null;
   logos:               ConfigLogoItem[];
   firmas:              ConfigFirmaItem[];
 }
@@ -280,6 +282,8 @@ export interface ConfigCertificado {
 export interface UpsertConfigDto {
   plantilla_url?:       string | null;
   texto_personalizado?: string | null;
+  /** JSON (string) del modo "Diseño Personalizado (Lienzo)". */
+  layout_personalizado?: string | null;
   logo_ids?:  number[];
   firma_ids?: number[];
   /** 0 = config del programa (default). >0 = config específica de un grupo */

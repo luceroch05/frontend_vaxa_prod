@@ -3,6 +3,8 @@ import {
 } from './CertificadoPDF';
 import { expandirVariablesCertificado } from '../utils/certVariables';
 import { imgUrl } from '@/lib/api/client';
+import LienzoCampos from '../../personalizado/LienzoCampos';
+import { LayoutLienzo, layoutActivo } from '../../personalizado/layout';
 
 interface PreviewLogo  { id: number; imagen_logo: string; nombre?: string | null }
 interface PreviewFirma { id: number; imagen_firma: string; nombre_autoridad: string; cargo: string }
@@ -16,6 +18,8 @@ interface Props {
   programaNombre?: string;
   horas?: number;
   creditos?: number;
+  /** Layout del modo "Diseño Personalizado (Lienzo)". Si está activo, sustituye al diseño por defecto. */
+  layout?: LayoutLienzo | null;
   /** Ancho en px al que se muestra el certificado (se escala desde 1122). */
   displayWidth?: number;
 }
@@ -26,6 +30,7 @@ const EJEMPLO = {
   fechaInicio:  '15 de agosto de 2026',
   fechaFin:     '22 de agosto de 2026',
   fecha:        '25 de agosto de 2026',
+  mesEmision:   'agosto 2026',
 };
 
 /* ── Vista previa del certificado ───────────────────────────────
@@ -35,12 +40,24 @@ const EJEMPLO = {
  * dónde caen las firmas y cómo se expande el texto con variables.
  * ─────────────────────────────────────────────────────────────── */
 export default function CertificadoPreview({
-  plantillaUrl, logos, firmas, texto, tipoPrograma, programaNombre, horas, creditos, displayWidth = 460,
+  plantillaUrl, logos, firmas, texto, tipoPrograma, programaNombre, horas, creditos, layout, displayWidth = 460,
 }: Props) {
   const scale = displayWidth / W;
 
   const programa = programaNombre || 'Nombre del Programa';
   const tipo     = tipoPrograma   || 'Certificado';
+  const usarLienzo = layoutActivo(layout);
+
+  // Variables de ejemplo para los campos del lienzo (así el admin ve cómo queda).
+  const varsLienzo: Record<string, string> = {
+    nombre: EJEMPLO.participante, participante: EJEMPLO.participante,
+    nombreCorto: 'Ana Torres López',
+    calidad: 'Participante',
+    programa, curso: programa, tipo,
+    fecha: EJEMPLO.fecha, fechaInicio: EJEMPLO.fechaInicio, fechaFin: EJEMPLO.fechaFin,
+    mesEmision: EJEMPLO.mesEmision,
+    horas: String(horas ?? 40), creditos: creditos ? String(creditos) : '', codigo: 'CERT-EJEMPLO',
+  };
 
   const periodo = `, realizado los días 15, 18 y 22 de agosto de 2026`;
   const cuerpoDefault = `Por haber completado satisfactoriamente ${tipo} "${programa}" con una duración de ${horas ?? 40} horas académicas${periodo}.`;
@@ -79,11 +96,17 @@ export default function CertificadoPreview({
         background: '#fff',
         fontFamily: 'Helvetica, Arial, sans-serif',
       }}>
-        {/* Fondo */}
+        {/* Fondo — en modo lienzo se estira (fill) igual que el PDF real para que
+            las coordenadas de los campos coincidan; en modo normal se recorta (cover). */}
         {plantillaUrl && (
-          <img src={imgUrl(plantillaUrl)} alt="" style={{ position: 'absolute', inset: 0, width: W, height: H, objectFit: 'cover' }} />
+          <img src={imgUrl(plantillaUrl)} alt="" style={{ position: 'absolute', inset: 0, width: W, height: H, objectFit: usarLienzo ? 'fill' : 'cover' }} />
         )}
 
+        {usarLienzo ? (
+          /* ── Modo lienzo: solo el fondo del cliente + los campos posicionados ── */
+          <LienzoCampos layout={layout!} vars={varsLienzo} codigo="CERT-EJEMPLO" logos={logos} firmas={firmas} />
+        ) : (
+        <>
         {/* Logos */}
         {logos.map((logo, i) => (
           <div key={logo.id} style={logoSlotStyle(slots[i] ?? 'center')}>
@@ -140,6 +163,8 @@ export default function CertificadoPreview({
         <p style={{ position: 'absolute', left: 130, bottom: 20, margin: 0, fontSize: 11, color: '#9ca3af' }}>
           Fecha de emisión: {EJEMPLO.fecha}
         </p>
+        </>
+        )}
       </div>
     </div>
   );

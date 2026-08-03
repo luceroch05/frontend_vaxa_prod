@@ -15,6 +15,8 @@ export interface InscribirDto {
   email?: string;
   telefono?: string;
   grupo_id: number;
+  /** Calidad de participación (Participante, Organizador, Ponente…). Default Participante. */
+  calidad?: string;
 }
 
 /** Una fila de participante para la carga masiva. */

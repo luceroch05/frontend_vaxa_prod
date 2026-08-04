@@ -13,10 +13,11 @@ import { firmasApi } from '../../shared/api/firmas.api';
 import { configApi } from '../../shared/api/config.api';
 import { useProgramas } from '../../shared/hooks/useProgramas';
 import { useGrupos }    from '../../shared/hooks/useGrupos';
+import { usePlan }      from '../../shared/hooks/usePlan';
 import CertificadoPreview from '../../shared/components/CertificadoPreview';
 import { VARIABLES_CERTIFICADO } from '../../shared/utils/certVariables';
 import EditorLienzo from '../../personalizado/EditorLienzo';
-import { LayoutLienzo, parseLayout } from '../../personalizado/layout';
+import { LayoutLienzo, layoutActivo, parseLayout } from '../../personalizado/layout';
 import type { Logo, Firma } from '../../shared/types';
 
 /* ── Campo de texto del certificado con variables insertables ──── */
@@ -600,6 +601,10 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
   const confirm = useConfirm();
   const { programas, loading: loadingProgs } = useProgramas(empresa);
   const { grupos }   = useGrupos(empresa);
+  // El "Diseño personalizado (Lienzo)" es un servicio a medida: solo lo ven las
+  // empresas cuyo plan lo incluye (permite_diseno). El resto usa el diseño estándar.
+  const { estado } = usePlan();
+  const permiteDiseno = !!estado?.plan?.permite_diseno;
   const [logos,  setLogos]  = useState<Logo[]>([]);
   const [firmas, setFirmas] = useState<Firma[]>([]);
 
@@ -618,6 +623,9 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
   const [savedOk,   setSavedOk]   = useState<number | null>(null);
   const [error,     setError]     = useState<string | null>(null);
   const [expandedId,  setExpandedId]  = useState<number | null>(null);
+  // Doble click en un campo del lienzo (preview) → pedirle al editor de abajo que
+  // enfoque su tarjeta de propiedades. `ts` fuerza re-disparo aunque sea el mismo campo.
+  const [editFieldReq, setEditFieldReq] = useState<{ key: string; ts: number } | null>(null);
   const [busqueda,    setBusqueda]    = useState('');
   const [queryLogos,  setQueryLogos]  = useState('');
   const [queryFirmas, setQueryFirmas] = useState('');
@@ -1034,7 +1042,9 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
                     Vista previa
                   </p>
                   <span className="text-[10.5px]" style={{ color: '#6B7280' }}>
-                    datos de ejemplo · así quedará al emitir
+                    {permiteDiseno && layoutActivo(c.layout)
+                      ? 'arrastra para ubicar · doble click = editar propiedades · guías al alinear · Ctrl+Z deshace'
+                      : 'datos de ejemplo · así quedará al emitir'}
                   </span>
                 </div>
                 <div className="flex justify-center overflow-x-auto">
@@ -1049,6 +1059,9 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
                     creditos={p.creditos}
                     layout={c.layout}
                     displayWidth={640}
+                    editable={permiteDiseno}
+                    onLayoutChange={l => setCfg(p.id, g, { layout: l })}
+                    onEditField={key => setEditFieldReq({ key, ts: Date.now() })}
                   />
                 </div>
               </div>
@@ -1105,11 +1118,17 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
                 />
               </div>
 
-              {/* Diseño personalizado (Lienzo) — servicio a medida */}
-              <EditorLienzo
-                value={c.layout}
-                onChange={l => setCfg(p.id, g, { layout: l })}
-              />
+              {/* Diseño personalizado (Lienzo) — servicio a medida. Solo para empresas
+                  cuyo plan lo incluye (permite_diseno). El posicionamiento se hace
+                  arrastrando en la Vista previa de arriba; aquí quedan las propiedades
+                  finas de cada campo (texto, tamaño, color…). */}
+              {permiteDiseno && (
+                <EditorLienzo
+                  value={c.layout}
+                  onChange={l => setCfg(p.id, g, { layout: l })}
+                  editFieldReq={editFieldReq}
+                />
+              )}
 
               {/* Logos — multi-select */}
               <div>

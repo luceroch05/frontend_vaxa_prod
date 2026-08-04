@@ -22,6 +22,7 @@ export default function TabInformacion({ empresa, onChange }: TabInformacionProp
   const [ruc, setRuc] = useState(empresa.ruc ?? '');
   const [tipoDoc, setTipoDoc] = useState(empresa.tipo_doc ?? '6');
   const [activo, setActivo] = useState(empresa.activo === 1);
+  const [permiteDiseno, setPermiteDiseno] = useState(!!empresa.permite_diseno);
   const [logo, setLogo] = useState<string | null>(empresa.logo_url);  // base64/data URL
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -31,13 +32,14 @@ export default function TabInformacion({ empresa, onChange }: TabInformacionProp
     razon !== empresa.razon_social || slug !== empresa.tenant_slug ||
     dominio !== (empresa.dominio ?? '') || ruc !== (empresa.ruc ?? '') ||
     tipoDoc !== (empresa.tipo_doc ?? '6') ||
-    activo !== (empresa.activo === 1) || (logo ?? '') !== (empresa.logo_url ?? '');
+    activo !== (empresa.activo === 1) || permiteDiseno !== !!empresa.permite_diseno ||
+    (logo ?? '') !== (empresa.logo_url ?? '');
   const puedeGuardar = razon.trim() !== '' && slug.trim() !== '' && huboCambios;
 
   const reset = () => {
     setRazon(empresa.razon_social); setSlug(empresa.tenant_slug);
     setDominio(empresa.dominio ?? ''); setRuc(empresa.ruc ?? ''); setTipoDoc(empresa.tipo_doc ?? '6');
-    setActivo(empresa.activo === 1); setLogo(empresa.logo_url);
+    setActivo(empresa.activo === 1); setPermiteDiseno(!!empresa.permite_diseno); setLogo(empresa.logo_url);
     setError(null); setEditing(false);
   };
 
@@ -59,6 +61,7 @@ export default function TabInformacion({ empresa, onChange }: TabInformacionProp
         ruc,
         tipo_doc: tipoDoc,
         activo,
+        permite_diseno: permiteDiseno,
         logo: logo ?? '',          // '' borra el logo
       });
       onChange?.();
@@ -146,6 +149,30 @@ export default function TabInformacion({ empresa, onChange }: TabInformacionProp
           </Field>
         </div>
 
+        {/* Servicio a medida que activa Vaxa (proveedor) para este cliente. */}
+        <Field label="Servicios a medida">
+          <label
+            className="flex items-start gap-3 rounded-xl p-3.5 cursor-pointer transition-all"
+            style={permiteDiseno
+              ? { border: '1.5px solid #059669', background: '#F0FDF9' }
+              : { border: '1.5px solid #EEECE6', background: '#fff' }}
+          >
+            <input
+              type="checkbox"
+              checked={permiteDiseno}
+              onChange={(e) => setPermiteDiseno(e.target.checked)}
+              className="mt-0.5 w-4 h-4 accent-emerald-600"
+            />
+            <div>
+              <p className="text-[13.5px] font-bold" style={{ color: '#0D0E12' }}>Diseño personalizado (Lienzo)</p>
+              <p className="text-[12px] mt-0.5" style={{ color: '#64748B' }}>
+                Habilita el editor de arrastre (tipo Canva) para este cliente. Actívalo solo para
+                clientes a medida (ej. FAP); el resto usa el diseño estándar.
+              </p>
+            </div>
+          </label>
+        </Field>
+
         <div className="flex justify-end gap-2.5 pt-2">
           <button onClick={reset} className="sv-btn sv-btn-ghost">Cancelar</button>
           <button onClick={guardar} disabled={saving || !puedeGuardar} className="sv-btn sv-btn-primary">
@@ -165,6 +192,7 @@ export default function TabInformacion({ empresa, onChange }: TabInformacionProp
     { icon: Globe,      label: 'Identificador (slug)', value: empresa.tenant_slug },
     { icon: Globe,      label: 'Dominio', value: empresa.dominio || '—' },
     { icon: CreditCard, label: 'Créditos disponibles', value: String(empresa.creditos_disponibles) },
+    { icon: Edit,       label: 'Diseño personalizado', value: empresa.permite_diseno ? 'Activado' : 'Estándar' },
   ];
 
   const links = {

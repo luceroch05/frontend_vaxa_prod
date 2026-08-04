@@ -100,6 +100,84 @@ export function indiceLogo(key: string): number {
 }
 export const indiceFirma = indiceLogo;
 
+/** Dimensiones del viewport del lienzo (coincide con el PDF). */
+export const LIENZO_W = 1122, LIENZO_H = 794;
+
+/** Caja rectangular (en coords del viewport 1122×794) que ocupa un campo.
+ *  La usa el lienzo interactivo para dibujar el área agarrable/arrastrable.
+ *  Para el texto la altura es aproximada (tamaño × líneas); alcanza para agarrarlo. */
+export interface Box { x: number; y: number; w: number; h: number; }
+export function campoBox(
+  key: string,
+  campo: CampoTexto & CampoQR & CampoLogo & CampoFirma & CampoLinea,
+): Box {
+  const x = campo.x ?? 0, y = campo.y ?? 0;
+  switch (tipoCampo(key)) {
+    case 'logo': {
+      const s = campo.size ?? 100;
+      return { x, y, w: s, h: s };
+    }
+    case 'firma': {
+      const w = campo.w ?? 260, h = campo.h ?? 58;
+      return { x, y, w, h: h + 46 };   // imagen + línea + nombre + cargo
+    }
+    case 'qr': {
+      const s = campo.size ?? 90;
+      return { x, y, w: s, h: s + (campo.showCodigo !== false ? 16 : 0) };
+    }
+    case 'linea': {
+      const w = campo.w ?? 200, th = campo.thickness ?? 1.5;
+      return { x, y: y - 5, w, h: Math.max(th, 4) + 10 };  // engorda el alto para poder agarrarla
+    }
+    default: {
+      const w = campo.w ?? 400, size = campo.size ?? 20;
+      const lineas = (campo.text ?? '').split('\n').length || 1;
+      return { x, y, w, h: size * 1.3 * lineas };
+    }
+  }
+}
+
+/** Resultado del snap: posición ajustada + líneas-guía a dibujar (coords del viewport). */
+export interface SnapResult { x: number; y: number; vLines: number[]; hLines: number[]; }
+
+/**
+ * Alineación tipo Canva/Figma. Dada la caja propuesta del campo que se arrastra y
+ * las cajas de los demás, "pega" la posición cuando un borde/centro del arrastrado
+ * cae a `threshold` px de un borde/centro de otro (o del centro del lienzo) y
+ * devuelve las líneas-guía a pintar. Función pura → fácil de testear/reusar.
+ */
+export function snapToGuides(proposed: Box, others: Box[], threshold = 6): SnapResult {
+  // Objetivos: bordes/centros de los demás + centro del lienzo en cada eje.
+  const vTargets: number[] = [LIENZO_W / 2];
+  const hTargets: number[] = [LIENZO_H / 2];
+  for (const b of others) {
+    vTargets.push(b.x, b.x + b.w / 2, b.x + b.w);
+    hTargets.push(b.y, b.y + b.h / 2, b.y + b.h);
+  }
+  // Anclas del arrastrado como offset respecto de su x/y: izq/centro/der · arriba/medio/abajo.
+  const vAnchors = [0, proposed.w / 2, proposed.w];
+  const hAnchors = [0, proposed.h / 2, proposed.h];
+
+  let x = proposed.x, y = proposed.y;
+  const vLines: number[] = [], hLines: number[] = [];
+
+  let bestV: { d: number; t: number; off: number } | null = null;
+  for (const t of vTargets) for (const off of vAnchors) {
+    const d = Math.abs(proposed.x + off - t);
+    if (d <= threshold && (!bestV || d < bestV.d)) bestV = { d, t, off };
+  }
+  if (bestV) { x = Math.round(bestV.t - bestV.off); vLines.push(bestV.t); }
+
+  let bestH: { d: number; t: number; off: number } | null = null;
+  for (const t of hTargets) for (const off of hAnchors) {
+    const d = Math.abs(proposed.y + off - t);
+    if (d <= threshold && (!bestH || d < bestH.d)) bestH = { d, t, off };
+  }
+  if (bestH) { y = Math.round(bestH.t - bestH.off); hLines.push(bestH.t); }
+
+  return { x, y, vLines, hLines };
+}
+
 /** Etiqueta legible para un campo (usa su `label`, o el key con un nombre bonito). */
 export function labelCampo(key: string, campo: CampoTexto | CampoQR | CampoLogo): string {
   const l = (campo as CampoTexto).label;

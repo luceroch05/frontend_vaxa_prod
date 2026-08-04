@@ -81,6 +81,8 @@ export default function RegistrarEmpresaCertificaciones({
   const [cicloId, setCicloId] = useState<number>(1);
   const [verificandoRuc, setVerificandoRuc] = useState(false);
   const [rucMsg, setRucMsg] = useState<{ ok: boolean; texto: string } | null>(null);
+  // Servicio a medida que el proveedor (Vaxa) activa para este cliente puntual.
+  const [permiteDiseno, setPermiteDiseno] = useState(false);
 
   const [formData, setFormData] = useState<FormData>({
     nombre: '',
@@ -181,6 +183,7 @@ export default function RegistrarEmpresaCertificaciones({
         logo: logoPreview || undefined,            // data URL base64 del logo subido
         plan_id: planId || undefined,
         ciclo_id: cicloId,
+        permite_diseno: permiteDiseno,             // servicio a medida activado por Vaxa
       });
       // No se emite ningún comprobante al registrar. La factura/boleta se hace
       // manualmente desde Facturación Electrónica.
@@ -628,6 +631,41 @@ export default function RegistrarEmpresaCertificaciones({
                 </div>
               );
             })()}
+          </div>
+
+          {/* Servicios a medida que activa Vaxa (proveedor) para este cliente puntual.
+              No dependen del plan: los prende el proveedor al registrar. */}
+          <div className="mb-8">
+            <h2 className="text-[15px] font-bold text-gray-900 mb-2 flex items-center gap-2">
+              <CheckCircle className="w-5 h-5 text-emerald-600" />
+              Servicios a medida
+            </h2>
+            <p className="text-sm text-gray-600 mb-4">
+              Los activa Vaxa para clientes puntuales. No vienen con el plan.
+            </p>
+            <label
+              className="flex items-start gap-3 rounded-2xl p-4 cursor-pointer transition-all"
+              style={permiteDiseno
+                ? { border: '1.5px solid #059669', background: '#F0FDF9', boxShadow: '0 4px 16px rgba(5,150,105,0.10)' }
+                : { border: '1.5px solid #EEECE6', background: '#fff' }}
+            >
+              <input
+                type="checkbox"
+                checked={permiteDiseno}
+                onChange={(e) => setPermiteDiseno(e.target.checked)}
+                className="mt-1 w-4 h-4 accent-emerald-600"
+              />
+              <div>
+                <p className="text-[14px] font-bold" style={{ color: '#0D0E12' }}>
+                  Diseño personalizado (Lienzo)
+                </p>
+                <p className="text-[12.5px] mt-0.5" style={{ color: '#64748B' }}>
+                  Habilita el editor de arrastre (tipo Canva) para que este cliente posicione los
+                  campos sobre su propio fondo. Márcalo solo para clientes a medida (ej. FAP);
+                  el resto usa el diseño estándar.
+                </p>
+              </div>
+            </label>
           </div>
 
           {/* El comprobante (factura/boleta) NO se emite al registrar: se hace

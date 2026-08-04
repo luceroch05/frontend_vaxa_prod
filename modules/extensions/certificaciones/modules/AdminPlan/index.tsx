@@ -7,7 +7,7 @@ import { planesApi, PAQUETES_CREDITOS, CREDITOS_INDIVIDUALES, type MovimientoCre
 import Pagination from '../../shared/components/Pagination';
 
 /** Contacto de Vaxa para solicitar la recarga (la compra es manual por ahora). */
-const VAXA_WA = '51974280156';
+const VAXA_WA = '51924600490';
 
 const sol = (n: number) => `S/ ${n.toFixed(2)}`;
 const fmtFecha = (s: string) => new Date(`${s.slice(0, 10)}T00:00:00`).toLocaleDateString('es-PE', { day: '2-digit', month: 'long', year: 'numeric' });

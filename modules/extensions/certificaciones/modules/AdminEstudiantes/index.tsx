@@ -46,7 +46,6 @@ function InscribirModal({ empresa, onClose, onDone }: {
   const [telefono,  setTelefono]  = useState('');
   const [grupoId,    setGrupoId]    = useState<number>(0);
   const [calidad,    setCalidad]    = useState('Participante');
-  const [calidadOtra, setCalidadOtra] = useState(false);
 
   const [yaRegistrado, setYaRegistrado] = useState(false);
   const [buscando, setBuscando] = useState(false);
@@ -215,39 +214,24 @@ function InscribirModal({ empresa, onClose, onDone }: {
           <ProgramaGrupoPicker grupos={grupos} value={grupoId} onChange={setGrupoId} />
 
           {/* Calidad de participación — sale en el certificado ("en calidad de: ___").
-              Desplegable con opciones base + "Otra…". La web pública siempre queda Participante. */}
+              Desplegable cerrado con las 4 opciones. La web pública siempre queda Participante. */}
           <div>
             <label className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: '#9CA3AF' }}>
               Calidad de participación
             </label>
             <div className="mt-1">
               <SelectVx
-                value={calidadOtra ? '__otra__' : calidad}
-                onChange={v => {
-                  if (v === '__otra__') { setCalidadOtra(true); setCalidad(''); }
-                  else { setCalidadOtra(false); setCalidad(v); }
-                }}
+                value={calidad}
+                onChange={v => setCalidad(v)}
                 options={[
+                  { value: 'Organizador',  label: 'Organizador' },
+                  { value: 'Colaborador',  label: 'Colaborador' },
                   { value: 'Participante', label: 'Participante' },
-                  { value: 'Organizador', label: 'Organizador' },
-                  { value: 'Ponente',     label: 'Ponente' },
-                  { value: 'Moderador',   label: 'Moderador' },
-                  { value: 'Asistente',   label: 'Asistente' },
-                  { value: 'Expositor',   label: 'Expositor' },
-                  { value: '__otra__',    label: 'Otra…' },
+                  { value: 'Ponente',      label: 'Ponente' },
                 ]}
                 placeholder="Participante"
               />
             </div>
-            {calidadOtra && (
-              <input
-                value={calidad}
-                onChange={e => setCalidad(e.target.value)}
-                placeholder="Escribe la calidad (ej. Invitado de honor)"
-                className="vx-input w-full mt-2"
-                autoFocus
-              />
-            )}
             <p className="text-[11px] mt-1" style={{ color: '#B0A898' }}>
               Aparece en el certificado ("en calidad de: ___"). Por defecto "Participante".
             </p>

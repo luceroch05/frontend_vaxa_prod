@@ -4,6 +4,7 @@ import {
 import { expandirVariablesCertificado } from '../utils/certVariables';
 import { imgUrl } from '@/lib/api/client';
 import LienzoCampos from '../../personalizado/LienzoCampos';
+import LienzoDragLayer from '../../personalizado/LienzoDragLayer';
 import { LayoutLienzo, layoutActivo } from '../../personalizado/layout';
 
 interface PreviewLogo  { id: number; imagen_logo: string; nombre?: string | null }
@@ -22,6 +23,12 @@ interface Props {
   layout?: LayoutLienzo | null;
   /** Ancho en px al que se muestra el certificado (se escala desde 1122). */
   displayWidth?: number;
+  /** Si true (y modo lienzo activo), habilita arrastrar los campos sobre esta preview. */
+  editable?: boolean;
+  /** Se llama con el layout actualizado al arrastrar/mover un campo. */
+  onLayoutChange?: (l: LayoutLienzo) => void;
+  /** Doble click en un campo del lienzo → pedir editar sus propiedades (abajo). */
+  onEditField?: (key: string) => void;
 }
 
 /* Datos de ejemplo: así el usuario VE cómo queda con un alumno real. */
@@ -41,6 +48,7 @@ const EJEMPLO = {
  * ─────────────────────────────────────────────────────────────── */
 export default function CertificadoPreview({
   plantillaUrl, logos, firmas, texto, tipoPrograma, programaNombre, horas, creditos, layout, displayWidth = 460,
+  editable = false, onLayoutChange, onEditField,
 }: Props) {
   const scale = displayWidth / W;
 
@@ -103,8 +111,22 @@ export default function CertificadoPreview({
         )}
 
         {usarLienzo ? (
-          /* ── Modo lienzo: solo el fondo del cliente + los campos posicionados ── */
-          <LienzoCampos layout={layout!} vars={varsLienzo} codigo="CERT-EJEMPLO" logos={logos} firmas={firmas} />
+          /* ── Modo lienzo: fondo del cliente + campos posicionados (+ capa de arrastre si es editable) ── */
+          <>
+            <LienzoCampos layout={layout!} vars={varsLienzo} codigo="CERT-EJEMPLO" logos={logos} firmas={firmas} />
+            {editable && onLayoutChange && (
+              <LienzoDragLayer
+                layout={layout!}
+                scale={scale}
+                onMove={(key, x, y) => onLayoutChange({
+                  ...layout!,
+                  activo: true,
+                  campos: { ...(layout!.campos ?? {}), [key]: { ...(layout!.campos?.[key] ?? {}), x, y } },
+                })}
+                onEditField={onEditField}
+              />
+            )}
+          </>
         ) : (
         <>
         {/* Logos */}
@@ -122,7 +144,8 @@ export default function CertificadoPreview({
           <p style={{ margin: 0, fontSize: 32, fontWeight: 700, color: '#1a365d', textTransform: 'uppercase' }}>{tipo}</p>
           <p style={{ margin: '28px 0 0', fontSize: 18, color: '#475569' }}>Se otorga a:</p>
           <p style={{ margin: '10px 0 0', fontSize: 42, fontWeight: 700, color: '#0f172a', lineHeight: 1.15, fontFamily: 'Georgia, "Times New Roman", serif' }}>
-            {EJEMPLO.participante}
+            {/* En el certificado va el nombre corto (un nombre + apellidos); el completo es para validar. */}
+            Ana Torres López
           </p>
           <p style={{ margin: '35px 0 0', fontSize: cuerpoSize, color: '#475569', lineHeight: 1.65, maxWidth: 700, whiteSpace: 'pre-wrap' }}>
             {cuerpo}

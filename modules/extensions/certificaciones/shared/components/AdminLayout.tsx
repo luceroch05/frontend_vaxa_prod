@@ -9,8 +9,8 @@ import type { ComponentType } from 'react';
 
 /** Contacto de soporte de Vaxa (para que el cliente nos escriba directo). */
 const VAXA_SOPORTE = {
-  whatsapp: '51974280156',          // número en formato internacional (sin +)
-  whatsappLabel: '+51 974 280 156',
+  whatsapp: '51924600490',          // número en formato internacional (sin +)
+  whatsappLabel: '+51 924 600 490',
   email: 'info@vaxa.com.pe',
 };
 import { authStorage } from '@/lib/auth';

@@ -5,7 +5,7 @@ import {
 } from '@/components/ui/icon';
 
 /** Contacto de Vaxa para la landing. */
-const WA_LINK = `https://wa.me/51974280156?text=${encodeURIComponent('Hola Vaxa 👋, quiero información sobre el sistema de certificados.')}`;
+const WA_LINK = `https://wa.me/51924600490?text=${encodeURIComponent('Hola Vaxa 👋, quiero información sobre el sistema de certificados.')}`;
 
 /* ── Sistema visual (tech / dark) ────────────────────────────── */
 const BG = '#070B0A';            // casi negro verdoso
@@ -278,7 +278,7 @@ export default function HomePage() {
               <a href={WA_LINK} target="_blank" rel="noreferrer"
                 className="group inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-[15px] font-semibold transition-transform hover:-translate-y-0.5"
                 style={{ fontFamily: MONO, background: '#25D366', color: '#04110C', boxShadow: '0 16px 50px -12px rgba(37,211,102,0.6)' }}>
-                <MessageCircle size={18} /> WhatsApp · +51 974 280 156
+                <MessageCircle size={18} /> WhatsApp · +51 924 600 490
               </a>
               <a href="mailto:info@vaxa.com.pe?subject=Quiero%20una%20demo%20de%20Vaxa"
                 className="group inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-[15px] font-semibold transition-transform hover:-translate-y-0.5"

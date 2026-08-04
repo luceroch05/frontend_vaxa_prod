@@ -18,8 +18,13 @@ export interface FilaParseada extends ImportarFila {
   motivo?: string;         // por qué no es válida
 }
 
-const HEADERS = ['Tipo de documento', 'Número de documento', 'Nombres', 'Apellidos', 'Email', 'Teléfono'] as const;
+const HEADERS = ['Tipo de documento', 'Número de documento', 'Nombres', 'Apellidos', 'Email', 'Teléfono', 'Calidad'] as const;
 const norm = (s: unknown) => String(s ?? '').trim().toUpperCase();
+
+/** Calidades permitidas en el Excel (desplegable estricto, como Tipo de documento). */
+const CALIDADES = ['Organizador', 'Colaborador', 'Participante', 'Ponente'] as const;
+/** Mapa MAYÚS → forma canónica, para normalizar lo que venga en la celda. */
+const CALIDAD_CANON = new Map(CALIDADES.map((c) => [c.toUpperCase(), c]));
 
 /**
  * Normaliza un nombre/apellido a "Título": cada palabra con la primera letra en
@@ -72,6 +77,7 @@ export async function generarPlantilla(
     { key: 'apellidos',width: 26 },
     { key: 'email',    width: 30 },
     { key: 'telefono', width: 18 },
+    { key: 'calidad',  width: 20 },
   ];
 
   // Encabezado con estilo (oscuro + texto dorado, en negrita).
@@ -86,8 +92,8 @@ export async function generarPlantilla(
 
   // Filas de ejemplo (en gris, para que el cliente vea el formato).
   const ejemplos = [
-    ['DNI', '45211078', 'Juan', 'Pérez Quispe', 'juan@correo.com', '+51 999 888 777'],
-    ['DNI', '70123456', 'María', 'Gómez Torres', '', ''],
+    ['DNI', '45211078', 'Juan', 'Pérez Quispe', 'juan@correo.com', '+51 999 888 777', 'Participante'],
+    ['DNI', '70123456', 'María', 'Gómez Torres', '', '', 'Ponente'],
   ];
   ejemplos.forEach((e) => {
     const r = ws.addRow(e);
@@ -110,6 +116,19 @@ export async function generarPlantilla(
     }
   }
 
+  // Desplegable ESTRICTO para "Calidad" (columna G) — igual que Tipo de documento:
+  // solo deja elegir una de la lista. En blanco → queda "Participante".
+  for (let row = 2; row <= 1000; row++) {
+    ws.getCell(`G${row}`).dataValidation = {
+      type: 'list',
+      allowBlank: true,
+      formulae: [`"${CALIDADES.join(',')}"`],
+      showErrorMessage: true,
+      errorTitle: 'Calidad',
+      error: `Elige una: ${CALIDADES.join(', ')}`,
+    };
+  }
+
   /* Hoja de instrucciones */
   const inst = wb.addWorksheet('Instrucciones');
   inst.columns = [{ width: 90 }];
@@ -125,7 +144,8 @@ export async function generarPlantilla(
     { t: '3. Columnas obligatorias: Tipo de documento, Número de documento, Nombres y Apellidos.' },
     { t: '4. Email y Teléfono son opcionales.' },
     { t: `5. Tipo de documento: usa uno de estos códigos → ${tiposDocumento.map((t) => `${t.codigo} (${t.nombre})`).join('  ·  ')}` },
-    { t: '6. No cambies los títulos de las columnas ni el orden.' },
+    { t: `6. Calidad (opcional): elige una de la lista → ${CALIDADES.join(', ')}. En blanco queda "Participante". Aparece en el certificado ("en calidad de: ___").` },
+    { t: '7. No cambies los títulos de las columnas ni el orden.' },
     { t: '' },
     { t: 'Al subir el archivo verás una vista previa con el estado de cada fila antes de confirmar.', color: 'FF15803D' },
   ];
@@ -175,9 +195,11 @@ export async function parsearArchivo(
     const apellidos  = aTitulo(celdaTexto(row.getCell(4).value));
     const email      = celdaTexto(row.getCell(5).value).trim();
     const telefono   = celdaTexto(row.getCell(6).value).trim();
+    const calidadRaw = celdaTexto(row.getCell(7).value).trim();
+    const calidad    = CALIDAD_CANON.get(calidadRaw.toUpperCase()) ?? calidadRaw;   // normaliza mayús/minús
 
     // Fila totalmente vacía → se ignora.
-    if (!tipoTexto && !doc && !nombres && !apellidos && !email && !telefono) return;
+    if (!tipoTexto && !doc && !nombres && !apellidos && !email && !telefono && !calidad) return;
 
     const tipo = tipoPorTexto.get(norm(tipoTexto));
     let valido = true;
@@ -197,6 +219,7 @@ export async function parsearArchivo(
       apellidos,
       email: email || undefined,
       telefono: telefono || undefined,
+      calidad: calidad || undefined,
       valido,
       motivo,
     });

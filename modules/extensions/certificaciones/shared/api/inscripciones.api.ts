@@ -27,6 +27,8 @@ export interface ImportarFila {
   apellidos: string;
   email?: string;
   telefono?: string;
+  /** Calidad de participación (Organizador, Colaborador, Participante, Ponente u otro). Default Participante. */
+  calidad?: string;
 }
 
 export interface ImportarResultadoFila {

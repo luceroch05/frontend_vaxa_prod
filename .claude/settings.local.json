@@ -216,7 +216,12 @@
       "Read(//c/Users/Lucero/Documents/**)",
       "Bash(cp /tmp/bc/BarlowCondensed-*.ttf public/fonts/)",
       "Bash(mkdir -p \"C:/Users/Lucero/Desktop/backend-vaxa-prod/assets/fonts/barlowcondensed\")",
-      "Bash(cp /tmp/bc/BarlowCondensed-*.ttf \"C:/Users/Lucero/Desktop/backend-vaxa-prod/assets/fonts/barlowcondensed/\")"
+      "Bash(cp /tmp/bc/BarlowCondensed-*.ttf \"C:/Users/Lucero/Desktop/backend-vaxa-prod/assets/fonts/barlowcondensed/\")",
+      "Read(//c/Users/Lucero/Desktop/frontend_vaxa_prod/**)",
+      "Bash(python -c \"import docx; print\\('PYTHON-DOCX OK'\\)\")",
+      "Bash(grep -ciE \"CHECK \\\\\\(|GENERATED ALWAYS|/\\\\*!80|FUNCTIONAL|CONSTRAINT.*CHECK\" database-produccion.sql)",
+      "Bash(grep -niE \"CHECK \\\\\\(|GENERATED ALWAYS|/\\\\*!80|CONSTRAINT.*CHECK\" database-produccion.sql)",
+      "Bash(awk '{print $5\" bytes -> \"$9}')"
     ],
     "deny": [],
     "ask": []

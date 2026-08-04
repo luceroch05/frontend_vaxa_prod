@@ -6,6 +6,7 @@
  * cargar presets ya posicionados (ej. Constancia FAP), agregar y quitar.
  * Aislado: AdminConfig solo lo monta y recibe el LayoutLienzo por onChange.
  * ──────────────────────────────────────────────────────────────── */
+import { useEffect, useRef, useState } from 'react';
 import {
   CampoFirma, CampoLinea, CampoLogo, CampoQR, CampoTexto, LayoutLienzo,
   VARIABLES_LIENZO, PRESETS_LIENZO, layoutActivo, labelCampo, nuevoCampoTexto, nuevaLinea, tipoCampo,
@@ -15,6 +16,8 @@ import { Plus, Trash2 } from '@/components/ui/icon';
 interface Props {
   value: LayoutLienzo | null;
   onChange: (l: LayoutLienzo) => void;
+  /** Peticion desde la preview (doble click en un campo) para enfocar su tarjeta. */
+  editFieldReq?: { key: string; ts: number } | null;
 }
 
 /* Input numérico compacto con etiqueta arriba. */
@@ -37,11 +40,24 @@ function NumBox({ label, value, onChange, min = 0, max = 2000 }: {
   );
 }
 
-export default function EditorLienzo({ value, onChange }: Props) {
+export default function EditorLienzo({ value, onChange, editFieldReq }: Props) {
   const layout: LayoutLienzo = value ?? { activo: false, campos: {} };
   const campos = layout.campos ?? {};
   const entries = Object.entries(campos);
   const activo = layoutActivo(layout);
+
+  // Doble click en la preview → enfocar (scroll + resaltar) la tarjeta del campo.
+  const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const [highlightKey, setHighlightKey] = useState<string | null>(null);
+  useEffect(() => {
+    if (!editFieldReq) return;
+    const el = cardRefs.current[editFieldReq.key];
+    if (!el) return;
+    el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    setHighlightKey(editFieldReq.key);
+    const t = setTimeout(() => setHighlightKey(null), 1800);   // el resalte se apaga solo
+    return () => clearTimeout(t);
+  }, [editFieldReq]);
 
   const setCampo = (key: string, patch: Partial<CampoTexto & CampoQR & CampoLogo & CampoFirma & CampoLinea>) =>
     onChange({ ...layout, activo: true, campos: { ...campos, [key]: { ...(campos[key] ?? {}), ...patch } } });
@@ -95,6 +111,13 @@ export default function EditorLienzo({ value, onChange }: Props) {
 
       {activo && (
         <>
+          {/* El posicionamiento se hace arrastrando en la Vista previa de arriba.
+              Aquí quedan las propiedades finas de cada campo. */}
+          <p className="text-[11.5px] mt-3 mb-3 leading-relaxed" style={{ color: '#B45309' }}>
+            Arrastra los campos directamente sobre la <b>Vista previa</b> de arriba para ubicarlos.
+            Aquí ajustas el texto, tamaño, color y demás propiedades de cada uno.
+          </p>
+
           {/* Presets + agregar campo */}
           <div className="flex flex-wrap items-center gap-2 mt-3 mb-3">
             <span className="text-[11px] font-semibold" style={{ color: '#9A3412' }}>Cargar preset:</span>
@@ -138,8 +161,18 @@ export default function EditorLienzo({ value, onChange }: Props) {
               const esLogo = t === 'logo';
               const esFirma = t === 'firma';
               const esLinea = t === 'linea';
+              const enfocada = highlightKey === key;
               return (
-                <div key={key} className="rounded-xl p-3" style={{ background: '#fff', border: '1px solid #FDE68A' }}>
+                <div
+                  key={key}
+                  ref={el => { cardRefs.current[key] = el; }}
+                  className="rounded-xl p-3 transition-all"
+                  style={{
+                    background: enfocada ? '#FFF7ED' : '#fff',
+                    border: enfocada ? '2px solid #EA580C' : '1px solid #FDE68A',
+                    boxShadow: enfocada ? '0 0 0 3px rgba(234,88,12,0.12)' : 'none',
+                  }}
+                >
                   {/* Cabecera del campo: label editable + visible/oculto + eliminar */}
                   <div className="flex items-center gap-2 mb-2">
                     {esTexto ? (

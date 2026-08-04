@@ -22,6 +22,7 @@ export interface EmpresaCreditos {
   creditos_asignados_total: number;
   creditos_consumidos: number;
   ilimitado?: boolean;      // plan ilimitado (Corporativo): saldo sin tope
+  permite_diseno?: boolean; // servicio a medida: editor de "Diseño personalizado (Lienzo)" (lo activa Vaxa)
 }
 
 export interface MovimientoCredito {
@@ -175,6 +176,10 @@ export interface CrearEmpresaDto {
   logo?: string;
   plan_id?: number;     // plan con el que arranca (default: Básico)
   ciclo_id?: number;    // ciclo de facturación (default: mensual)
+  /** Servicio a medida que activa Vaxa (proveedor) para este cliente: habilita el
+   *  editor de "Diseño personalizado (Lienzo)". Independiente del plan. Requiere
+   *  la columna empresas.permite_diseno en el backend para persistir/enforzar. */
+  permite_diseno?: boolean;
 }
 
 export interface EditarEmpresaDto {
@@ -185,6 +190,9 @@ export interface EditarEmpresaDto {
   tipo_doc?: string;    // cat.06: '6' RUC · '1' DNI · '4' CE · '7' pasaporte
   logo?: string;
   activo?: boolean;
+  /** Servicio a medida que activa/desactiva Vaxa: editor de "Diseño personalizado (Lienzo)".
+   *  Requiere la columna empresas.permite_diseno en el backend para persistir/enforzar. */
+  permite_diseno?: boolean;
 }
 
 export interface CrearUsuarioDto {

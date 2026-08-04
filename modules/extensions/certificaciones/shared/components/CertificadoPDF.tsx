@@ -94,6 +94,21 @@ export function firmasGap(n: number): number {
 export const SIG_ITEM_W = 200;
 export const SIG_IMG_H  = 72;
 
+/* Precarga las fuentes del lienzo y espera a que estén listas. html2canvas
+   rasteriza con la fuente por defecto si aún no cargaron → hay que forzarlas. */
+async function asegurarFuentes(): Promise<void> {
+  try {
+    const fonts = (document as unknown as { fonts?: FontFaceSet }).fonts;
+    if (!fonts) return;
+    const familias = ['Barlow Condensed', 'Bebas Neue', 'Montserrat', 'Georgia'];
+    const pesos = ['400', '600', '700', '800'];
+    await Promise.all(
+      familias.flatMap((fam) => pesos.map((w) => fonts.load(`${w} 40px "${fam}"`).catch(() => undefined))),
+    );
+    await fonts.ready;
+  } catch { /* navegadores sin document.fonts: se ignora */ }
+}
+
 /* ── Componente ─────────────────────────────────────────────── */
 export function CertificadoPDF({ certificado, config, onClose }: Props) {
   const ref = useRef<HTMLDivElement>(null);
@@ -116,6 +131,12 @@ export function CertificadoPDF({ certificado, config, onClose }: Props) {
     const wrapper = ref.current.parentElement as HTMLDivElement | null;
     const originalTransform = wrapper?.style.transform ?? '';
     if (wrapper) wrapper.style.transform = 'none';
+
+    // Espera a que las fuentes personalizadas del lienzo (Barlow Condensed, Bebas
+    // Neue, Montserrat…) terminen de cargar ANTES de rasterizar. Sin esto html2canvas
+    // captura con una fuente por defecto y el PDF sale con otra tipografía distinta a
+    // la vista previa, aunque en pantalla se vea bien.
+    await asegurarFuentes();
 
     try {
       const canvas = await html2canvas(ref.current, {
@@ -322,7 +343,7 @@ export function CertificadoPDF({ certificado, config, onClose }: Props) {
                 fontFamily: 'Georgia, "Times New Roman", serif',
                 whiteSpace: 'pre-wrap',
               }}>
-                {certificado.participante_nombre}
+                {nombreCortoDe(certificado.participante_nombre)}
               </p>
 
               {/* Cuerpo */}

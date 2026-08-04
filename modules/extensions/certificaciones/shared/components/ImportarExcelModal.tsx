@@ -67,6 +67,7 @@ export default function ImportarExcelModal({ empresa, aula, programaNombre, onCl
           apellidos: f.apellidos,
           email: f.email,
           telefono: f.telefono,
+          calidad: f.calidad,
         })),
       });
       setResultado(r);
@@ -226,6 +227,7 @@ function TablaPreview({ filas }: { filas: FilaParseada[] }) {
           <tr style={{ color: '#9CA3AF' }}>
             <th className="text-left font-semibold px-3 py-2">Documento</th>
             <th className="text-left font-semibold px-3 py-2">Nombre</th>
+            <th className="text-left font-semibold px-3 py-2">Calidad</th>
             <th className="text-left font-semibold px-3 py-2">Estado</th>
           </tr>
         </thead>
@@ -234,6 +236,7 @@ function TablaPreview({ filas }: { filas: FilaParseada[] }) {
             <tr key={i} style={{ borderTop: '1px solid #F5F4F0' }}>
               <td className="px-3 py-2 tabular-nums" style={{ color: '#374151' }}>{f.tipo_texto} {f.numero_documento}</td>
               <td className="px-3 py-2" style={{ color: '#374151' }}>{f.nombres} {f.apellidos}</td>
+              <td className="px-3 py-2" style={{ color: '#374151' }}>{f.calidad || 'Participante'}</td>
               <td className="px-3 py-2">
                 {f.valido
                   ? <span style={{ color: '#15803D' }}>✓ Listo</span>

@@ -14,7 +14,7 @@ export const unidadesApi = {
   create: (empresa: string, data: CreateUnidadDto) =>
     api.post<Unidad>('/api/certificados/unidades', data, opts(empresa)),
 
-  update: (empresa: string, id: number, data: Partial<Pick<CreateUnidadDto, 'nombre' | 'orden'>>) =>
+  update: (empresa: string, id: number, data: Partial<Pick<CreateUnidadDto, 'nombre' | 'orden' | 'creditos'>>) =>
     api.patch<Unidad>(`/api/certificados/unidades/${id}`, data, opts(empresa)),
 
   remove: (empresa: string, id: number) =>

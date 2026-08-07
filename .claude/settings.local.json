@@ -221,7 +221,22 @@
       "Bash(python -c \"import docx; print\\('PYTHON-DOCX OK'\\)\")",
       "Bash(grep -ciE \"CHECK \\\\\\(|GENERATED ALWAYS|/\\\\*!80|FUNCTIONAL|CONSTRAINT.*CHECK\" database-produccion.sql)",
       "Bash(grep -niE \"CHECK \\\\\\(|GENERATED ALWAYS|/\\\\*!80|CONSTRAINT.*CHECK\" database-produccion.sql)",
-      "Bash(awk '{print $5\" bytes -> \"$9}')"
+      "Bash(awk '{print $5\" bytes -> \"$9}')",
+      "Bash(tar -czf dist-nuevo.tar.gz dist)",
+      "Bash(awk '{print \"Creado: dist-nuevo.tar.gz \\(\"$5\"\\)\"}')",
+      "Bash(tar -czf web-nuevo.tar.gz -C dist .)",
+      "Bash(awk '{print \"Creado: web-nuevo.tar.gz \\(\"$5\"\\)\"}')",
+      "Bash(tar -tzf web-nuevo.tar.gz)",
+      "PowerShell(cd ..\\\\frontend_vaxa_prod; $f = npx tsc --noEmit 2>&1; \"FRONT: $\\(if\\($LASTEXITCODE -eq 0\\){'OK'}else{$f | Select-Object -First 10}\\)\"; cd ..\\\\backend-vaxa-prod; $b = npx tsc --noEmit 2>&1; \"BACK: $\\(if\\($LASTEXITCODE -eq 0\\){'OK'}else{$b | Select-Object -First 10}\\)\")",
+      "PowerShell(cd \"C:\\\\Users\\\\Lucero\\\\Desktop\\\\backend-vaxa-prod\"; npx tsc --noEmit; \"EXIT=$LASTEXITCODE\")",
+      "PowerShell(cd \"C:\\\\Users\\\\Lucero\\\\Desktop\\\\frontend_vaxa_prod\"; npx tsc --noEmit; \"EXIT=$LASTEXITCODE\")",
+      "PowerShell(cd \"C:\\\\Users\\\\Lucero\\\\Desktop\\\\backend-vaxa-prod\"; npx tsc --noEmit; \"BACK=$LASTEXITCODE\"; cd \"C:\\\\Users\\\\Lucero\\\\Desktop\\\\frontend_vaxa_prod\"; npx tsc --noEmit; \"FRONT=$LASTEXITCODE\")",
+      "PowerShell(cd \"C:\\\\Users\\\\Lucero\\\\Desktop\\\\frontend_vaxa_prod\"; npx tsc --noEmit; \"FRONT=$LASTEXITCODE\")",
+      "PowerShell(cd \"C:\\\\Users\\\\Lucero\\\\Desktop\\\\backend-vaxa-prod\"; npx tsc --noEmit; \"BACK=$LASTEXITCODE\")",
+      "PowerShell(Add-Type -AssemblyName System.Drawing; foreach \\($f in @\\('vaxa-comprobante.png','vaxa-rounded.png','vaxa.png','vaxa-logo-white.png'\\)\\) { $p = \"C:\\\\Users\\\\Lucero\\\\Desktop\\\\frontend_vaxa_prod\\\\public\\\\$f\"; $b = New-Object System.Drawing.Bitmap\\($p\\); $c = $b.GetPixel\\(2,2\\); Write-Output \\(\"{0} -> esquina ARGB = A:{1} R:{2} G:{3} B:{4}\" -f $f,$c.A,$c.R,$c.G,$c.B\\); $b.Dispose\\(\\) })",
+      "PowerShell(Add-Type -AssemblyName System.Drawing; $p=\"C:\\\\Users\\\\Lucero\\\\Desktop\\\\backend-vaxa-prod\\\\uploads\\\\marca\\\\vaxa-comprobante.png\"; $b=New-Object System.Drawing.Bitmap\\($p\\); $c=$b.GetPixel\\(2,2\\); Write-Output \\(\"backend local vaxa-comprobante.png -> A:{0} R:{1} G:{2} B:{3}\" -f $c.A,$c.R,$c.G,$c.B\\); $b.Dispose\\(\\))",
+      "PowerShell(Copy-Item *)",
+      "PowerShell($src=\"C:\\\\Users\\\\Lucero\\\\Desktop\\\\frontend-crecemos-prod\\\\public\\\\assets\\\\img\\\\libro-reclamaciones.webp\"; $dst=\"C:\\\\Users\\\\Lucero\\\\Desktop\\\\frontend_vaxa_prod\\\\public\\\\libro-reclamaciones.webp\"; if \\(Test-Path $src\\) { Copy-Item $src $dst -Force; Write-Output \\(\"copiado -> {0} \\({1} bytes\\)\" -f $dst,\\(\\(Get-Item $dst\\).Length\\)\\) } else { Write-Output \"NO EXISTE el origen: $src\" })"
     ],
     "deny": [],
     "ask": []

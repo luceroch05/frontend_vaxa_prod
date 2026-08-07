@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { TenantConfig } from '@/lib/tenants';
 import { tenantPath } from '@/lib/paths';
 import {
-  Building2, FileText, TrendingUp, CreditCard, Plus, ArrowRight, Loader2, ClipboardList, DollarSign,
+  Building2, FileText, TrendingUp, CreditCard, Plus, ArrowRight, Loader2, ClipboardList, DollarSign, BookOpen,
 } from '@/components/ui/icon';
 import HeaderSistemasVaxa from '../../shared/components/HeaderSistemasVaxa';
 import { VAXA_CONFIG } from '../../shared/constants';
@@ -125,6 +125,7 @@ export default function DashboardCertificaciones({ tenantId }: Props) {
                 { to: tenantPath(tenantId, '/certificaciones/tarifario'), Icon: DollarSign, t: 'Tarifario', d: 'Planes, paquetes y precios 2026' },
                 { to: tenantPath(tenantId, '/certificaciones/cobranza'), Icon: CreditCard, t: 'Cobranza y vencimientos', d: 'Quién debe pagar y cuándo vence' },
                 { to: tenantPath(tenantId, '/certificaciones/facturacion'), Icon: FileText, t: 'Facturación electrónica', d: 'Emite y consulta comprobantes SUNAT' },
+                { to: tenantPath(tenantId, '/certificaciones/reclamos'), Icon: BookOpen, t: 'Libro de Reclamaciones', d: 'Reclamos y quejas (INDECOPI)' },
                 { to: tenantPath(tenantId, '/certificaciones/registrar-empresa'), Icon: Plus, t: 'Registrar nueva empresa', d: 'Agrega una empresa al sistema' },
               ].map(({ to, Icon, t, d }) => (
                 <button key={to} onClick={() => navigate(to)}

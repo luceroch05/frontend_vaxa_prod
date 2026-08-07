@@ -59,6 +59,7 @@ const tenants: Record<string, TenantConfig> = {
       'FacturacionCertificaciones',
       'TarifarioCertificaciones',
       'CotizacionesCertificaciones',
+      'ReclamosCertificaciones',
     ],
   },
 

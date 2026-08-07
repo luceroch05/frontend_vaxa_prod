@@ -3,7 +3,7 @@ import { NavLink, Outlet, useNavigate, useParams, useLocation } from 'react-rout
 import {
   LayoutDashboard, BookOpen, ClipboardList, FileBadge,
   Settings, LogOut, Menu, X, GraduationCap, Globe, Users, CreditCard,
-  MessageCircle, Mail, Shield, BarChart3, AlertTriangle, Clock,
+  MessageCircle, Mail, Shield, BarChart3, AlertTriangle, Clock, Star,
 } from '@/components/ui/icon';
 import type { ComponentType } from 'react';
 
@@ -205,6 +205,7 @@ const NAV_ITEMS = [
   { key: 'programas',    label: 'Programas',      Icon: BookOpen },
   { key: 'estudiantes',  label: 'Estudiantes',    Icon: Users },
   { key: 'inscripciones',label: 'Inscripciones',  Icon: ClipboardList },
+  { key: 'ponentes',     label: 'Ponentes/Staff',  Icon: Star },
   { key: 'certificados', label: 'Certificados',   Icon: FileBadge },
   { key: 'plan',         label: 'Mi plan',        Icon: CreditCard },
   { key: 'config',       label: 'Configuración',  Icon: Settings },

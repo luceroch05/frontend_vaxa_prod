@@ -15,6 +15,7 @@ import AdminDashboard     from '../modules/extensions/certificaciones/modules/Ad
 import AdminProgramas       from '../modules/extensions/certificaciones/modules/AdminProgramas';
 import AdminProgramaDetalle from '../modules/extensions/certificaciones/modules/AdminProgramaDetalle';
 import AdminInscripciones from '../modules/extensions/certificaciones/modules/AdminInscripciones';
+import PonentesStaff from '../modules/extensions/certificaciones/modules/PonentesStaff';
 import AdminEstudiantes   from '../modules/extensions/certificaciones/modules/AdminEstudiantes';
 import AdminCertificados  from '../modules/extensions/certificaciones/modules/AdminCertificados';
 import AdminPlan          from '../modules/extensions/certificaciones/modules/AdminPlan';
@@ -23,6 +24,8 @@ import AdminAuditoria     from '../modules/extensions/certificaciones/modules/Ad
 import AdminConfig        from '../modules/extensions/certificaciones/modules/AdminConfig';
 import PublicRegistro from '../modules/extensions/certificaciones/modules/PublicRegistro';
 import PublicValidar  from '../modules/extensions/certificaciones/modules/PublicValidar';
+// Libro de Reclamaciones Virtual (público, sin login — importación directa para NO envolverlo en AuthGuard)
+import LibroReclamaciones from '../modules/extensions/sistemas-vaxa/modules/LibroReclamaciones';
 
 /** Compatibilidad: la ruta vieja /admin/login redirige al nuevo login. */
 function LoginRedirect() {
@@ -56,6 +59,7 @@ function certificadosChildren() {
           <Route path="programas/:programaId" element={<AdminProgramaDetalle />} />
           <Route path="estudiantes"   element={<AdminEstudiantes />} />
           <Route path="inscripciones" element={<AdminInscripciones />} />
+          <Route path="ponentes"      element={<PonentesStaff />} />
           <Route path="certificados"  element={<AdminCertificados />} />
           <Route path="plan"          element={<AdminPlan />} />
           <Route path="reportes"      element={<AdminReportes />} />
@@ -77,6 +81,8 @@ function tenantChildren() {
   return (
     <>
       <Route index element={<TenantRedirect />} />
+      {/* Público (sin login): Libro de Reclamaciones Virtual */}
+      <Route path="libro-reclamaciones" element={<LibroReclamaciones />} />
       <Route path="login"       element={<LazyRoute module="Login" />} />
       <Route path="dashboard"   element={<LazyRoute module="Dashboard" />} />
       <Route path="participantes" element={<LazyRoute module="Participantes" />} />
@@ -91,6 +97,7 @@ function tenantChildren() {
       <Route path="certificaciones/facturacion"           element={<LazyRoute module="FacturacionCertificaciones" />} />
       <Route path="certificaciones/tarifario"             element={<LazyRoute module="TarifarioCertificaciones" />} />
       <Route path="certificaciones/cotizaciones"          element={<LazyRoute module="CotizacionesCertificaciones" />} />
+      <Route path="certificaciones/reclamos"              element={<LazyRoute module="ReclamosCertificaciones" />} />
       <Route path="certificaciones/registrar-empresa"     element={<LazyRoute module="RegistrarEmpresaCertificaciones" />} />
       <Route path="certificaciones/empresa/:empresaId"    element={<LazyRoute module="PerfilEmpresa" paramKey="empresaId" />} />
     </>

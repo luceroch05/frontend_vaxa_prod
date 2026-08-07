@@ -34,6 +34,7 @@ export default function ImportarExcelModal({ empresa, aula, programaNombre, onCl
   const [parsing, setParsing]     = useState(false);
   const [error, setError]         = useState<string | null>(null);
   const [importando, setImportando] = useState(false);
+  const [progreso, setProgreso]   = useState<{ hechas: number; total: number } | null>(null);
   const [resultado, setResultado] = useState<ImportarResultado | null>(null);
 
   const validas = (filas ?? []).filter((f) => f.valido);
@@ -53,27 +54,60 @@ export default function ImportarExcelModal({ empresa, aula, programaNombre, onCl
     } finally { setParsing(false); }
   };
 
+  // Se procesa en TANDAS: emitir cientos de certificados en una sola petición
+  // se pasa del tiempo límite del servidor (y el navegador lo muestra como error
+  // de CORS). Partiendo en lotes chicos, cada petición termina a tiempo.
+  const TAMANO_LOTE = 25;
+
   const confirmar = async () => {
     if (!validas.length) return;
     setImportando(true); setError(null);
+
+    const participantes = validas.map((f) => ({
+      tipo_documento_id: f.tipo_documento_id,
+      numero_documento: f.numero_documento,
+      nombres: f.nombres,
+      apellidos: f.apellidos,
+      email: f.email,
+      telefono: f.telefono,
+      calidad: f.calidad,
+    }));
+
+    const acc: ImportarResultado = {
+      resumen: { total: 0, inscritos: 0, ya_inscritos: 0, emitidos: 0, ya_emitidos: 0, errores: 0 },
+      resultados: [],
+    };
+    setProgreso({ hechas: 0, total: participantes.length });
+
     try {
-      const r = await inscripcionesApi.importarMasivo(empresa, {
-        grupo_id: aula.id,
-        emitir,
-        participantes: validas.map((f) => ({
-          tipo_documento_id: f.tipo_documento_id,
-          numero_documento: f.numero_documento,
-          nombres: f.nombres,
-          apellidos: f.apellidos,
-          email: f.email,
-          telefono: f.telefono,
-          calidad: f.calidad,
-        })),
-      });
-      setResultado(r);
+      for (let i = 0; i < participantes.length; i += TAMANO_LOTE) {
+        const lote = participantes.slice(i, i + TAMANO_LOTE);
+        const r = await inscripcionesApi.importarMasivo(empresa, { grupo_id: aula.id, emitir, participantes: lote });
+
+        acc.resumen.total        += r.resumen.total;
+        acc.resumen.inscritos    += r.resumen.inscritos;
+        acc.resumen.ya_inscritos += r.resumen.ya_inscritos;
+        acc.resumen.emitidos     += r.resumen.emitidos;
+        acc.resumen.ya_emitidos  += r.resumen.ya_emitidos;
+        acc.resumen.errores      += r.resumen.errores;
+        // El nº de fila del backend es relativo al lote; lo remapeamos a la fila real del Excel.
+        r.resultados.forEach((res, j) => {
+          const orig = validas[i + j];
+          acc.resultados.push({ ...res, fila: orig ? orig.fila : res.fila });
+        });
+
+        setProgreso({ hechas: Math.min(i + TAMANO_LOTE, participantes.length), total: participantes.length });
+      }
+      setResultado(acc);
       onDone?.();
-    } catch (e) { setError((e as Error).message); }
-    finally { setImportando(false); }
+    } catch (e) {
+      // Si se cortó una tanda, mostramos lo que sí se procesó + el aviso.
+      if (acc.resultados.length) setResultado(acc);
+      setError(`Se interrumpió tras ${acc.resultados.length} de ${participantes.length}. ${(e as Error).message}. Puedes volver a subir el mismo archivo: los ya emitidos se saltan solos.`);
+    } finally {
+      setImportando(false);
+      setProgreso(null);
+    }
   };
 
   return createPortal(
@@ -150,11 +184,28 @@ export default function ImportarExcelModal({ empresa, aula, programaNombre, onCl
                 </span>
               </label>
 
+              {/* Progreso por tandas (no cierres la ventana mientras procesa) */}
+              {progreso && (
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between text-[12px] font-semibold" style={{ color: '#374151' }}>
+                    <span>{emitir ? 'Emitiendo certificados…' : 'Inscribiendo…'}</span>
+                    <span className="tabular-nums">{progreso.hechas} / {progreso.total}</span>
+                  </div>
+                  <div className="h-2 rounded-full overflow-hidden" style={{ background: '#EEECE6' }}>
+                    <div className="h-full rounded-full transition-all"
+                      style={{ width: `${Math.round((progreso.hechas / progreso.total) * 100)}%`, background: '#15803D' }} />
+                  </div>
+                  <p className="text-[11px]" style={{ color: '#9CA3AF' }}>No cierres esta ventana hasta que termine.</p>
+                </div>
+              )}
+
               <div className="flex justify-between gap-2">
-                <button onClick={() => { setFilas(null); setError(null); }} className="vx-btn vx-btn-ghost px-4 py-2">Cambiar archivo</button>
+                <button onClick={() => { setFilas(null); setError(null); }} disabled={importando} className="vx-btn vx-btn-ghost px-4 py-2">Cambiar archivo</button>
                 <button onClick={confirmar} disabled={importando || validas.length === 0} className="vx-btn vx-btn-primary px-5 py-2">
                   {importando ? <Loader2 size={15} className="animate-spin" /> : <Users size={15} />}
-                  {emitir ? `Inscribir y emitir (${validas.length})` : `Inscribir (${validas.length})`}
+                  {importando
+                    ? (progreso ? `Procesando ${progreso.hechas}/${progreso.total}…` : 'Procesando…')
+                    : emitir ? `Inscribir y emitir (${validas.length})` : `Inscribir (${validas.length})`}
                 </button>
               </div>
             </div>

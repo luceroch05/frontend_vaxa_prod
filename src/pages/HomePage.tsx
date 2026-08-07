@@ -3,6 +3,7 @@ import {
   FileBadge, Shield, Zap, QrCode, ArrowRight, ArrowUpRight,
   Users, FileText, Clock, Layers, Menu, X, Award, Check, MessageCircle, Sparkles,
 } from '@/components/ui/icon';
+import { libroReclamacionesUrl } from '@/lib/paths';
 
 /** Contacto de Vaxa para la landing. */
 const WA_LINK = `https://wa.me/51924600490?text=${encodeURIComponent('Hola Vaxa 👋, quiero información sobre el sistema de certificados.')}`;
@@ -295,9 +296,17 @@ export default function HomePage() {
         <div className="max-w-[1200px] mx-auto px-6 sm:px-10 py-10 flex flex-col sm:flex-row items-center justify-between gap-5">
           <div className="flex items-center gap-2.5">
             <Logo />
-            
+
           </div>
-          <p className="text-[12px]" style={{ fontFamily: MONO, color: '#4F5B57' }}>© {new Date().getFullYear()} Vaxa — software para instituciones</p>
+          <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
+            <a href={libroReclamacionesUrl()} title="Libro de Reclamaciones"
+              className="inline-flex items-center rounded-lg overflow-hidden transition-transform hover:-translate-y-0.5"
+              style={{ background: '#fff', padding: '6px 10px' }}>
+              <img src="/libro-reclamaciones.webp" alt="Libro de Reclamaciones"
+                style={{ height: 46, width: 'auto', display: 'block' }} />
+            </a>
+            <p className="text-[12px]" style={{ fontFamily: MONO, color: '#4F5B57' }}>© {new Date().getFullYear()} Vaxa — software para instituciones</p>
+          </div>
         </div>
       </footer>
     </div>

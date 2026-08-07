@@ -6,6 +6,7 @@ import { useValidarCertificado } from '../../shared/hooks/useCertificados';
 import { periodoCurso } from '../../shared/utils/certVariables';
 import BrandRow from '../../shared/components/BrandRow';
 import BrandAside from '../../shared/components/BrandAside';
+import VaxaFooter from '../../shared/components/VaxaFooter';
 
 const PAGE = { background: '#F4F2EC' } as const;
 const CARD = { background: '#FFFFFF', border: '1px solid #EAE7DF', boxShadow: '0 18px 50px rgba(13,14,18,0.07)' } as const;
@@ -176,6 +177,7 @@ export default function PublicValidar() {
 
                   {/* Detalles */}
                   <div className="rounded-2xl px-4 py-1" style={{ background: '#FAFAF8', border: '1px solid #EEECE6' }}>
+                    <Row label="Tipo"      value={resultado.tipo_programa} />
                     <Row label="Programa"  value={resultado.programa_nombre} />
                     <Row label="Grupo"     value={resultado.nombre_grupo} />
                     <Row label="Modalidad" value={resultado.modalidad} />
@@ -210,6 +212,15 @@ export default function PublicValidar() {
                       {descargando ? 'Descargando…' : 'Descargar certificado'}
                     </button>
                   )}
+
+                  {/* Sello: verificado por Vaxa (con logo) */}
+                  {valid && (
+                    <div className="flex items-center justify-center gap-1.5 pt-3" style={{ borderTop: '1px solid #F4F2EC' }}>
+                      <BadgeCheck size={14} style={{ color: '#15803D' }} />
+                      <span className="text-[12px]" style={{ color: '#9CA3AF' }}>Verificado por</span>
+                      <img src="/vaxa-comprobante.png" alt="Vaxa" style={{ height: 15, width: 'auto', objectFit: 'contain' }} />
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -222,6 +233,7 @@ export default function PublicValidar() {
             Ir a inscripción
           </a>
         </p>
+        <VaxaFooter />
         </div>
       </div>
     </div>

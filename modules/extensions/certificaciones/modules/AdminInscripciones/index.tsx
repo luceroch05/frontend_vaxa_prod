@@ -3,7 +3,7 @@ import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { certPath } from '@/lib/paths';
 import {
   ClipboardList, Loader2, AlertCircle, Search,
-  ChevronLeft, Users, UserCheck, Trash2,
+  ChevronLeft, Users, UserCheck, Trash2, X,
 } from '@/components/ui/icon';
 import { useInscripciones } from '../../shared/hooks/useInscripciones';
 import { useGrupos }        from '../../shared/hooks/useGrupos';
@@ -12,6 +12,7 @@ import { useConfirm }       from '../../shared/hooks/useConfirm';
 import { useEsAdmin }       from '../../shared/hooks/useEsAdmin';
 import { unidadesApi }      from '../../shared/api/unidades.api';
 import Pagination from '../../shared/components/Pagination';
+import CalidadBadge from '../../shared/components/CalidadBadge';
 import NotasGrupo from './NotasGrupo';
 import type { Inscripcion } from '../../shared/types';
 
@@ -38,7 +39,7 @@ function EstadoBadge({ estadoId }: { estadoId: number }) {
 }
 
 /* ── Inscripcion row ────────────────────────────────────────── */
-function InscripcionRow({ inscripcion, onCambiarEstado, onEliminar, isLast, tieneUnidades, esAdmin }: {
+function InscripcionRow({ inscripcion, onCambiarEstado, onEliminar, isLast, tieneUnidades, esAdmin, selected, onToggleSel }: {
   inscripcion: Inscripcion;
   onCambiarEstado: (id: number, estado: number) => void;
   onEliminar: (i: Inscripcion) => void;
@@ -46,6 +47,8 @@ function InscripcionRow({ inscripcion, onCambiarEstado, onEliminar, isLast, tien
   /** true: programa con unidades (aprobación por notas) · false: sin unidades (manual) · null: desconocido */
   tieneUnidades: boolean | null;
   esAdmin: boolean;
+  selected: boolean;
+  onToggleSel: () => void;
 }) {
   const [rowLoading, setRowLoading] = useState(false);
 
@@ -69,19 +72,26 @@ function InscripcionRow({ inscripcion, onCambiarEstado, onEliminar, isLast, tien
   return (
     <div
       className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-4 transition-colors"
-      style={{ borderBottom: isLast ? undefined : '1px solid #F5F4F0' }}
-      onMouseEnter={e => (e.currentTarget.style.background = '#FAFAF8')}
-      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+      style={{ borderBottom: isLast ? undefined : '1px solid #F5F4F0', background: selected ? '#F5F3FF' : undefined }}
+      onMouseEnter={e => { if (!selected) e.currentTarget.style.background = '#FAFAF8'; }}
+      onMouseLeave={e => { if (!selected) e.currentTarget.style.background = 'transparent'; }}
     >
       {/* Participante info */}
       <div className="flex items-center gap-3 min-w-0">
+        {esAdmin && (
+          <input type="checkbox" className="w-4 h-4 rounded cursor-pointer flex-shrink-0" style={{ accentColor: '#7C3AED' }}
+            checked={selected} onChange={onToggleSel} title="Seleccionar" />
+        )}
         <div className="w-9 h-9 rounded-xl flex-shrink-0 flex items-center justify-center" style={{ background: '#F5F3FF' }}>
           <Users size={15} style={{ color: '#7C3AED' }} />
         </div>
         <div className="min-w-0">
-          <p className="text-[14px] font-semibold truncate" style={{ color: '#0D0E12' }}>
-            {inscripcion.participante_nombre}
-          </p>
+          <div className="flex items-center gap-2 min-w-0">
+            <p className="text-[14px] font-semibold truncate" style={{ color: '#0D0E12' }}>
+              {inscripcion.participante_nombre}
+            </p>
+            <CalidadBadge calidad={inscripcion.calidad} />
+          </div>
           <p className="text-[11px] mt-0.5" style={{ color: '#9CA3AF' }}>
             {inscripcion.numero_documento}
             {inscripcion.nombre_grupo && ` · ${inscripcion.nombre_grupo}`}
@@ -139,10 +149,24 @@ export default function AdminInscripciones() {
   const confirm = useConfirm();
 
   const [filtroEstado, setFiltroEstado] = useState<number | 'todos'>('todos');
+  const [filtroCalidad, setFiltroCalidad] = useState<string>('todas');
   const [busqueda,     setBusqueda]     = useState('');
   const [vista,        setVista]        = useState<'inscripciones' | 'notas'>('inscripciones');
   const [aprobandoTodos, setAprobandoTodos] = useState(false);
   const [accionError, setAccionError] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [borrando, setBorrando] = useState(false);
+
+  const toggleOne = (id: number) => setSelected(prev => {
+    const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n;
+  });
+  const toggleAllPage = (ids: number[]) => setSelected(prev => {
+    const all = ids.length > 0 && ids.every(id => prev.has(id));
+    const n = new Set(prev);
+    if (all) ids.forEach(id => n.delete(id)); else ids.forEach(id => n.add(id));
+    return n;
+  });
+  const clearSel = () => setSelected(new Set());
 
   // ¿El programa del grupo seleccionado tiene unidades? → define si Aprobado/Desaprobado son manuales.
   const programaId = grupoId ? grupos.find(g => g.id === grupoId)?.programa_id : undefined;
@@ -175,6 +199,28 @@ export default function AdminInscripciones() {
     catch (e: unknown) { setAccionError((e as Error).message); }
   };
 
+  /** Eliminar en lote: recorre las inscripciones seleccionadas una a una. */
+  const handleEliminarMasa = async () => {
+    const ids = Array.from(selected);
+    if (ids.length === 0) return;
+    const ok = await confirm({
+      title: 'Borrar inscripciones',
+      message: `Se BORRARÁN ${ids.length} inscripción${ids.length !== 1 ? 'es' : ''} con sus notas. Si tienen certificado emitido, también se borra y se devuelve el crédito. No se puede deshacer.`,
+      confirmText: `Borrar ${ids.length}`,
+      variant: 'danger',
+    });
+    if (!ok) return;
+    setBorrando(true); setAccionError(null);
+    const errores: string[] = [];
+    for (const id of ids) {
+      try { await eliminar(id); }
+      catch (e: unknown) { errores.push((e as Error).message); }
+    }
+    setBorrando(false);
+    clearSel();
+    if (errores.length) setAccionError(`No se pudieron borrar ${errores.length} de ${ids.length}. Motivo: ${errores[0]}`);
+  };
+
   const handleGrupoChange = (val: string) => {
     if (!val) {
       navigate(certPath(empresa!, '/panel/inscripciones'));
@@ -185,11 +231,18 @@ export default function AdminInscripciones() {
     }
   };
 
+  // Calidades presentes en la lista (para el desplegable de filtro).
+  const calidadesPresentes = Array.from(
+    new Set(inscripciones.map(i => (i.calidad ?? 'Participante').trim() || 'Participante')),
+  ).sort();
+
   const filtradas = inscripciones.filter(i => {
     const okEstado = filtroEstado === 'todos' || i.estado_id === filtroEstado;
+    const cal = (i.calidad ?? 'Participante').trim() || 'Participante';
+    const okCalidad = filtroCalidad === 'todas' || cal === filtroCalidad;
     const q = busqueda.toLowerCase();
     const okBusq = !q || i.participante_nombre.toLowerCase().includes(q) || i.numero_documento.includes(q);
-    return okEstado && okBusq;
+    return okEstado && okCalidad && okBusq;
   });
 
   const resumen = Object.entries(ESTADOS)
@@ -285,6 +338,19 @@ export default function AdminInscripciones() {
           <option value="todos">Todos los estados</option>
           {Object.entries(ESTADOS).map(([id, { label }]) => (
             <option key={id} value={id}>{label}</option>
+          ))}
+        </select>
+
+        {/* Filtro calidad (Participante, Ponente, Organizador…) */}
+        <select
+          value={filtroCalidad}
+          onChange={e => setFiltroCalidad(e.target.value)}
+          className="vx-input"
+          style={{ maxWidth: 180 }}
+        >
+          <option value="todas">Todas las calidades</option>
+          {calidadesPresentes.map(c => (
+            <option key={c} value={c}>{c}</option>
           ))}
         </select>
       </div>
@@ -397,11 +463,31 @@ export default function AdminInscripciones() {
         </div>
       )}
 
+      {/* Barra de acción en lote (solo ADMINISTRADOR) */}
+      {esAdmin && selected.size > 0 && (
+        <div className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl" style={{ background: '#0D0E12', color: '#fff' }}>
+          <div className="flex items-center gap-2">
+            <button onClick={clearSel} className="p-1 rounded-lg transition-colors hover:bg-white/10" style={{ color: '#9CA3AF' }}><X size={15} /></button>
+            <span className="text-[13px] font-semibold">{selected.size} seleccionada{selected.size !== 1 ? 's' : ''}</span>
+          </div>
+          <button onClick={handleEliminarMasa} disabled={borrando}
+            className="flex items-center gap-1.5 text-[12.5px] font-semibold px-3 py-1.5 rounded-lg transition-all disabled:opacity-60"
+            style={{ background: '#DC2626', color: '#fff' }}>
+            {borrando ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />} Eliminar seleccionadas
+          </button>
+        </div>
+      )}
+
       {/* Table */}
       {!loading && filtradas.length > 0 && (
         <div className="bg-white rounded-2xl overflow-hidden" style={{ border: '1px solid #EEECE6' }}>
           {/* Header */}
-          <div className="hidden sm:flex items-center px-5 py-3" style={{ background: '#FAFAF8', borderBottom: '1px solid #EEECE6' }}>
+          <div className="hidden sm:flex items-center gap-3 px-5 py-3" style={{ background: '#FAFAF8', borderBottom: '1px solid #EEECE6' }}>
+            {esAdmin && (
+              <input type="checkbox" className="w-4 h-4 rounded cursor-pointer" style={{ accentColor: '#7C3AED' }}
+                checked={pageItems.length > 0 && pageItems.every(i => selected.has(i.id))}
+                onChange={() => toggleAllPage(pageItems.map(i => i.id))} title="Seleccionar todos (página)" />
+            )}
             <p className="flex-1 text-[11px] font-semibold uppercase tracking-wider" style={{ color: '#9CA3AF' }}>Participante</p>
             <p className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: '#9CA3AF' }}>Estado / Acciones</p>
           </div>
@@ -414,6 +500,8 @@ export default function AdminInscripciones() {
               isLast={idx === pageItems.length - 1}
               tieneUnidades={tieneUnidades}
               esAdmin={esAdmin}
+              selected={selected.has(i.id)}
+              onToggleSel={() => toggleOne(i.id)}
             />
           ))}
         </div>

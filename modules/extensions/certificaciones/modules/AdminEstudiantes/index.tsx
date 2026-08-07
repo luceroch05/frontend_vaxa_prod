@@ -383,7 +383,21 @@ export default function AdminEstudiantes() {
   const [busqueda, setBusqueda] = useState('');
   const [modal, setModal] = useState(false);
   const [editar, setEditar] = useState<Participante | null>(null);
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [borrando, setBorrando] = useState(false);
   const confirm = useConfirm();
+
+  /* ── Selección múltiple ─────────────────────────────────── */
+  const toggleOne = (id: number) => setSelected(prev => {
+    const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n;
+  });
+  const toggleAllPage = (ids: number[]) => setSelected(prev => {
+    const all = ids.length > 0 && ids.every(id => prev.has(id));
+    const n = new Set(prev);
+    if (all) ids.forEach(id => n.delete(id)); else ids.forEach(id => n.add(id));
+    return n;
+  });
+  const clearSel = () => setSelected(new Set());
 
   const cargar = useCallback(() => {
     setLoading(true);
@@ -406,6 +420,29 @@ export default function AdminEstudiantes() {
     if (!ok) return;
     try { await participantesApi.eliminar(empresa!, p.id); cargar(); }
     catch (e: unknown) { setError((e as Error).message); }
+  };
+
+  /** Eliminar en lote: recorre los seleccionados uno a uno (como en Certificados). */
+  const handleEliminarMasa = async () => {
+    const ids = Array.from(selected);
+    if (ids.length === 0) return;
+    const ok = await confirm({
+      title: 'Borrar estudiantes',
+      message: `Se BORRARÁN ${ids.length} estudiante${ids.length !== 1 ? 's' : ''} con sus inscripciones, notas y certificados emitidos (se devuelven los créditos). No se puede deshacer.`,
+      confirmText: `Borrar ${ids.length}`,
+      variant: 'danger',
+    });
+    if (!ok) return;
+    setBorrando(true); setError(null);
+    const errores: string[] = [];
+    for (const id of ids) {
+      try { await participantesApi.eliminar(empresa!, id); }
+      catch (e: unknown) { errores.push((e as Error).message); }
+    }
+    setBorrando(false);
+    clearSel();
+    cargar();
+    if (errores.length) setError(`No se pudieron borrar ${errores.length} de ${ids.length}. Motivo: ${errores[0]}`);
   };
 
   const q = busqueda.trim().toLowerCase();
@@ -459,16 +496,40 @@ export default function AdminEstudiantes() {
         </div>
       )}
 
+      {/* Barra de acción en lote (solo ADMINISTRADOR) */}
+      {esAdmin && selected.size > 0 && (
+        <div className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl" style={{ background: '#0D0E12', color: '#fff' }}>
+          <div className="flex items-center gap-2">
+            <button onClick={clearSel} className="p-1 rounded-lg transition-colors hover:bg-white/10" style={{ color: '#9CA3AF' }}><X size={15} /></button>
+            <span className="text-[13px] font-semibold">{selected.size} seleccionado{selected.size !== 1 ? 's' : ''}</span>
+          </div>
+          <button onClick={handleEliminarMasa} disabled={borrando}
+            className="flex items-center gap-1.5 text-[12.5px] font-semibold px-3 py-1.5 rounded-lg transition-all disabled:opacity-60"
+            style={{ background: '#DC2626', color: '#fff' }}>
+            {borrando ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />} Eliminar seleccionados
+          </button>
+        </div>
+      )}
+
       {!loading && filtrados.length > 0 && (
         <div className="bg-white rounded-2xl overflow-hidden" style={{ border: '1px solid #EEECE6' }}>
-          <div className="hidden sm:grid grid-cols-[110px_1fr_1fr_110px_150px] px-5 py-3" style={{ background: '#FAFAF8', borderBottom: '1px solid #EEECE6' }}>
+          <div className={`hidden sm:grid px-5 py-3 ${esAdmin ? 'grid-cols-[32px_110px_1fr_1fr_110px_150px]' : 'grid-cols-[110px_1fr_1fr_110px_150px]'}`} style={{ background: '#FAFAF8', borderBottom: '1px solid #EEECE6' }}>
+            {esAdmin && (
+              <input type="checkbox" className="w-4 h-4 rounded cursor-pointer self-center" style={{ accentColor: '#7C3AED' }}
+                checked={pageItems.length > 0 && pageItems.every(p => selected.has(p.id))}
+                onChange={() => toggleAllPage(pageItems.map(p => p.id))} title="Seleccionar todos (página)" />
+            )}
             {['Documento', 'Nombre', 'Email', 'Teléfono', ''].map((h, i) => (
               <p key={i} className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: '#9CA3AF' }}>{h}</p>
             ))}
           </div>
           {pageItems.map((p, idx) => (
-            <div key={p.id} className="flex flex-col sm:grid sm:grid-cols-[110px_1fr_1fr_110px_150px] sm:items-center px-5 py-3"
-              style={{ borderBottom: idx < pageItems.length - 1 ? '1px solid #F5F4F0' : undefined }}>
+            <div key={p.id} className={`flex flex-col sm:grid sm:items-center px-5 py-3 ${esAdmin ? 'sm:grid-cols-[32px_110px_1fr_1fr_110px_150px]' : 'sm:grid-cols-[110px_1fr_1fr_110px_150px]'}`}
+              style={{ borderBottom: idx < pageItems.length - 1 ? '1px solid #F5F4F0' : undefined, background: selected.has(p.id) ? '#F5F3FF' : undefined }}>
+              {esAdmin && (
+                <input type="checkbox" className="w-4 h-4 rounded cursor-pointer self-center mb-2 sm:mb-0" style={{ accentColor: '#7C3AED' }}
+                  checked={selected.has(p.id)} onChange={() => toggleOne(p.id)} disabled={borrando} />
+              )}
               <p className="text-[13px] font-mono tabular-nums" style={{ color: '#4B5563' }}>{p.numero_documento}</p>
               <p className="text-[13px] font-semibold truncate" style={{ color: '#0D0E12' }}>{p.nombres} {p.apellidos}</p>
               <p className="text-[12.5px] truncate" style={{ color: '#6B7280' }}>{p.email || '—'}</p>

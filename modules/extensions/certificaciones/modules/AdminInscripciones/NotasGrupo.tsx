@@ -136,6 +136,47 @@ export default function NotasGrupo({ empresa, grupoId, onEstadoCambiado }: {
     );
   }
 
+  // ── Modo créditos: no se registran notas. Los créditos se otorgan por
+  //    asistencia; se muestra el detalle de créditos por unidad (solo lectura). ──
+  if (matriz.es_creditos) {
+    const totalCred = matriz.unidades.reduce((s, u) => s + Number(u.creditos ?? 0), 0);
+    return (
+      <>
+        <div className="flex items-start gap-2 text-[13px] px-4 py-3 rounded-xl mb-3"
+          style={{ background: '#F3F0FF', border: '1px solid #DDD6FE', color: '#5B21B6' }}>
+          <GraduationCap size={16} className="flex-shrink-0 mt-0.5" />
+          <span>
+            <strong>Modo créditos.</strong> Este programa no registra notas: cada tema del temario otorga
+            sus créditos por asistencia. Aprueba a los alumnos desde <strong>Inscripciones</strong> (por asistencia)
+            y al emitir, el acta mostrará los créditos de cada tema y el total.
+          </span>
+        </div>
+        <div className="bg-white rounded-2xl overflow-hidden" style={{ border: '1px solid #EEECE6' }}>
+          <table className="w-full" style={{ borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ background: '#FAFAF8', borderBottom: '1px solid #EEECE6' }}>
+                <th className="text-left px-4 py-3 text-[11px] font-semibold uppercase tracking-wider" style={{ color: '#9CA3AF' }}>Tema</th>
+                <th className="text-right px-4 py-3 text-[11px] font-semibold uppercase tracking-wider" style={{ color: '#9CA3AF' }}>Créditos</th>
+              </tr>
+            </thead>
+            <tbody>
+              {matriz.unidades.map((u, idx) => (
+                <tr key={u.id} style={{ borderBottom: idx < matriz.unidades.length - 1 ? '1px solid #F5F4F0' : undefined }}>
+                  <td className="px-4 py-2.5 text-[13px]" style={{ color: '#0D0E12' }}>{u.nombre}</td>
+                  <td className="px-4 py-2.5 text-right text-[13px] font-bold tabular-nums" style={{ color: '#7C3AED' }}>{Number(u.creditos ?? 0)}</td>
+                </tr>
+              ))}
+              <tr style={{ background: '#FAFAF8', borderTop: '1px solid #EEECE6' }}>
+                <td className="px-4 py-2.5 text-[12px] font-semibold uppercase tracking-wider" style={{ color: '#374151' }}>Total</td>
+                <td className="px-4 py-2.5 text-right text-[14px] font-bold tabular-nums" style={{ color: '#0D0E12' }}>{totalCred}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </>
+    );
+  }
+
   if (matriz.filas.length === 0) {
     return (
       <div className="bg-white rounded-2xl py-14 text-center" style={{ border: '1px solid #EEECE6' }}>

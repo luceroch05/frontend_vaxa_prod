@@ -70,6 +70,8 @@ export interface Unidad {
   programa_id: number;
   nombre: string;
   orden: number;
+  /** Créditos que otorga la unidad (solo modo "Crédito"). */
+  creditos: number;
   activo: number;
 }
 
@@ -77,6 +79,7 @@ export interface CreateUnidadDto {
   programa_id: number;
   nombre: string;
   orden?: number;
+  creditos?: number;
 }
 
 /** Una fila (alumno) dentro de la matriz de notas de un grupo. */
@@ -98,8 +101,10 @@ export interface NotasMatriz {
   programa_id: number;
   programa_nombre: string;
   unidad_label: string;
+  /** true si la evaluación es por créditos (sin notas). */
+  es_creditos?: boolean;
   nota_minima: number;
-  unidades: { id: number; nombre: string; orden: number }[];
+  unidades: { id: number; nombre: string; orden: number; creditos: number }[];
   filas: NotasFila[];
 }
 
@@ -168,6 +173,8 @@ export interface Inscripcion {
   nombre_grupo: string;
   estado_id: number;
   estado_nombre: string;
+  /** Calidad de participación (Participante, Ponente, Organizador, Colaborador…). */
+  calidad?: string;
   fecha_inscripcion: string;
 }
 
@@ -221,6 +228,7 @@ export interface CertificadoPublico {
   numero_documento: string;
   tipo_doc: string;
   programa_nombre: string;
+  tipo_programa: string;
   horas_academicas: number;
   nombre_grupo: string;
   fecha_inicio: string;

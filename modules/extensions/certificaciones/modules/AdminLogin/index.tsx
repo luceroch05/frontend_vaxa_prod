@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { Mail, Lock, Loader2, AlertCircle, Eye, EyeOff, GraduationCap, ArrowRight } from '@/components/ui/icon';
 import { useAuth } from '../../shared/hooks/useAuth';
 import { useBranding } from '../../shared/components/CertificadosLayout';
+import VaxaFooter from '../../shared/components/VaxaFooter';
 
 export default function AdminLogin() {
   const { empresa }  = useParams<{ empresa: string }>();
@@ -164,6 +165,7 @@ export default function AdminLogin() {
           <p className="text-center text-[11px] mt-5" style={{ color: '#B7B1A6' }}>
             © {new Date().getFullYear()} · Sistema de Certificados Vaxa
           </p>
+          <VaxaFooter />
         </div>
       </div>
     </div>

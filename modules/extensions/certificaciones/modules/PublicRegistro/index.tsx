@@ -12,6 +12,7 @@ import { aTituloNombre } from '../../shared/utils/text';
 import { ApiError }  from '@/lib/api/client';
 import { certPath }  from '@/lib/paths';
 import type { Catalogos, Grupo, RegistroPublicoDto } from '../../shared/types';
+import VaxaFooter from '../../shared/components/VaxaFooter';
 
 type Paso = 'formulario' | 'exito';
 
@@ -391,6 +392,7 @@ export default function PublicRegistro() {
             Verifícalo aquí
           </a>
         </p>
+        <VaxaFooter />
         </div>
       </div>
     </div>

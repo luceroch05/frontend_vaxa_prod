@@ -35,6 +35,22 @@ export function tenantPath(tenantId: string, sub = ''): string {
 }
 
 /**
+ * URL del Libro de Reclamaciones Virtual (público). Se usa en el footer de la
+ * landing (obligación legal de visibilidad). El formulario vive en el tenant
+ * `sistemas-vaxa`:
+ *   - subdominio sistemas.  → `/libro-reclamaciones`
+ *   - si está definido VITE_SISTEMAS_URL → URL absoluta a ese subdominio
+ *   - legacy (dominio raíz) → `/sistemas-vaxa/libro-reclamaciones`
+ */
+export function libroReclamacionesUrl(): string {
+  const { modo } = getHostMode();
+  if (modo === 'sistemas') return '/libro-reclamaciones';
+  const base = (import.meta.env.VITE_SISTEMAS_URL as string | undefined)?.replace(/\/$/, '');
+  if (base) return `${base}/libro-reclamaciones`;
+  return '/sistemas-vaxa/libro-reclamaciones';
+}
+
+/**
  * URL ABSOLUTA pública de certificados (para compartir con el cliente o el QR).
  * Funciona aunque se genere desde el subdominio de sistemas: si está definido
  * VITE_CERT_URL apunta ahí; si no (legacy/local), usa el origen actual.

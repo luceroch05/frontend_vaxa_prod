@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   FileBadge, Loader2, AlertCircle, Ban, Download, Sparkles, CheckCircle,
-  Search, Check, X, ChevronDown, Layers, Eye, Trash2,
+  Search, Check, X, ChevronDown, Layers, Eye, Trash2, Lock,
 } from '@/components/ui/icon';
 import { certPath } from '@/lib/paths';
 import { useCertificados }  from '../../shared/hooks/useCertificados';
@@ -23,6 +23,15 @@ import { CertificadoPDF } from '../../shared/components/CertificadoPDF';
 const ESTADO_APROBADO = 3;
 
 type Tab = 'pendientes' | 'emitidos' | 'anulados';
+
+/** Horas tras la emisión en que el certificado se bloquea y la empresa ya no lo puede eliminar. */
+const HORAS_BLOQUEO_CERT = 24;
+/** ¿El certificado quedó bloqueado (pasaron +24h desde su emisión)? El backend también lo enforca. */
+function certBloqueado(c: Certificado): boolean {
+  const ts = c.created_at ? new Date(c.created_at).getTime() : NaN;
+  if (Number.isNaN(ts)) return false;   // sin fecha-hora exacta → no bloquear en la UI (decide el backend)
+  return Date.now() - ts > HORAS_BLOQUEO_CERT * 3600 * 1000;
+}
 
 /* ── Checkbox ───────────────────────────────────────────────── */
 function Checkbox({ checked, onChange, disabled }: { checked: boolean; onChange: () => void; disabled?: boolean }) {
@@ -207,6 +216,12 @@ export default function AdminCertificados() {
 
   /* ── Acciones ──────────────────────────────────────────── */
   const handleEliminar = async (id: number) => {
+    const cert = certificados.find(c => c.id === id);
+    if (!esAdmin && cert && certBloqueado(cert)) {
+      setErrorMsg('Este certificado tiene más de 24 h de emitido: solo el administrador de la empresa puede eliminarlo.');
+      setTimeout(() => setErrorMsg(null), 4000);
+      return;
+    }
     if (!(await confirm({
       title: 'Eliminar certificado',
       message: 'Se eliminará el certificado por completo y se DEVOLVERÁ 1 crédito a tu saldo. Esta acción no se puede deshacer.',
@@ -271,11 +286,21 @@ export default function AdminCertificados() {
 
   /** Eliminar en lote (solo anulados): borra definitivamente y devuelve 1 crédito
    *  por cada uno. Recorre los seleccionados uno a uno. */
-  const handleEliminarMasa = async (ids: number[]) => {
-    if (ids.length === 0 || batchRunning) return;
+  const handleEliminarMasa = async (idsSel: number[]) => {
+    if (idsSel.length === 0 || batchRunning) return;
+    // Candado 24h SOLO para ADMISION: pasadas 24h no puede eliminar (sí el ADMINISTRADOR).
+    const bloqueadosById = esAdmin ? new Set<number>() : new Set(certificados.filter(certBloqueado).map(c => c.id));
+    const ids       = idsSel.filter(id => !bloqueadosById.has(id));
+    const omitidos  = idsSel.length - ids.length;
+    if (ids.length === 0) {
+      setErrorMsg(`Los ${omitidos} seleccionado${omitidos === 1 ? '' : 's'} tienen +24 h de emitidos: solo el administrador de la empresa puede eliminarlos.`);
+      setTimeout(() => setErrorMsg(null), 4500);
+      return;
+    }
     const ok = await confirm({
       title: `Eliminar ${ids.length} certificado${ids.length === 1 ? '' : 's'}`,
-      message: `Se eliminarán por completo ${ids.length} certificado${ids.length === 1 ? '' : 's'} anulado${ids.length === 1 ? '' : 's'} y se devolverán ${ids.length} crédito${ids.length === 1 ? '' : 's'} al saldo. No se puede deshacer.`,
+      message: `Se eliminarán por completo ${ids.length} certificado${ids.length === 1 ? '' : 's'} anulado${ids.length === 1 ? '' : 's'} y se devolverán ${ids.length} crédito${ids.length === 1 ? '' : 's'} al saldo. No se puede deshacer.`
+        + (omitidos > 0 ? `\n\n${omitidos} con +24 h de emitidos quedan bloqueados y NO se eliminarán (solo Vaxa puede).` : ''),
       confirmText: `Eliminar ${ids.length}`,
       variant: 'danger',
     });
@@ -592,7 +617,7 @@ export default function AdminCertificados() {
           apiBase={apiBase}
           onVerPDF={handleVerPDF}
           onAnular={handleAnular}
-          esAdmin={esAdmin}
+          esAdmin={true}
           selected={selected}
           batchRunning={batchRunning}
           onToggleOne={toggleOne}
@@ -1218,8 +1243,8 @@ function TablaAnulados({
 
   return (
     <div className="space-y-4">
-    {/* Barra de acción en lote (solo ADMINISTRADOR): eliminar varios anulados. */}
-    {esAdmin && selCount > 0 && (
+    {/* Barra de acción en lote: eliminar varios anulados (ADMISION solo ≤24h). */}
+    {selCount > 0 && (
       <div className="flex items-center justify-between px-4 py-3 rounded-2xl page-fade" style={{ background: '#0D0E12' }}>
         <div className="flex items-center gap-3">
           <button onClick={onClearSelection} className="p-1.5 rounded-lg transition-colors hover:bg-white/10" style={{ color: '#9CA3AF' }}>
@@ -1240,15 +1265,13 @@ function TablaAnulados({
       </div>
     )}
     <div className="bg-white rounded-2xl overflow-hidden" style={{ border: '1px solid #EEECE6' }}>
-      {/* Cabecera con "seleccionar todos" (solo ADMINISTRADOR). */}
-      {esAdmin && (
-        <div className="flex items-center gap-2.5 px-5 py-3" style={{ background: '#FAFAF8', borderBottom: '1px solid #EEECE6' }}>
-          <Checkbox checked={allSel} onChange={onToggleAll} disabled={batchRunning} />
-          <p className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: '#9CA3AF' }}>
-            Seleccionar todos ({items.length})
-          </p>
-        </div>
-      )}
+      {/* Cabecera con "seleccionar todos" (ADMISION y ADMINISTRADOR). */}
+      <div className="flex items-center gap-2.5 px-5 py-3" style={{ background: '#FAFAF8', borderBottom: '1px solid #EEECE6' }}>
+        <Checkbox checked={allSel} onChange={onToggleAll} disabled={batchRunning} />
+        <p className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: '#9CA3AF' }}>
+          Seleccionar todos ({items.length})
+        </p>
+      </div>
       <div>
         {pageItems.map((c, idx) => {
           const isSelected = selected.has(c.id);
@@ -1261,7 +1284,7 @@ function TablaAnulados({
               background: isSelected ? '#FFFBEB' : 'transparent',
             }}
           >
-            {esAdmin && <Checkbox checked={isSelected} onChange={() => onToggleOne(c.id)} disabled={batchRunning} />}
+            <Checkbox checked={isSelected} onChange={() => onToggleOne(c.id)} disabled={batchRunning || (!esAdmin && certBloqueado(c))} />
             <div className="min-w-0 flex-1">
               <p className="text-[13px] font-medium line-through truncate" style={{ color: '#6B7280' }}>
                 {c.participante_nombre}
@@ -1272,17 +1295,27 @@ function TablaAnulados({
               style={{ background: '#FEF2F2', color: '#B91C1C', border: '1px solid #FECACA' }}>
               {c.estado_nombre}
             </span>
-            {esAdmin && (
-            <button
-              onClick={() => onEliminar(c.id)}
-              disabled={eliminando === c.id}
-              className="flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-xl transition-all flex-shrink-0"
-              style={{ background: '#0D0E12', color: '#fff', opacity: eliminando === c.id ? 0.5 : 1 }}
-              title="Eliminar definitivamente y devolver el crédito"
-            >
-              {eliminando === c.id ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
-              Eliminar
-            </button>
+            {(
+              (!esAdmin && certBloqueado(c)) ? (
+                <span
+                  className="flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-xl flex-shrink-0"
+                  style={{ background: '#F5F4F0', color: '#9CA3AF', border: '1px solid #EEECE6', cursor: 'not-allowed' }}
+                  title="Bloqueado: pasadas 24 h de su emisión, solo el administrador de la empresa puede eliminarlo."
+                >
+                  <Lock size={12} /> Bloqueado
+                </span>
+              ) : (
+                <button
+                  onClick={() => onEliminar(c.id)}
+                  disabled={eliminando === c.id}
+                  className="flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-xl transition-all flex-shrink-0"
+                  style={{ background: '#0D0E12', color: '#fff', opacity: eliminando === c.id ? 0.5 : 1 }}
+                  title="Eliminar definitivamente y devolver el crédito"
+                >
+                  {eliminando === c.id ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
+                  Eliminar
+                </button>
+              )
             )}
           </div>
           );

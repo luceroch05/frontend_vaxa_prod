@@ -101,6 +101,7 @@ import {
   PrinterIcon,
   Copy,
   Link2,
+  MousePointerClick,
 
   type LucideIcon,
 } from 'lucide-react';
@@ -154,6 +155,6 @@ export {
   // Certificados
   GraduationCap, BookOpen, ClipboardList, UserCheck, UserPlus, FileBadge,
   QrCode, Layers, Menu, Home, ChevronLeft, MoreVertical, AlertTriangle,
-  BadgeCheck, Pencil, Ban, PrinterIcon, Copy, Link2, MessageCircle,
+  BadgeCheck, Pencil, Ban, PrinterIcon, Copy, Link2, MessageCircle, MousePointerClick,
 };
 export type { LucideIcon };

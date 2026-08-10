@@ -27,8 +27,10 @@ interface Props {
   editable?: boolean;
   /** Se llama con el layout actualizado al arrastrar/mover un campo. */
   onLayoutChange?: (l: LayoutLienzo) => void;
-  /** Doble click en un campo del lienzo → pedir editar sus propiedades (abajo). */
-  onEditField?: (key: string) => void;
+  /** Campo seleccionado (para el panel de propiedades) — compartido con la capa de arrastre. */
+  selectedKey?: string | null;
+  /** Se llama al hacer clic en un campo (o en zona vacía) del lienzo. */
+  onSelectField?: (key: string | null) => void;
 }
 
 /* Datos de ejemplo: así el usuario VE cómo queda con un alumno real. */
@@ -48,7 +50,7 @@ const EJEMPLO = {
  * ─────────────────────────────────────────────────────────────── */
 export default function CertificadoPreview({
   plantillaUrl, logos, firmas, texto, tipoPrograma, programaNombre, horas, creditos, layout, displayWidth = 460,
-  editable = false, onLayoutChange, onEditField,
+  editable = false, onLayoutChange, selectedKey, onSelectField,
 }: Props) {
   const scale = displayWidth / W;
 
@@ -123,7 +125,8 @@ export default function CertificadoPreview({
                   activo: true,
                   campos: { ...(layout!.campos ?? {}), [key]: { ...(layout!.campos?.[key] ?? {}), x, y } },
                 })}
-                onEditField={onEditField}
+                selectedKey={selectedKey}
+                onSelectField={onSelectField}
               />
             )}
           </>
@@ -182,12 +185,21 @@ export default function CertificadoPreview({
           }}>QR</div>
         </div>
 
-        {/* Pie izquierdo */}
-        <p style={{ position: 'absolute', left: 130, bottom: 20, margin: 0, fontSize: 11, color: '#9ca3af' }}>
-          Fecha de emisión: {EJEMPLO.fecha}
-        </p>
         </>
         )}
+
+        {/* Pie fijo de Vaxa — se dibuja en TODOS los certificados (por defecto y lienzo),
+            igual que pintarFooterVaxa del backend. Se muestra también aquí para MEDIR el
+            espacio que ocupa y no colocar campos encima. No interfiere con el arrastre. */}
+        <div style={{ position: 'absolute', left: 0, top: 764, width: W, pointerEvents: 'none', fontFamily: 'Helvetica, Arial, sans-serif' }}>
+          <p style={{ position: 'absolute', left: 40, top: 4, margin: 0, fontSize: 11, color: '#9ca3af', whiteSpace: 'nowrap' }}>
+            Fecha de emisión: {EJEMPLO.fecha}
+          </p>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
+            <span style={{ fontSize: 11, color: '#9ca3af' }}>Certificado emitido por</span>
+            <img src="/vaxa.png" alt="Vaxa" style={{ height: 16, width: 'auto', objectFit: 'contain' }} />
+          </div>
+        </div>
       </div>
     </div>
   );

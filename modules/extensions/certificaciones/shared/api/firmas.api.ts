@@ -14,6 +14,10 @@ export const firmasApi = {
   create: (empresa: string, data: { nombre_autoridad: string; cargo: string; imagen_firma: string }) =>
     api.post<Firma>('/api/certificados/firmas', data, opts(empresa)),
 
+  /** Edita nombre, cargo y/o imagen. Omite `imagen_firma` para conservar la actual. */
+  update: (empresa: string, id: number, data: { nombre_autoridad?: string; cargo?: string; imagen_firma?: string }) =>
+    api.put<Firma>(`/api/certificados/firmas/${id}`, data, opts(empresa)),
+
   delete: (empresa: string, id: number) =>
     api.delete<void>(`/api/certificados/firmas/${id}`, opts(empresa)),
 };

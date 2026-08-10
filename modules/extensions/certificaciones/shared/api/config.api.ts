@@ -37,4 +37,12 @@ export const configApi = {
       `/api/certificados/config/${programaId}/grupo/${grupoId}`,
       opts(empresa),
     ),
+
+  /** Plantilla base del diseño personalizado de la empresa (JSON del layout, o null). */
+  getLayoutBase: (empresa: string) =>
+    api.get<{ layout_base: string | null }>('/api/certificados/config-base', opts(empresa)),
+
+  /** Guarda (o limpia con null) la plantilla base del diseño personalizado. */
+  saveLayoutBase: (empresa: string, layoutJson: string | null) =>
+    api.put<{ ok: boolean }>('/api/certificados/config-base', { layout_base: layoutJson }, opts(empresa)),
 };

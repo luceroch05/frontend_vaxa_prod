@@ -1,10 +1,10 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import {
   Upload, Trash2, Loader2, ImageIcon, FileSignature,
   AlertCircle, Plus, X, Settings, CheckCircle, BookOpen,
   ChevronDown, ChevronUp, Search, Lock, Layers, Save,
-  ChevronLeft, ChevronRight,
+  ChevronLeft, ChevronRight, Pencil,
 } from '@/components/ui/icon';
 import { imgUrl } from '@/lib/api/client';
 import { useConfirm } from '../../shared/hooks/useConfirm';
@@ -17,6 +17,7 @@ import { usePlan }      from '../../shared/hooks/usePlan';
 import CertificadoPreview from '../../shared/components/CertificadoPreview';
 import { VARIABLES_CERTIFICADO } from '../../shared/utils/certVariables';
 import EditorLienzo from '../../personalizado/EditorLienzo';
+import InspectorLienzo from '../../personalizado/InspectorLienzo';
 import { LayoutLienzo, layoutActivo, parseLayout } from '../../personalizado/layout';
 import type { Logo, Firma } from '../../shared/types';
 
@@ -106,10 +107,36 @@ function SeccionLogos({ empresa, onChanged }: { empresa: string; onChanged: () =
   const [nombre,    setNombre]    = useState('');
   const [busqueda,  setBusqueda]  = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
+  // Edición de un logo (nombre y/o imagen).
+  const [editing,    setEditing]    = useState<Logo | null>(null);
+  const [editNombre, setEditNombre] = useState('');
+  const [editImg,    setEditImg]    = useState<string | null>(null);  // base64 de imagen nueva (o null = conservar)
+  const [savingEdit, setSavingEdit] = useState(false);
+  const editFileRef = useRef<HTMLInputElement>(null);
 
   const load = () => {
     setLoading(true);
     logosApi.list(empresa).then(setLogos).catch(e => setError(e.message)).finally(() => setLoading(false));
+  };
+
+  const abrirEdicion = (logo: Logo) => {
+    setEditing(logo); setEditNombre(logo.nombre ?? ''); setEditImg(null); setError(null);
+  };
+  const handleEditImg = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try { setEditImg(await toBase64(file)); } catch (err) { setError((err as Error).message); }
+  };
+  const handleSaveEdit = async () => {
+    if (!editing) return;
+    setSavingEdit(true); setError(null);
+    try {
+      await logosApi.update(empresa, editing.id, { nombre: editNombre.trim() || null, ...(editImg ? { imagen_logo: editImg } : {}) });
+      setEditing(null); setEditImg(null);
+      if (editFileRef.current) editFileRef.current.value = '';
+      load(); onChanged();
+    } catch (e: unknown) { setError((e as Error).message); }
+    finally { setSavingEdit(false); }
   };
 
   const confirm = useConfirm();
@@ -184,6 +211,36 @@ function SeccionLogos({ empresa, onChanged }: { empresa: string; onChanged: () =
         </label>
       </div>
 
+      {/* Panel de edición de un logo (nombre + imagen opcional) */}
+      {editing && (
+        <div className="rounded-xl p-4 mb-4 space-y-3" style={{ background: '#FAFAF8', border: '1px dashed #EEECE6' }}>
+          <div className="flex items-center justify-between">
+            <p className="text-[13px] font-semibold" style={{ color: '#0D0E12' }}>Editar logo</p>
+            <button onClick={() => setEditing(null)} style={{ color: '#9CA3AF' }}><X size={15} /></button>
+          </div>
+          <div className="flex items-center gap-3">
+            <img src={editImg ?? imgUrl(editing.imagen_logo)} alt="logo" className="w-16 h-16 object-contain rounded-lg" style={{ background: '#fff', border: '1px solid #EEECE6' }} />
+            <div className="flex-1 space-y-2">
+              <input type="text" value={editNombre} onChange={e => setEditNombre(e.target.value)}
+                placeholder="Nombre del logo (opcional)" className="vx-input w-full" style={{ padding: '0.5rem 0.75rem' }} />
+              <label className="flex items-center gap-2 px-3 py-1.5 text-[12px] font-semibold rounded-lg cursor-pointer w-fit"
+                style={{ background: '#F5F3FF', color: '#7C3AED', border: '1px solid #DDD6FE' }}>
+                <Upload size={12} /> Cambiar imagen
+                <input ref={editFileRef} type="file" accept="image/*" className="hidden" onChange={handleEditImg} />
+              </label>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <button onClick={() => setEditing(null)} className="text-[12px] font-semibold px-3 py-1.5 rounded-lg" style={{ background: '#fff', color: '#6B7280', border: '1px solid #EEECE6' }}>Cancelar</button>
+            <button onClick={handleSaveEdit} disabled={savingEdit}
+              className="flex items-center gap-1.5 text-[12px] font-semibold px-3.5 py-1.5 rounded-lg disabled:opacity-50"
+              style={{ background: '#0D0E12', color: '#fff' }}>
+              {savingEdit ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />} Guardar
+            </button>
+          </div>
+        </div>
+      )}
+
       {loading && <div className="flex justify-center py-6" style={{ color: '#D1D5DB' }}><Loader2 size={18} className="animate-spin" /></div>}
       {!loading && logos.length === 0 && (
         <div className="py-8 text-center rounded-xl" style={{ background: '#FAFAF8', border: '1px dashed #EEECE6' }}>
@@ -221,9 +278,12 @@ function SeccionLogos({ empresa, onChanged }: { empresa: string; onChanged: () =
                   Obligatorio
                 </span>
               ) : (
-                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                <div className="absolute inset-0 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity"
                   style={{ background: 'rgba(13,14,18,0.5)' }}>
-                  <button onClick={() => handleDelete(logo.id)} className="p-1.5 rounded-lg" style={{ background: '#EF4444', color: '#fff' }}>
+                  <button onClick={() => abrirEdicion(logo)} className="p-1.5 rounded-lg" style={{ background: '#fff', color: '#0D0E12' }} title="Editar">
+                    <Pencil size={12} />
+                  </button>
+                  <button onClick={() => handleDelete(logo.id)} className="p-1.5 rounded-lg" style={{ background: '#EF4444', color: '#fff' }} title="Eliminar">
                     <Trash2 size={12} />
                   </button>
                 </div>
@@ -255,10 +315,43 @@ function SeccionFirmas({ empresa, onChanged }: { empresa: string; onChanged: () 
   const [form,      setForm]      = useState({ nombre_autoridad: '', cargo: '' });
   const [busqueda,  setBusqueda]  = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
+  // Edición de una firma (nombre, cargo y/o imagen).
+  const [editing,    setEditing]    = useState<Firma | null>(null);
+  const [editForm,   setEditForm]   = useState({ nombre_autoridad: '', cargo: '' });
+  const [editImg,    setEditImg]    = useState<string | null>(null);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const editFileRef = useRef<HTMLInputElement>(null);
 
   const load = () => {
     setLoading(true);
     firmasApi.list(empresa).then(setFirmas).catch(e => setError(e.message)).finally(() => setLoading(false));
+  };
+
+  const abrirEdicion = (firma: Firma) => {
+    setEditing(firma);
+    setEditForm({ nombre_autoridad: firma.nombre_autoridad, cargo: firma.cargo });
+    setEditImg(null); setShowForm(false); setError(null);
+  };
+  const handleEditImg = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try { setEditImg(await toBase64(file)); } catch (err) { setError((err as Error).message); }
+  };
+  const handleSaveEdit = async () => {
+    if (!editing) return;
+    if (!editForm.nombre_autoridad.trim() || !editForm.cargo.trim()) { setError('Completa nombre y cargo'); return; }
+    setSavingEdit(true); setError(null);
+    try {
+      await firmasApi.update(empresa, editing.id, {
+        nombre_autoridad: editForm.nombre_autoridad.trim(),
+        cargo: editForm.cargo.trim(),
+        ...(editImg ? { imagen_firma: editImg } : {}),
+      });
+      setEditing(null); setEditImg(null);
+      if (editFileRef.current) editFileRef.current.value = '';
+      load(); onChanged();
+    } catch (e: unknown) { setError((e as Error).message); }
+    finally { setSavingEdit(false); }
   };
 
   const confirm = useConfirm();
@@ -357,6 +450,41 @@ function SeccionFirmas({ empresa, onChanged }: { empresa: string; onChanged: () 
         </div>
       )}
 
+      {/* Panel de edición de una firma (nombre, cargo + imagen opcional) */}
+      {editing && (
+        <div className="rounded-xl p-4 mb-4 space-y-3" style={{ background: '#FAFAF8', border: '1px dashed #EEECE6' }}>
+          <div className="flex items-center justify-between">
+            <p className="text-[13px] font-semibold" style={{ color: '#0D0E12' }}>Editar firma</p>
+            <button onClick={() => setEditing(null)} style={{ color: '#9CA3AF' }}><X size={15} /></button>
+          </div>
+          <div className="flex items-center gap-3">
+            <img src={editImg ?? imgUrl(editing.imagen_firma)} alt={editing.nombre_autoridad}
+              className="h-12 w-28 object-contain rounded-lg" style={{ background: '#fff', border: '1px solid #EEECE6' }} />
+            <label className="flex items-center gap-2 px-3 py-1.5 text-[12px] font-semibold rounded-lg cursor-pointer w-fit"
+              style={{ background: '#F5F3FF', color: '#7C3AED', border: '1px solid #DDD6FE' }}>
+              <Upload size={12} /> Cambiar imagen
+              <input ref={editFileRef} type="file" accept="image/*" className="hidden" onChange={handleEditImg} />
+            </label>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <input type="text" placeholder="Nombre y apellido" value={editForm.nombre_autoridad}
+              onChange={e => setEditForm(f => ({ ...f, nombre_autoridad: e.target.value }))}
+              className="vx-input" style={{ padding: '0.5rem 0.75rem' }} />
+            <input type="text" placeholder="Cargo" value={editForm.cargo}
+              onChange={e => setEditForm(f => ({ ...f, cargo: e.target.value }))}
+              className="vx-input" style={{ padding: '0.5rem 0.75rem' }} />
+          </div>
+          <div className="flex justify-end gap-2">
+            <button onClick={() => setEditing(null)} className="text-[12px] font-semibold px-3 py-1.5 rounded-lg" style={{ background: '#fff', color: '#6B7280', border: '1px solid #EEECE6' }}>Cancelar</button>
+            <button onClick={handleSaveEdit} disabled={savingEdit}
+              className="flex items-center gap-1.5 text-[12px] font-semibold px-3.5 py-1.5 rounded-lg disabled:opacity-50"
+              style={{ background: '#0D0E12', color: '#fff' }}>
+              {savingEdit ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />} Guardar
+            </button>
+          </div>
+        </div>
+      )}
+
       {loading && <div className="flex justify-center py-6" style={{ color: '#D1D5DB' }}><Loader2 size={18} className="animate-spin" /></div>}
       {!loading && firmas.length === 0 && (
         <div className="py-8 text-center rounded-xl" style={{ background: '#FAFAF8', border: '1px dashed #EEECE6' }}>
@@ -388,7 +516,10 @@ function SeccionFirmas({ empresa, onChanged }: { empresa: string; onChanged: () 
               <p className="text-[13px] font-semibold truncate" style={{ color: '#0D0E12' }}>{firma.nombre_autoridad}</p>
               <p className="text-[11px] truncate" style={{ color: '#9CA3AF' }}>{firma.cargo}</p>
             </div>
-            <button onClick={() => handleDelete(firma.id)} className="p-1.5 rounded-lg hover:bg-red-50 transition-colors" style={{ color: '#B0A898' }}>
+            <button onClick={() => abrirEdicion(firma)} className="p-1.5 rounded-lg hover:bg-violet-50 transition-colors" style={{ color: '#7C3AED' }} title="Editar">
+              <Pencil size={14} />
+            </button>
+            <button onClick={() => handleDelete(firma.id)} className="p-1.5 rounded-lg hover:bg-red-50 transition-colors" style={{ color: '#B0A898' }} title="Eliminar">
               <Trash2 size={14} />
             </button>
           </div>
@@ -623,9 +754,48 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
   const [savedOk,   setSavedOk]   = useState<number | null>(null);
   const [error,     setError]     = useState<string | null>(null);
   const [expandedId,  setExpandedId]  = useState<number | null>(null);
-  // Doble click en un campo del lienzo (preview) → pedirle al editor de abajo que
-  // enfoque su tarjeta de propiedades. `ts` fuerza re-disparo aunque sea el mismo campo.
-  const [editFieldReq, setEditFieldReq] = useState<{ key: string; ts: number } | null>(null);
+  // Campo seleccionado en el lienzo (clic) → sus propiedades salen en el panel de la
+  // derecha (InspectorLienzo). Se comparte con la capa de arrastre de la vista previa.
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  // Ancho disponible del área de vista previa (para que el lienzo se ADAPTE y no se
+  // desborde junto al panel de propiedades). Se mide con ResizeObserver.
+  const areaRef = useRef<HTMLDivElement | null>(null);
+  const [areaW, setAreaW] = useState(0);
+  // useLayoutEffect: mide ANTES de pintar, así el ancho del lienzo ya es correcto en el
+  // primer frame (sin recorte ni salto). El ResizeObserver lo mantiene al vuelo cuando
+  // aparece/ocupa el panel de la derecha o cambia el tamaño de la ventana.
+  useLayoutEffect(() => {
+    const node = areaRef.current;
+    if (!node) { setAreaW(0); return; }
+    const medir = () => setAreaW(node.getBoundingClientRect().width);
+    const ro = new ResizeObserver(medir);
+    ro.observe(node);
+    medir();
+    return () => ro.disconnect();
+  }, [expandedId]);
+
+  // Plantilla base del diseño personalizado (por empresa): se carga al activar en frío
+  // y se guarda una vez con "Guardar base". Reemplaza a los presets hardcodeados.
+  const [layoutBase, setLayoutBase] = useState<LayoutLienzo | null>(null);
+  const [savingBase, setSavingBase] = useState(false);
+  const [baseSaved,  setBaseSaved]  = useState(false);
+  useEffect(() => {
+    if (!permiteDiseno) return;
+    configApi.getLayoutBase(empresa)
+      .then(r => setLayoutBase(parseLayout(r.layout_base)))
+      .catch(() => { /* sin base aún */ });
+  }, [empresa, permiteDiseno, refreshKey]);
+
+  const handleGuardarBase = async (l: LayoutLienzo) => {
+    setSavingBase(true); setError(null);
+    try {
+      await configApi.saveLayoutBase(empresa, JSON.stringify(l));
+      setLayoutBase(l);
+      setBaseSaved(true);
+      setTimeout(() => setBaseSaved(false), 2500);
+    } catch (e: unknown) { setError((e as Error).message); }
+    finally { setSavingBase(false); }
+  };
   const [busqueda,    setBusqueda]    = useState('');
   const [queryLogos,  setQueryLogos]  = useState('');
   const [queryFirmas, setQueryFirmas] = useState('');
@@ -918,7 +1088,7 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
                 borderBottom: isExpanded ? '1px solid #F5F4F0' : undefined,
                 background: isExpanded ? '#FAFAF8' : 'transparent',
               }}
-              onClick={() => setExpandedId(isExpanded ? null : p.id)}
+              onClick={() => { setExpandedId(isExpanded ? null : p.id); setSelectedKey(null); }}
               onMouseEnter={e => { if (!isExpanded) e.currentTarget.style.background = '#FAFAF8'; }}
               onMouseLeave={e => { if (!isExpanded) e.currentTarget.style.background = 'transparent'; }}
             >
@@ -993,6 +1163,7 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
                     }))}
                     onChange={async val => {
                       setGrupoSelected(prev => ({ ...prev, [p.id]: val }));
+                      setSelectedKey(null);
                       if (val !== 0) await cargarConfigGrupo(p.id, val);
                     }}
                   />
@@ -1035,36 +1206,96 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
                 </p>
               </div>
 
-              {/* Vista previa en vivo del certificado */}
-              <div className="rounded-2xl p-4" style={{ background: '#0F1115', border: '1px solid #1F2937' }}>
-                <div className="flex items-center justify-between mb-3">
-                  <p className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: '#9CA3AF' }}>
-                    Vista previa
-                  </p>
-                  <span className="text-[10.5px]" style={{ color: '#6B7280' }}>
-                    {permiteDiseno && layoutActivo(c.layout)
-                      ? 'arrastra para ubicar · doble click = editar propiedades · guías al alinear · Ctrl+Z deshace'
-                      : 'datos de ejemplo · así quedará al emitir'}
-                  </span>
-                </div>
-                <div className="flex justify-center overflow-x-auto">
-                  <CertificadoPreview
-                    plantillaUrl={c.plantilla_url}
-                    logos={selLogos}
-                    firmas={selFirmas}
-                    texto={c.texto_personalizado}
-                    tipoPrograma={p.tipo_programa_nombre}
-                    programaNombre={p.nombre}
-                    horas={p.horas_academicas}
-                    creditos={p.creditos}
-                    layout={c.layout}
-                    displayWidth={640}
-                    editable={permiteDiseno}
-                    onLayoutChange={l => setCfg(p.id, g, { layout: l })}
-                    onEditField={key => setEditFieldReq({ key, ts: Date.now() })}
-                  />
-                </div>
-              </div>
+              {/* Tarjeta de activación del diseño personalizado. Solo cuando está APAGADO
+                  (para prenderlo). Ya activo, las herramientas viven en la columna derecha
+                  junto al panel de propiedades. */}
+              {permiteDiseno && !layoutActivo(c.layout) && (
+                <EditorLienzo
+                  value={c.layout}
+                  onChange={l => setCfg(p.id, g, { layout: l })}
+                  onSelect={setSelectedKey}
+                  baseLayout={layoutBase}
+                />
+              )}
+
+              {/* Vista previa en vivo del certificado. En modo lienzo se muestra en dos
+                  columnas tipo Canva: lienzo (arrastrable) a la izquierda y panel de
+                  propiedades del elemento seleccionado a la derecha. */}
+              {(() => {
+                const modoLienzo = permiteDiseno && layoutActivo(c.layout);
+                // Panel de propiedades SIEMPRE a la derecha (dos columnas). `areaW` mide el
+                // hueco REAL del lienzo (columna izquierda) → el preview ocupa EXACTAMENTE
+                // ese ancho (nunca más), así llena el espacio SIN scroll. Tope 760 para que
+                // tampoco quede gigante en pantallas anchas.
+                const INSPECTOR_W = 280, GAP = 12;
+                const canvasW = Math.floor(Math.min(modoLienzo ? 760 : 680, areaW || 640));
+                return (
+                  <div className="rounded-2xl p-4" style={{ background: '#0F1115', border: '1px solid #1F2937' }}>
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: '#9CA3AF' }}>
+                        Vista previa
+                      </p>
+                      <span className="text-[10.5px]" style={{ color: '#6B7280' }}>
+                        {modoLienzo
+                          ? 'arrastra para ubicar · clic = editar propiedades · guías al alinear · Ctrl+Z deshace'
+                          : 'datos de ejemplo · así quedará al emitir'}
+                      </span>
+                    </div>
+                    <div
+                      style={{
+                        display: 'flex',
+                        gap: GAP,
+                        flexDirection: 'row',
+                        alignItems: 'flex-start',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <div ref={areaRef} style={{
+                        flex: '1 1 0%',
+                        minWidth: 0,
+                        display: 'flex', justifyContent: 'center',
+                      }}>
+                        <CertificadoPreview
+                          plantillaUrl={c.plantilla_url}
+                          logos={selLogos}
+                          firmas={selFirmas}
+                          texto={c.texto_personalizado}
+                          tipoPrograma={p.tipo_programa_nombre}
+                          programaNombre={p.nombre}
+                          horas={p.horas_academicas}
+                          creditos={p.creditos}
+                          layout={c.layout}
+                          displayWidth={canvasW}
+                          editable={permiteDiseno}
+                          onLayoutChange={l => setCfg(p.id, g, { layout: l })}
+                          selectedKey={selectedKey}
+                          onSelectField={setSelectedKey}
+                        />
+                      </div>
+                      {modoLienzo && (
+                        <div style={{ width: INSPECTOR_W, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                          <EditorLienzo
+                            value={c.layout}
+                            onChange={l => setCfg(p.id, g, { layout: l })}
+                            onSelect={setSelectedKey}
+                            baseLayout={layoutBase}
+                            onSaveBase={handleGuardarBase}
+                            savingBase={savingBase}
+                            baseSaved={baseSaved}
+                            compact
+                          />
+                          <InspectorLienzo
+                            layout={c.layout}
+                            selectedKey={selectedKey}
+                            onChange={l => setCfg(p.id, g, { layout: l })}
+                            onSelect={setSelectedKey}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Fondo + Texto en dos columnas */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -1117,18 +1348,6 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
                   placeholder={`Por haber completado satisfactoriamente el programa "${p.nombre}" con una duración de ${p.horas_academicas} horas académicas...`}
                 />
               </div>
-
-              {/* Diseño personalizado (Lienzo) — servicio a medida. Solo para empresas
-                  cuyo plan lo incluye (permite_diseno). El posicionamiento se hace
-                  arrastrando en la Vista previa de arriba; aquí quedan las propiedades
-                  finas de cada campo (texto, tamaño, color…). */}
-              {permiteDiseno && (
-                <EditorLienzo
-                  value={c.layout}
-                  onChange={l => setCfg(p.id, g, { layout: l })}
-                  editFieldReq={editFieldReq}
-                />
-              )}
 
               {/* Logos — multi-select */}
               <div>

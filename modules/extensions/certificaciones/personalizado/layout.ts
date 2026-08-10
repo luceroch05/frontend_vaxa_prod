@@ -272,6 +272,27 @@ export function nuevaLinea(): { key: string; campo: CampoLinea } {
   };
 }
 
+/** Máximo de firmas en un certificado (mismo tope que la selección de la config). */
+export const MAX_FIRMAS = 3;
+
+/** Crea el siguiente slot de firma libre (firma1 → firma2 → firma3).
+ *  Devuelve null si ya hay 3 firmas colocadas (tope del certificado).
+ *  Cada slot jala su imagen+nombre+cargo de las firmas seleccionadas en la config (por orden). */
+export function nuevaFirma(campos: Record<string, unknown>): { key: string; campo: CampoFirma } | null {
+  for (let n = 1; n <= MAX_FIRMAS; n++) {
+    const key = `firma${n}`;
+    if (!campos[key]) {
+      return { key, campo: { on: true, x: 300 + (n - 1) * 260, y: 615, w: 260, h: 58 } };
+    }
+  }
+  return null;
+}
+
+/** Cantidad de slots de firma (firmaN) ya colocados en el lienzo. */
+export function contarFirmas(campos: Record<string, unknown>): number {
+  return Object.keys(campos).filter(k => /^firma\d+$/i.test(k)).length;
+}
+
 /** true si el layout está activo y con al menos un campo → se usa el lienzo. */
 export function layoutActivo(l: LayoutLienzo | null | undefined): boolean {
   return !!(l && l.activo && l.campos && Object.keys(l.campos).length > 0);

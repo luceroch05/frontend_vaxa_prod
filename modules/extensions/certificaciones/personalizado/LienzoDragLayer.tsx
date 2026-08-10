@@ -24,12 +24,17 @@ interface Props {
   /** Escala a la que se muestra la preview (displayWidth / 1122). */
   scale: number;
   onMove: (key: string, x: number, y: number) => void;
-  /** Doble click en un campo → editar sus propiedades (fuente, tamaño…) abajo. */
-  onEditField?: (key: string) => void;
+  /** Campo seleccionado (controlado desde afuera para compartirlo con el panel de propiedades). */
+  selectedKey?: string | null;
+  /** Se llama al seleccionar/deseleccionar un campo (clic en el campo o en zona vacía). */
+  onSelectField?: (key: string | null) => void;
 }
 
-export default function LienzoDragLayer({ layout, scale, onMove, onEditField }: Props) {
-  const [selectedKey, setSelectedKey] = useState<string | null>(null);
+export default function LienzoDragLayer({ layout, scale, onMove, selectedKey: selProp, onSelectField }: Props) {
+  // Selección controlada si el padre la pasa; si no, estado interno (retrocompatible).
+  const [innerSel, setInnerSel] = useState<string | null>(null);
+  const selectedKey = selProp !== undefined ? selProp : innerSel;
+  const setSelectedKey = (k: string | null) => { setInnerSel(k); onSelectField?.(k); };
   const [guides, setGuides] = useState<{ v: number[]; h: number[] }>({ v: [], h: [] });
   const rootRef = useRef<HTMLDivElement>(null);
   // Arrastre en curso: qué campo y desde dónde (coords del campo + puntero en pantalla).
@@ -125,12 +130,11 @@ export default function LienzoDragLayer({ layout, scale, onMove, onEditField }: 
         return (
           <div
             key={key}
-            title={`${labelCampo(key, c)} · doble click para editar`}
+            title={`${labelCampo(key, c)} · clic para editar sus propiedades`}
             onPointerDown={e => onBoxDown(e, key, c)}
             onPointerMove={onBoxMove}
             onPointerUp={endDrag}
             onPointerCancel={endDrag}
-            onDoubleClick={() => onEditField?.(key)}
             style={{
               position: 'absolute', left: box.x, top: box.y, width: box.w, height: box.h,
               cursor: 'move', zIndex: sel ? 20 : 10, borderRadius: 3,

@@ -203,6 +203,8 @@ export interface Certificado {
   codigo_unico: string;
   url: string | null;
   fecha_emision: string;
+  /** Fecha-hora exacta de emisión (para el candado de 24h). */
+  created_at?: string;
   estado_id: number;
   estado_nombre: string;
   participante_nombre: string;

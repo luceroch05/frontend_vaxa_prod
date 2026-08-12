@@ -4,6 +4,9 @@ import { Star, Loader2, AlertCircle, Search, Users } from '@/components/ui/icon'
 import { useInscripciones } from '../../shared/hooks/useInscripciones';
 import CalidadBadge from '../../shared/components/CalidadBadge';
 
+/** Calidades editables (mismas que el resto del sistema). */
+const CALIDADES = ['Participante', 'Organizador', 'Colaborador', 'Ponente'];
+
 /* ── Ponentes / Staff ───────────────────────────────────────────
  * Lista SOLO a las personas con un rol distinto a "Participante"
  * (Ponente, Organizador, Colaborador…) de TODOS los eventos, para
@@ -15,10 +18,20 @@ const esParticipante = (calidad?: string) =>
 
 export default function PonentesStaff() {
   const { empresa } = useParams<{ empresa: string }>();
-  const { inscripciones, loading, error } = useInscripciones(empresa!);
+  const { inscripciones, loading, error, cambiarCalidad } = useInscripciones(empresa!);
 
   const [busqueda, setBusqueda]         = useState('');
   const [filtroCalidad, setFiltroCalidad] = useState('todas');
+  const [calSaving, setCalSaving]       = useState<number | null>(null);
+  const [calError, setCalError]         = useState<string | null>(null);
+
+  const handleCambiarCalidad = async (id: number, calidad: string) => {
+    setCalError(null);
+    setCalSaving(id);
+    try { await cambiarCalidad(id, calidad); }
+    catch (e: unknown) { setCalError((e as Error).message); }
+    finally { setCalSaving(null); }
+  };
 
   // Solo staff (no participantes).
   const staff = useMemo(
@@ -76,10 +89,10 @@ export default function PonentesStaff() {
         </select>
       </div>
 
-      {error && (
+      {(error || calError) && (
         <div className="mb-4 flex items-center gap-2 text-[13px] px-3.5 py-2.5 rounded-xl"
           style={{ background: '#FEF2F2', border: '1px solid #FECACA', color: '#B91C1C' }}>
-          <AlertCircle size={14} /> {error}
+          <AlertCircle size={14} /> {error || calError}
         </div>
       )}
 
@@ -126,9 +139,25 @@ export default function PonentesStaff() {
                     </p>
                   </div>
                 </div>
-                <span className="text-[11px] font-semibold flex-shrink-0" style={{ color: '#94A3B8' }}>
-                  {i.estado_nombre}
-                </span>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  {calSaving === i.id && <Loader2 size={13} className="animate-spin" style={{ color: '#9CA3AF' }} />}
+                  <select
+                    value={(i.calidad ?? 'Participante').trim() || 'Participante'}
+                    onChange={e => handleCambiarCalidad(i.id, e.target.value)}
+                    disabled={calSaving === i.id}
+                    className="vx-input"
+                    style={{ padding: '0.3rem 0.55rem', fontSize: 12, minWidth: 130 }}
+                    title="Cambiar la calidad (Participante lo quita de esta lista)"
+                  >
+                    {(CALIDADES.includes((i.calidad ?? 'Participante').trim() || 'Participante')
+                      ? CALIDADES
+                      : [...CALIDADES, (i.calidad ?? '').trim()]
+                    ).map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                  <span className="text-[11px] font-semibold" style={{ color: '#94A3B8' }}>
+                    {i.estado_nombre}
+                  </span>
+                </div>
               </div>
             ))}
           </div>

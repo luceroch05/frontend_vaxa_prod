@@ -36,6 +36,12 @@ export function useInscripciones(empresa: string, grupoId?: number) {
     return actualizada;
   };
 
+  const cambiarCalidad = async (id: number, calidad: string) => {
+    const actualizada = await inscripcionesApi.cambiarCalidad(empresa, id, calidad);
+    setInscripciones(prev => prev.map(i => i.id === id ? actualizada : i));
+    return actualizada;
+  };
+
   /** Aprueba/cambia el estado de varias inscripciones a la vez y refresca la lista. */
   const cambiarEstadoMasivo = async (ids: number[], estado_id: number) => {
     const { actualizadas } = await inscripcionesApi.cambiarEstadoMasivo(empresa, ids, estado_id);
@@ -57,5 +63,5 @@ export function useInscripciones(empresa: string, grupoId?: number) {
     return create({ participante_id: participante.id, grupo_id });
   };
 
-  return { inscripciones, loading, error, create, cambiarEstado, cambiarEstadoMasivo, eliminar, inscribirParticipante, refetch: fetchAll };
+  return { inscripciones, loading, error, create, cambiarEstado, cambiarCalidad, cambiarEstadoMasivo, eliminar, inscribirParticipante, refetch: fetchAll };
 }

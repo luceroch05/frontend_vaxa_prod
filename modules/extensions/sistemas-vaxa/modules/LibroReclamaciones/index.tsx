@@ -28,6 +28,10 @@ interface ConsultaResp {
 }
 
 const MAX_ADJUNTOS = 5;
+// Topes de texto: calibrados para que entren en las cajas de la Hoja de
+// Reclamación (PDF A4). Más que esto se saldría del recuadro.
+const MAX_DETALLE = 700;
+const MAX_PEDIDO = 400;
 
 const label = 'block text-[11px] font-semibold uppercase tracking-wider mb-1.5';
 const labelColor = { color: '#374151' };
@@ -287,13 +291,15 @@ export default function LibroReclamaciones() {
             <div className="space-y-3">
               <div>
                 <label className={label} style={labelColor}>Detalle *</label>
-                <textarea value={detalle} onChange={e => setDetalle(e.target.value)} rows={4} className="sv-input w-full" style={{ resize: 'vertical' }}
+                <textarea value={detalle} onChange={e => setDetalle(e.target.value.slice(0, MAX_DETALLE))} rows={4} maxLength={MAX_DETALLE} className="sv-input w-full" style={{ resize: 'vertical' }}
                   placeholder="Describe lo ocurrido con el mayor detalle posible" />
+                <p className="text-[11px] text-right mt-1" style={{ color: detalle.length >= MAX_DETALLE ? '#DC2626' : '#9CA3AF' }}>{detalle.length}/{MAX_DETALLE}</p>
               </div>
               <div>
                 <label className={label} style={labelColor}>Pedido *</label>
-                <textarea value={pedido} onChange={e => setPedido(e.target.value)} rows={3} className="sv-input w-full" style={{ resize: 'vertical' }}
+                <textarea value={pedido} onChange={e => setPedido(e.target.value.slice(0, MAX_PEDIDO))} rows={3} maxLength={MAX_PEDIDO} className="sv-input w-full" style={{ resize: 'vertical' }}
                   placeholder="¿Qué solución esperas?" />
+                <p className="text-[11px] text-right mt-1" style={{ color: pedido.length >= MAX_PEDIDO ? '#DC2626' : '#9CA3AF' }}>{pedido.length}/{MAX_PEDIDO}</p>
               </div>
             </div>
           </section>

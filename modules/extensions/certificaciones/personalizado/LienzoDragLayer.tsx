@@ -11,10 +11,11 @@
  *   · Flechas del teclado: ajuste fino (Shift = 10 px).
  * El modelo sigue siendo X/Y: no cambia el guardado ni el PDF.
  * ──────────────────────────────────────────────────────────────── */
-import { useRef, useState, type PointerEvent as ReactPointerEvent, type KeyboardEvent as ReactKeyboardEvent } from 'react';
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type KeyboardEvent as ReactKeyboardEvent } from 'react';
+import { imgUrl } from '@/lib/api/client';
 import {
-  CampoTexto, CampoQR, CampoLogo, CampoFirma, CampoLinea, LayoutLienzo,
-  campoBox, snapToGuides, labelCampo, LIENZO_W as W, LIENZO_H as H,
+  CampoTexto, CampoQR, CampoLogo, CampoFirma, CampoLinea, LayoutLienzo, Box,
+  campoBox, snapToGuides, labelCampo, tipoCampo, indiceLogo, LIENZO_W as W, LIENZO_H as H,
 } from './layout';
 
 type Campo = CampoTexto & CampoQR & CampoLogo & CampoFirma & CampoLinea;
@@ -28,9 +29,60 @@ interface Props {
   selectedKey?: string | null;
   /** Se llama al seleccionar/deseleccionar un campo (clic en el campo o en zona vacía). */
   onSelectField?: (key: string | null) => void;
+  /** Logos seleccionados (mismo orden que en la preview). Sirve para ajustar la
+   *  caja de selección de cada logo a la forma real de su imagen. */
+  logos?: { imagen_logo: string }[];
 }
 
-export default function LienzoDragLayer({ layout, scale, onMove, selectedKey: selProp, onSelectField }: Props) {
+/** Padding extra: el selector mide un poquito más que la imagen, no un cuadrado. */
+const HUG_PAD = 4;
+
+/**
+ * Mide la relación de aspecto (ancho/alto) de cada imagen dada su URL, cargándola
+ * fuera de pantalla. Devuelve un mapa url→aspecto; mientras carga, la url no está.
+ */
+function useImageAspects(urls: string[]): Record<string, number> {
+  const [aspects, setAspects] = useState<Record<string, number>>({});
+  const key = urls.join('|');
+  useEffect(() => {
+    urls.forEach((url) => {
+      if (!url) return;
+      const img = new Image();
+      img.onload = () => {
+        if (img.naturalWidth && img.naturalHeight) {
+          setAspects((a) => (a[url] ? a : { ...a, [url]: img.naturalWidth / img.naturalHeight }));
+        }
+      };
+      img.src = url;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+  return aspects;
+}
+
+/**
+ * Caja que "abraza" un logo: el logo se dibuja con object-fit: contain dentro de
+ * un cuadrado size×size, así que una imagen angosta deja aire a los lados. Con su
+ * aspecto real calculamos el recuadro que ocupa de verdad (centrado) + un pelín
+ * de padding. Sin aspecto todavía (cargando), cae al cuadrado original.
+ */
+function logoHugBox(c: Campo, aspect?: number): Box {
+  const s = c.size ?? 100;
+  const x = c.x ?? 0, y = c.y ?? 0;
+  if (!aspect || !Number.isFinite(aspect)) return { x, y, w: s, h: s };
+  let w = s, h = s;
+  if (aspect >= 1) h = s / aspect;   // imagen ancha → sobra alto
+  else w = s * aspect;               // imagen angosta → sobra ancho
+  return {
+    x: x + (s - w) / 2 - HUG_PAD,
+    y: y + (s - h) / 2 - HUG_PAD,
+    w: w + HUG_PAD * 2,
+    h: h + HUG_PAD * 2,
+  };
+}
+
+export default function LienzoDragLayer({ layout, scale, onMove, selectedKey: selProp, onSelectField, logos = [] }: Props) {
+  const aspects = useImageAspects(logos.map((l) => imgUrl(l.imagen_logo)).filter(Boolean));
   // Selección controlada si el padre la pasa; si no, estado interno (retrocompatible).
   const [innerSel, setInnerSel] = useState<string | null>(null);
   const selectedKey = selProp !== undefined ? selProp : innerSel;
@@ -44,6 +96,29 @@ export default function LienzoDragLayer({ layout, scale, onMove, selectedKey: se
 
   const campos = layout.campos ?? {};
   const clamp = (v: number, max: number) => Math.max(0, Math.min(max, v));
+
+  /**
+   * Limita x/y para que el elemento no se salga del lienzo. Para los LOGOS el
+   * límite se calcula contra la imagen REAL (centrada en su cuadrado size×size),
+   * no contra el cuadrado: así un logo ancho puede subir hasta el borde de arriba
+   * en vez de frenarse a media altura. El PDF centra igual, así que coincide.
+   */
+  const clampXY = (key: string, c: Campo, x: number, y: number): { x: number; y: number } => {
+    if (tipoCampo(key) === 'logo') {
+      const ar = aspects[imgUrl(logos[indiceLogo(key)]?.imagen_logo ?? '')];
+      if (ar && Number.isFinite(ar)) {
+        const s = c.size ?? 100;
+        const rw = ar >= 1 ? s : s * ar;   // ancho real de la imagen
+        const rh = ar >= 1 ? s / ar : s;    // alto real de la imagen
+        const gapX = (s - rw) / 2, gapY = (s - rh) / 2;  // aire por el centrado
+        return {
+          x: Math.round(Math.max(-gapX, Math.min(W - gapX - rw, x))),
+          y: Math.round(Math.max(-gapY, Math.min(H - gapY - rh, y))),
+        };
+      }
+    }
+    return { x: clamp(Math.round(x), W), y: clamp(Math.round(y), H) };
+  };
 
   const pushUndo = (key: string, x: number, y: number) => {
     undoStack.current.push({ key, x, y });
@@ -73,8 +148,9 @@ export default function LienzoDragLayer({ layout, scale, onMove, selectedKey: se
     const c = campos[d.key] as Campo | undefined;
     if (!c) return;
     // La preview está escalada: 1 px real = `scale` px en pantalla → dividir el delta.
-    const rawX = clamp(Math.round(d.startX + (e.clientX - d.cx) / scale), W);
-    const rawY = clamp(Math.round(d.startY + (e.clientY - d.cy) / scale), H);
+    const { x: rawX, y: rawY } = clampXY(d.key, c,
+      d.startX + (e.clientX - d.cx) / scale,
+      d.startY + (e.clientY - d.cy) / scale);
 
     const base = campoBox(d.key, c);   // solo para w/h (no dependen de x/y)
     if (e.altKey) {                    // Alt = mover libre, sin snap ni guías
@@ -110,7 +186,8 @@ export default function LienzoDragLayer({ layout, scale, onMove, selectedKey: se
     else return;
     e.preventDefault();
     pushUndo(selectedKey, c.x ?? 0, c.y ?? 0);   // cada nudge es deshacible
-    onMove(selectedKey, clamp((c.x ?? 0) + dx, W), clamp((c.y ?? 0) + dy, H));
+    const nudged = clampXY(selectedKey, c, (c.x ?? 0) + dx, (c.y ?? 0) + dy);
+    onMove(selectedKey, nudged.x, nudged.y);
   };
 
   return (
@@ -125,7 +202,10 @@ export default function LienzoDragLayer({ layout, scale, onMove, selectedKey: se
       {Object.entries(campos).map(([key, raw]) => {
         const c = (raw ?? {}) as Campo;
         if (c.on === false) return null;
-        const box = campoBox(key, c);
+        // Los logos usan una caja que abraza la imagen real (no el cuadrado size×size).
+        const box = tipoCampo(key) === 'logo'
+          ? logoHugBox(c, aspects[imgUrl(logos[indiceLogo(key)]?.imagen_logo ?? '')])
+          : campoBox(key, c);
         const sel = selectedKey === key;
         return (
           <div

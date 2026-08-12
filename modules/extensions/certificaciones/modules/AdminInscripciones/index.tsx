@@ -94,6 +94,7 @@ function InscripcionRow({ inscripcion, onCambiarEstado, onEliminar, isLast, tien
           </div>
           <p className="text-[11px] mt-0.5" style={{ color: '#9CA3AF' }}>
             {inscripcion.numero_documento}
+            {inscripcion.programa_nombre && ` · ${inscripcion.programa_nombre}`}
             {inscripcion.nombre_grupo && ` · ${inscripcion.nombre_grupo}`}
           </p>
         </div>

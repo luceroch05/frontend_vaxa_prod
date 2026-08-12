@@ -176,6 +176,8 @@ export interface CrearEmpresaDto {
   logo?: string;
   plan_id?: number;     // plan con el que arranca (default: Básico)
   ciclo_id?: number;    // ciclo de facturación (default: mensual)
+  /** Solo modo "Pago por certificado": S/ por cada certificado emitido (default 20). */
+  precio_certificado?: number;
   /** Servicio a medida que activa Vaxa (proveedor) para este cliente: habilita el
    *  editor de "Diseño personalizado (Lienzo)". Independiente del plan. Requiere
    *  la columna empresas.permite_diseno en el backend para persistir/enforzar. */

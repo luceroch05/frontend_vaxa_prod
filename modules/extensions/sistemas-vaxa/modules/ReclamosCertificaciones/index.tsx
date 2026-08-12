@@ -34,6 +34,11 @@ const ESTADO_STYLE: Record<EstadoReclamo, { bg: string; fg: string }> = {
 };
 
 const ESTADOS: EstadoReclamo[] = ['PENDIENTE', 'EN_PROCESO', 'ATENDIDO', 'CERRADO'];
+// Tope de la respuesta oficial: calibrado para que entre en la caja del PDF
+// (Hoja de Reclamación). La observación de avance va a la línea de tiempo
+// (columna nota VARCHAR(500)), así que se limita a 500 para no truncar en BD.
+const MAX_RESPUESTA = 450;
+const MAX_NOTA = 500;
 const cap = (e: string) => e.charAt(0) + e.slice(1).toLowerCase().replace('_', ' ');
 
 /** ¿Está vencido el plazo de respuesta (15 días hábiles) y aún no se responde? */
@@ -364,9 +369,11 @@ function DetalleModal({ reclamo, onClose, onDone }: {
             {esFinal ? 'Respuesta oficial al consumidor' : 'Observación'}
             <span className="font-normal" style={{ color: '#9CA3AF' }}>{esFinal ? ' (aparece en el PDF)' : ' (opcional, queda en la línea de tiempo)'}</span>
           </label>
-          <textarea value={texto} onChange={e => setTexto(e.target.value)} rows={esFinal ? 4 : 3}
+          <textarea value={texto} onChange={e => setTexto(e.target.value.slice(0, esFinal ? MAX_RESPUESTA : MAX_NOTA))} rows={esFinal ? 4 : 3}
+            maxLength={esFinal ? MAX_RESPUESTA : MAX_NOTA}
             placeholder={esFinal ? 'Describe la respuesta y las acciones adoptadas…' : 'Ej: se encargó el caso al área de soporte, se está evaluando…'}
             className="sv-input w-full text-[13px]" style={{ resize: 'vertical' }} />
+          <p className="text-[11px] text-right mt-1" style={{ color: texto.length >= (esFinal ? MAX_RESPUESTA : MAX_NOTA) ? '#DC2626' : '#9CA3AF' }}>{texto.length}/{esFinal ? MAX_RESPUESTA : MAX_NOTA}</p>
           {esFinal && <p className="text-[10.5px] mt-1" style={{ color: '#059669' }}>Esta respuesta se le comunica al consumidor y figura en el PDF de la Hoja de Reclamación.</p>}
 
           {resultado && (

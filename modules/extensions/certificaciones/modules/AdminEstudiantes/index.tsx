@@ -14,7 +14,58 @@ import ProgramaGrupoPicker from '../../shared/components/ProgramaGrupoPicker';
 import PhoneField from '../../shared/components/PhoneField';
 import SelectVx from '../../shared/components/SelectVx';
 import { isPossiblePhoneNumber } from 'libphonenumber-js';
-import type { Participante } from '../../shared/types';
+import type { Participante, Inscripcion } from '../../shared/types';
+
+/** Grados académicos que se pueden anteponer al nombre en el certificado (multi-select). */
+const GRADOS_OPCIONES = [
+  'Bach.', 'Lic.', 'Ing.', 'Mag.', 'Dr.', 'Dra.', 'Abog.', 'Psic.',
+  'C.D.', 'Q.F.', 'T.M.', 'Obst.', 'Enf.', 'Prof.', 'Mtro.', 'Ph.D.',
+];
+
+/** Convierte el CSV guardado ("Mag.,Lic.") al arreglo del formulario. */
+const parseGrados = (csv?: string | null): string[] =>
+  String(csv ?? '').split(',').map(s => s.trim()).filter(Boolean);
+
+/** Calidades de participación (mismas que el resto del sistema). */
+const CALIDADES = ['Participante', 'Organizador', 'Colaborador', 'Ponente'];
+
+/** Multi-select de grados en chips: clic para marcar/desmarcar. Sale antes del nombre. */
+function GradosPicker({ value, onChange, disabled }: {
+  value: string[];
+  onChange: (v: string[]) => void;
+  disabled?: boolean;
+}) {
+  const toggle = (g: string) => {
+    if (disabled) return;
+    onChange(value.includes(g) ? value.filter(x => x !== g) : [...value, g]);
+  };
+  return (
+    <div>
+      <label className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: '#9CA3AF' }}>
+        Grado(s) académico(s) <span className="normal-case font-normal">— salen antes del nombre</span>
+      </label>
+      <div className="flex flex-wrap gap-1.5 mt-1.5">
+        {GRADOS_OPCIONES.map(g => {
+          const on = value.includes(g);
+          return (
+            <button key={g} type="button" onClick={() => toggle(g)} disabled={disabled}
+              className="text-[12px] font-semibold px-2.5 py-1 rounded-lg transition-colors disabled:cursor-not-allowed"
+              style={on
+                ? { background: '#EEF2FF', color: '#4338CA', border: '1px solid #C7D2FE' }
+                : { background: '#fff', color: disabled ? '#C4C0B8' : '#6B7280', border: '1px solid #E5E7EB' }}>
+              {g}
+            </button>
+          );
+        })}
+      </div>
+      {value.length > 0 && (
+        <p className="text-[11px] mt-1.5" style={{ color: '#6B7280' }}>
+          Vista: <b style={{ color: '#0D0E12' }}>{value.join(' ')} Nombre Apellido</b>
+        </p>
+      )}
+    </div>
+  );
+}
 
 /** Regla de validación del N.° de documento según el tipo (igual que la inscripción pública). */
 function getDocRule(codigo?: string): { max: number; numeric: boolean; hint: string } {
@@ -44,6 +95,7 @@ function InscribirModal({ empresa, onClose, onDone }: {
   const [apellidos, setApellidos] = useState('');
   const [email,     setEmail]     = useState('');
   const [telefono,  setTelefono]  = useState('');
+  const [grados,    setGrados]    = useState<string[]>([]);
   const [grupoId,    setGrupoId]    = useState<number>(0);
   const [calidad,    setCalidad]    = useState('Participante');
 
@@ -69,6 +121,7 @@ function InscribirModal({ empresa, onClose, onDone }: {
       const p = await participantesApi.buscar(empresa, d);
       setNombres(p.nombres); setApellidos(p.apellidos);
       setEmail(p.email ?? ''); setTelefono(p.telefono ?? '');
+      setGrados(parseGrados(p.grados));
       if (p.tipo_documento_id) setTipoDoc(p.tipo_documento_id);
       setYaRegistrado(true);
     } catch {
@@ -103,6 +156,7 @@ function InscribirModal({ empresa, onClose, onDone }: {
         apellidos: apellidos.trim(),
         email: email.trim() || undefined,
         telefono: telefono.trim() || undefined,
+        grados: yaRegistrado ? undefined : grados,   // solo al crear la persona nueva
         grupo_id: grupoId,
         calidad: calidad.trim() || 'Participante',
       });
@@ -208,6 +262,14 @@ function InscribirModal({ empresa, onClose, onDone }: {
             );
           })()}
 
+          {/* Grado(s) académico(s) — se anteponen al nombre (útil sobre todo en ponentes) */}
+          <GradosPicker value={grados} onChange={setGrados} disabled={yaRegistrado} />
+          {yaRegistrado && (
+            <p className="text-[11px]" style={{ color: '#B0A898' }}>
+              El grado se guarda en la persona. Para cambiarlo edítalo desde la lista de estudiantes.
+            </p>
+          )}
+
           <div className="h-px my-1" style={{ background: '#F0EEE9' }} />
 
           {/* Programa / Grupo — mismo selector buscable que la inscripción pública */}
@@ -268,8 +330,34 @@ function EditarModal({ empresa, participante, onClose, onDone }: {
   const [apellidos, setApellidos] = useState(participante.apellidos);
   const [email,     setEmail]     = useState(participante.email ?? '');
   const [telefono,  setTelefono]  = useState(participante.telefono ?? '');
+  const [grados,    setGrados]    = useState<string[]>(parseGrados(participante.grados));
   const [saving,    setSaving]    = useState(false);
   const [error,     setError]     = useState<string | null>(null);
+
+  // Inscripciones del estudiante → para cambiar su CALIDAD por aula (Ponente, etc.).
+  // Aquí SÍ aparecen todas sus aulas (incluso donde es Participante), así que es el
+  // lugar para promover a alguien a Ponente aunque no salga en Ponentes/Staff.
+  const [inscs, setInscs]           = useState<Inscripcion[]>([]);
+  const [inscsLoading, setInscsLoading] = useState(true);
+  const [calSaving, setCalSaving]   = useState<number | null>(null);
+
+  useEffect(() => {
+    let cancel = false;
+    inscripcionesApi.list(empresa, undefined, participante.id)
+      .then(data => { if (!cancel) setInscs(data); })
+      .catch(() => { /* si falla, la sección solo no muestra aulas */ })
+      .finally(() => { if (!cancel) setInscsLoading(false); });
+    return () => { cancel = true; };
+  }, [empresa, participante.id]);
+
+  const cambiarCalidadAula = async (inscId: number, nuevaCalidad: string) => {
+    setCalSaving(inscId);
+    try {
+      const upd = await inscripcionesApi.cambiarCalidad(empresa, inscId, nuevaCalidad);
+      setInscs(prev => prev.map(i => i.id === inscId ? { ...i, calidad: upd.calidad } : i));
+    } catch (e) { setError((e as Error).message); }
+    finally { setCalSaving(null); }
+  };
 
   const docRule = getDocRule(tiposDoc.find(t => t.id === tipoDoc)?.codigo);
   const sanitizeDoc = (raw: string, rule = docRule) =>
@@ -279,7 +367,8 @@ function EditarModal({ empresa, participante, onClose, onDone }: {
   const huboCambios =
     tipoDoc !== participante.tipo_documento_id || doc.trim() !== participante.numero_documento ||
     nombres.trim() !== participante.nombres || apellidos.trim() !== participante.apellidos ||
-    email.trim() !== (participante.email ?? '') || telefono.trim() !== (participante.telefono ?? '');
+    email.trim() !== (participante.email ?? '') || telefono.trim() !== (participante.telefono ?? '') ||
+    grados.join(',') !== parseGrados(participante.grados).join(',');
   const puedeGuardar = doc.trim() !== '' && nombres.trim() !== '' && apellidos.trim() !== '' && huboCambios;
 
   const submit = async () => {
@@ -294,6 +383,7 @@ function EditarModal({ empresa, participante, onClose, onDone }: {
         apellidos: apellidos.trim(),
         email: email.trim() || undefined,
         telefono: telefono.trim() || undefined,
+        grados,
       });
       onDone();
       onClose();
@@ -356,6 +446,55 @@ function EditarModal({ empresa, participante, onClose, onDone }: {
                 </p>
               )}
             </div>
+          </div>
+
+          {/* Grado(s) académico(s) — se anteponen al nombre en el certificado */}
+          <GradosPicker value={grados} onChange={setGrados} />
+
+          {/* Calidad de participación por aula (Ponente, Organizador…). Es por aula
+              porque la misma persona puede ser Ponente en un evento y Participante en otro. */}
+          <div className="h-px my-1" style={{ background: '#F0EEE9' }} />
+          <div>
+            <label className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: '#9CA3AF' }}>
+              Calidad por aula
+            </label>
+            {inscsLoading ? (
+              <div className="flex items-center gap-2 text-[12px] mt-2" style={{ color: '#9CA3AF' }}>
+                <Loader2 size={13} className="animate-spin" /> Cargando sus inscripciones…
+              </div>
+            ) : inscs.length === 0 ? (
+              <p className="text-[11.5px] mt-1.5" style={{ color: '#B0A898' }}>
+                Aún no está inscrito en ningún aula. La calidad se elige al inscribirlo.
+              </p>
+            ) : (
+              <div className="mt-1.5 space-y-2">
+                {inscs.map(i => {
+                  const cal = (i.calidad ?? 'Participante').trim() || 'Participante';
+                  const opts = CALIDADES.includes(cal) ? CALIDADES : [...CALIDADES, cal];
+                  return (
+                    <div key={i.id} className="flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-[12.5px] font-semibold truncate" style={{ color: '#374151' }}>{i.nombre_grupo}</p>
+                        {i.programa_nombre && <p className="text-[11px] truncate" style={{ color: '#9CA3AF' }}>{i.programa_nombre}</p>}
+                      </div>
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        {calSaving === i.id && <Loader2 size={13} className="animate-spin" style={{ color: '#9CA3AF' }} />}
+                        <select
+                          value={cal}
+                          onChange={e => cambiarCalidadAula(i.id, e.target.value)}
+                          disabled={calSaving === i.id}
+                          className="vx-input"
+                          style={{ padding: '0.3rem 0.55rem', fontSize: 12, minWidth: 130 }}
+                          title="Cambiar la calidad en esta aula"
+                        >
+                          {opts.map(c => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
 

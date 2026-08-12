@@ -79,6 +79,7 @@ export default function RegistrarEmpresaCertificaciones({
   const [planes, setPlanes] = useState<PlanCatalogo[]>([]);
   const [planId, setPlanId] = useState<number>(0);
   const [cicloId, setCicloId] = useState<number>(1);
+  const [precioCert, setPrecioCert] = useState<number>(20);   // solo modo "Pago por certificado"
   const [verificandoRuc, setVerificandoRuc] = useState(false);
   const [rucMsg, setRucMsg] = useState<{ ok: boolean; texto: string } | null>(null);
   // Servicio a medida que el proveedor (Vaxa) activa para este cliente puntual.
@@ -165,6 +166,10 @@ export default function RegistrarEmpresaCertificaciones({
     setLogoPreview(null);
   };
 
+  // Plan seleccionado y si es el modo "Pago por certificado" (sin ciclo/mantenimiento).
+  const planSel = planes.find((p) => p.id === planId);
+  const esPagoCert = planSel?.slug === 'pago_certificado';
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -183,6 +188,7 @@ export default function RegistrarEmpresaCertificaciones({
         logo: logoPreview || undefined,            // data URL base64 del logo subido
         plan_id: planId || undefined,
         ciclo_id: cicloId,
+        precio_certificado: esPagoCert ? (Number(precioCert) > 0 ? Number(precioCert) : 20) : undefined,
         permite_diseno: permiteDiseno,             // servicio a medida activado por Vaxa
       });
       // No se emite ningún comprobante al registrar. La factura/boleta se hace
@@ -551,37 +557,55 @@ export default function RegistrarEmpresaCertificaciones({
               })}
             </div>
 
-            {/* Ciclo de facturación */}
-            <div className="mt-4 max-w-xs">
-              <label className="block text-[11px] font-semibold uppercase tracking-wider text-gray-600 mb-1.5">Ciclo de facturación</label>
-              <select value={cicloId} onChange={(e) => setCicloId(Number(e.target.value))} className="sv-input">
-                {CICLOS.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
-              </select>
-            </div>
-
-            {/* Total inicial: implementación + mantenimiento del ciclo */}
-            {(() => {
-              const p = planes.find((x) => x.id === planId);
-              if (!p) return null;
-              const mantTotal = p.mantenimiento_mensual * cicloSel.mesesPago;
-              const ahorro    = p.mantenimiento_mensual * (cicloSel.mesesVigencia - cicloSel.mesesPago);
-              const totalInicial = p.implementacion + mantTotal;
-              return (
-                <div className="mt-3 rounded-xl px-4 py-3" style={{ background: '#ECFDF5', border: '1px solid #A7F3D0' }}>
-                  <div className="flex items-baseline justify-between gap-3">
-                    <span className="text-[12.5px] font-semibold" style={{ color: '#065F46' }}>
-                      {p.nombre} · {cicloSel.corto} (primera venta)
-                    </span>
-                    <span className="text-[20px] font-bold" style={{ color: '#047857' }}>{sol(totalInicial)}</span>
-                  </div>
-                  <p className="text-[11.5px] mt-1" style={{ color: '#059669' }}>
-                    Implementación <b>{sol(p.implementacion)}</b> + mantenimiento {cicloSel.mesesPago} mes{cicloSel.mesesPago !== 1 ? 'es' : ''} <b>{sol(mantTotal)}</b>
-                    {ahorro > 0 && <> · ahorras <b>{sol(ahorro)}</b> ({cicloSel.mesesVigencia} meses de servicio)</>}.
-                    {' '}Incluye <b>{p.creditos_incluidos} créditos</b>.
-                  </p>
+            {esPagoCert ? (
+              /* ── Modo "Pago por certificado": precio por cert, sin ciclo ni mantenimiento ── */
+              <div className="mt-4 max-w-xs">
+                <label className="block text-[11px] font-semibold uppercase tracking-wider text-gray-600 mb-1.5">Precio por certificado (S/)</label>
+                <input
+                  type="number" min={0} step="0.5" value={precioCert}
+                  onChange={(e) => setPrecioCert(Number(e.target.value))}
+                  className="sv-input"
+                />
+                <p className="text-[11.5px] mt-1.5" style={{ color: '#059669' }}>
+                  Se cobra <b>{sol(Number(precioCert) || 0)}</b> por cada certificado emitido. Sin mantenimiento ni
+                  vencimiento; el certificado queda validable de por vida.
+                </p>
+              </div>
+            ) : (
+              <>
+                {/* Ciclo de facturación */}
+                <div className="mt-4 max-w-xs">
+                  <label className="block text-[11px] font-semibold uppercase tracking-wider text-gray-600 mb-1.5">Ciclo de facturación</label>
+                  <select value={cicloId} onChange={(e) => setCicloId(Number(e.target.value))} className="sv-input">
+                    {CICLOS.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
+                  </select>
                 </div>
-              );
-            })()}
+
+                {/* Total inicial: implementación + mantenimiento del ciclo */}
+                {(() => {
+                  const p = planes.find((x) => x.id === planId);
+                  if (!p) return null;
+                  const mantTotal = p.mantenimiento_mensual * cicloSel.mesesPago;
+                  const ahorro    = p.mantenimiento_mensual * (cicloSel.mesesVigencia - cicloSel.mesesPago);
+                  const totalInicial = p.implementacion + mantTotal;
+                  return (
+                    <div className="mt-3 rounded-xl px-4 py-3" style={{ background: '#ECFDF5', border: '1px solid #A7F3D0' }}>
+                      <div className="flex items-baseline justify-between gap-3">
+                        <span className="text-[12.5px] font-semibold" style={{ color: '#065F46' }}>
+                          {p.nombre} · {cicloSel.corto} (primera venta)
+                        </span>
+                        <span className="text-[20px] font-bold" style={{ color: '#047857' }}>{sol(totalInicial)}</span>
+                      </div>
+                      <p className="text-[11.5px] mt-1" style={{ color: '#059669' }}>
+                        Implementación <b>{sol(p.implementacion)}</b> + mantenimiento {cicloSel.mesesPago} mes{cicloSel.mesesPago !== 1 ? 'es' : ''} <b>{sol(mantTotal)}</b>
+                        {ahorro > 0 && <> · ahorras <b>{sol(ahorro)}</b> ({cicloSel.mesesVigencia} meses de servicio)</>}.
+                        {' '}Incluye <b>{p.creditos_incluidos} créditos</b>.
+                      </p>
+                    </div>
+                  );
+                })()}
+              </>
+            )}
 
             {/* Qué incluye el plan elegido + campos que pide (dominio, etc.) */}
             {(() => {

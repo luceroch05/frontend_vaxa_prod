@@ -120,6 +120,7 @@ export default function CertificadoPreview({
               <LienzoDragLayer
                 layout={layout!}
                 scale={scale}
+                logos={logos}
                 onMove={(key, x, y) => onLayoutChange({
                   ...layout!,
                   activo: true,

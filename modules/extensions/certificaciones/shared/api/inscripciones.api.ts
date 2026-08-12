@@ -17,6 +17,8 @@ export interface InscribirDto {
   grupo_id: number;
   /** Calidad de participación (Participante, Organizador, Ponente…). Default Participante. */
   calidad?: string;
+  /** Grados académicos de la persona (solo se aplican al CREAR el participante). */
+  grados?: string[];
 }
 
 /** Una fila de participante para la carga masiva. */
@@ -48,8 +50,11 @@ export interface ImportarResultado {
 }
 
 export const inscripcionesApi = {
-  list: (empresa: string, grupoId?: number) => {
-    const qs = grupoId ? `?grupo_id=${grupoId}` : '';
+  list: (empresa: string, grupoId?: number, participanteId?: number) => {
+    const params = new URLSearchParams();
+    if (grupoId) params.set('grupo_id', String(grupoId));
+    if (participanteId) params.set('participante_id', String(participanteId));
+    const qs = params.toString() ? `?${params.toString()}` : '';
     return api.get<Inscripcion[]>(`/api/certificados/inscripciones${qs}`, opts(empresa));
   },
 
@@ -66,6 +71,14 @@ export const inscripcionesApi = {
     api.patch<Inscripcion>(
       `/api/certificados/inscripciones/${id}/estado`,
       { estado_id },
+      opts(empresa)
+    ),
+
+  /** Corrige la calidad de participación de una inscripción (Ponente, Participante…). */
+  cambiarCalidad: (empresa: string, id: number, calidad: string) =>
+    api.patch<Inscripcion>(
+      `/api/certificados/inscripciones/${id}/calidad`,
+      { calidad },
       opts(empresa)
     ),
 

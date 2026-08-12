@@ -150,6 +150,8 @@ export interface Participante {
   apellidos: string;
   email: string | null;
   telefono: string | null;
+  /** Grados académicos que se anteponen al nombre (CSV, ej. "Mag.,Lic."). */
+  grados?: string | null;
   activo: number;
 }
 
@@ -160,6 +162,8 @@ export interface CreateParticipanteDto {
   apellidos: string;
   email?: string;
   telefono?: string;
+  /** Grados académicos (abreviaturas) que se anteponen al nombre en el certificado. */
+  grados?: string[];
 }
 
 // ── Inscripción ──────────────────────────────────────────────────────────────
@@ -171,6 +175,7 @@ export interface Inscripcion {
   numero_documento: string;
   grupo_id: number;
   nombre_grupo: string;
+  programa_nombre?: string;
   estado_id: number;
   estado_nombre: string;
   /** Calidad de participación (Participante, Ponente, Organizador, Colaborador…). */

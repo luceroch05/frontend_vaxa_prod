@@ -33,6 +33,31 @@ export const CREDITOS_INDIVIDUALES: TramoCredito[] = [
 export const USUARIO_EXTRA = { activacion: 50, mensual: 5 };
 
 /**
+ * Certificado individual (modo "Pago por certificado", sin plan ni mensualidad).
+ * Precio oficial 2026: S/20 c/u; a partir de 10 certificados, 10% de descuento
+ * → S/18 c/u. Es el `precio_certificado` por defecto del sistema.
+ */
+export const CERTIFICADO_INDIVIDUAL = {
+  precio: 20,                 // S/ por certificado
+  descuentoDesde: 10,         // cantidad mínima para el descuento por volumen
+  pctDescuento: 10,           // % de descuento
+  precioConDescuento: 18,     // 20 − 10%
+  beneficios: [
+    'Certificado digital con QR único',
+    'Página de validación en línea',
+    'Registro del certificado en Vaxa',
+    'Sin pago de mantenimiento mensual',
+  ],
+  ejemplosCantidad: [1, 5, 10, 20, 50],   // filas de la tabla de referencia
+};
+
+/** Precio unitario del certificado individual según la cantidad (aplica el descuento por volumen). */
+export const precioCertIndividual = (cant: number) =>
+  cant >= CERTIFICADO_INDIVIDUAL.descuentoDesde
+    ? CERTIFICADO_INDIVIDUAL.precioConDescuento
+    : CERTIFICADO_INDIVIDUAL.precio;
+
+/**
  * Servicios de pago único / anual que NO viven en la tabla `planes` ni en
  * `creditos_paquetes`. Fuente única compartida por Cotizaciones y Facturación.
  * TODO: migrar a BD (tabla `catalogo_servicios`) para poder editarlos sin deploy.

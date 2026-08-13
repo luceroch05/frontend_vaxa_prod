@@ -14,7 +14,7 @@ import { authStorage } from '@/lib/auth';
 import { ApiError } from '@/lib/api/client';
 import { creditosAdminApi, type PlanCatalogo } from '../../shared/api/creditos.admin.api';
 import { tarifarioApi, type TarifaPaquete, type TarifaTramo, type ServicioCatalogo } from '../../shared/api/tarifario.admin.api';
-import { PAQUETES_CREDITOS, CREDITOS_INDIVIDUALES, USUARIO_EXTRA, costoPorCertificado } from '../../shared/data/tarifario';
+import { PAQUETES_CREDITOS, CREDITOS_INDIVIDUALES, USUARIO_EXTRA, costoPorCertificado, CERTIFICADO_INDIVIDUAL, precioCertIndividual } from '../../shared/data/tarifario';
 
 interface Props { tenantId: string; tenant: TenantConfig; }
 interface Usuario { email: string; nombre: string; role: string; }
@@ -169,6 +169,67 @@ export default function TarifarioCertificaciones({ tenantId }: Props) {
                     <p className="text-[12px] mt-1.5" style={{ color: '#059669' }}>{sol(costoPorCertificado(pq))} por certificado</p>
                   </div>
                 ))}
+              </div>
+            </div>
+
+            {/* ── Certificado individual + descuento por volumen (desde 10) ── */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-8 page-enter stagger-3">
+              {/* Precio individual (tarjeta oscura, como el afiche) */}
+              <div className="rounded-2xl p-5 flex flex-col" style={{ background: '#0D0E12', color: '#fff' }}>
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.08)' }}>
+                    <FileText className="w-[18px] h-[18px]" style={{ color: '#34D399' }} />
+                  </div>
+                  <h2 className="text-[14.5px] font-bold">Certificado individual</h2>
+                </div>
+                <p className="text-[34px] font-bold leading-none">
+                  {sol0(CERTIFICADO_INDIVIDUAL.precio)}
+                  <span className="text-[13px] font-medium" style={{ color: 'rgba(255,255,255,0.6)' }}> por certificado</span>
+                </p>
+                <span className="inline-block w-max mt-2.5 text-[10.5px] font-bold px-2.5 py-1 rounded-full"
+                  style={{ background: 'rgba(52,211,153,0.15)', color: '#6EE7B7' }}>
+                  PAGO ÚNICO · SIN MENSUALIDAD
+                </span>
+                <ul className="space-y-1.5 mt-4 flex-1">
+                  {CERTIFICADO_INDIVIDUAL.beneficios.map((b) => (
+                    <li key={b} className="flex items-center gap-2 text-[12px]" style={{ color: 'rgba(255,255,255,0.85)' }}>
+                      <Check className="w-3.5 h-3.5 flex-shrink-0" style={{ color: '#34D399' }} /> {b}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* Descuento por volumen + tabla de referencia */}
+              <div className="lg:col-span-2 rounded-2xl p-5" style={{ background: '#FFFFFF', border: '1px solid #EEECE6' }}>
+                <div className="flex items-baseline gap-2 flex-wrap mb-0.5">
+                  <h2 className="text-[14.5px] font-bold" style={{ color: '#0D0E12' }}>
+                    A partir de {CERTIFICADO_INDIVIDUAL.descuentoDesde} certificados
+                  </h2>
+                  <span className="text-[13px] font-bold" style={{ color: '#059669' }}>
+                    {CERTIFICADO_INDIVIDUAL.pctDescuento}% de descuento
+                  </span>
+                </div>
+                <p className="text-[12px] mb-3" style={{ color: '#9CA3AF' }}>
+                  Precio con descuento: <b style={{ color: '#059669' }}>{sol(CERTIFICADO_INDIVIDUAL.precioConDescuento)}</b> por certificado.
+                </p>
+                <div className="rounded-xl overflow-hidden" style={{ border: '1px solid #EEECE6' }}>
+                  <div className="grid px-3 py-2 text-[10.5px] font-semibold uppercase tracking-wider"
+                    style={{ gridTemplateColumns: '1fr 1fr 1fr', background: '#0D0E12', color: '#fff' }}>
+                    <span>Cantidad</span><span className="text-right">Precio unitario</span><span className="text-right">Total</span>
+                  </div>
+                  {CERTIFICADO_INDIVIDUAL.ejemplosCantidad.map((cant) => {
+                    const unit = precioCertIndividual(cant);
+                    const conDesc = cant >= CERTIFICADO_INDIVIDUAL.descuentoDesde;
+                    return (
+                      <div key={cant} className="grid items-center px-3 py-2 text-[12.5px]"
+                        style={{ gridTemplateColumns: '1fr 1fr 1fr', borderTop: '1px solid #F2F0EA', background: conDesc ? '#F0FDF4' : '#fff' }}>
+                        <span className="tabular-nums" style={{ color: '#374151' }}>{cant}</span>
+                        <span className="text-right tabular-nums font-medium" style={{ color: conDesc ? '#059669' : '#0D0E12' }}>{sol(unit)}</span>
+                        <span className="text-right tabular-nums font-bold" style={{ color: '#0D0E12' }}>{sol(unit * cant)}</span>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </div>
 

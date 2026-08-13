@@ -17,7 +17,7 @@ import { ApiError } from '@/lib/api/client';
 import { facturacionApi, type Comprobante, type EstadoComprobante } from '../../shared/api/facturacion.admin.api';
 import { creditosAdminApi, type EmpresaCreditos, type PlanCatalogo } from '../../shared/api/creditos.admin.api';
 import { tarifarioApi, type TarifaPaquete } from '../../shared/api/tarifario.admin.api';
-import { PAQUETES_CREDITOS, USUARIO_EXTRA, WEB_PLANES, DOMINIOS, HOSTING } from '../../shared/data/tarifario';
+import { PAQUETES_CREDITOS, USUARIO_EXTRA, WEB_PLANES, DOMINIOS, HOSTING, CERTIFICADO_INDIVIDUAL } from '../../shared/data/tarifario';
 
 interface Props { tenantId: string; tenant: TenantConfig; }
 interface Usuario { email: string; nombre: string; role: string; }
@@ -410,9 +410,21 @@ function EmitirModal({ empresas, onClose, onDone }: {
 
   // Mismo catálogo que Cotizaciones: servicios web/dominios/hosting + mant/impl de
   // CADA plan (BD) + paquetes de créditos (BD) + usuario adicional (BD).
+  // Vender certificados (pago único, sin mantenimiento). SOLO para clientes en el plan
+  // "Pago por certificado" o SIN plan asignado (prospecto). Una empresa con plan de
+  // mantenimiento NO compra certificados sueltos: compra créditos con los paquetes.
+  const empSel = empresas.find(e => e.id === empresaId);
+  const puedeCert = !planActualSlug || planActualSlug === 'pago_certificado';
+  const precioCertSel = Number(empSel?.precio_certificado ?? 0) || CERTIFICADO_INDIVIDUAL.precio;
+
   const catalogo: Array<{ id: string; label: string; precio: number; creditos?: number; renueva?: boolean; grupo: string }> = [
+    ...(puedeCert
+      ? [{ id: 'cert', label: 'Certificado (pago por certificado)', precio: precioCertSel, creditos: 1, grupo: 'Créditos' }]
+      : []),
     ...servicios,
-    ...planesCat.flatMap((p) => {
+    // El plan "Pago por certificado" no tiene mantenimiento ni implementación → se omite
+    // (si no, saldría "Mantenimiento … S/0" e "Implementación … S/0", que estorban).
+    ...planesCat.filter(p => p.slug !== 'pago_certificado').flatMap((p) => {
       const actual = p.slug === planActualSlug ? ' · plan actual' : '';
       return [
         { id: `mant-${p.slug}`, label: `Mantenimiento ${p.nombre}${actual} (mensual)`, precio: p.mantenimiento_mensual, renueva: true, grupo: 'Planes' },

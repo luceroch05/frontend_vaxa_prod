@@ -749,9 +749,9 @@ export default function AdminCertificados() {
       )}
 
       {/* ── Modal: emisión bloqueada (sin plan / sin créditos) ─── */}
-      {bloqueoEmision && (
+      {bloqueoEmision && createPortal(
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4"
           style={{ background: 'rgba(13,14,18,0.5)', backdropFilter: 'blur(4px)' }}
           onMouseDown={() => setBloqueoEmision(null)}
         >
@@ -778,7 +778,8 @@ export default function AdminCertificados() {
               Entendido
             </button>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

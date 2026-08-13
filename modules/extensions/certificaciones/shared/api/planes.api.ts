@@ -64,6 +64,8 @@ export interface EstadoPlan {
   } | null;
   consumo: ConsumoMes;             // (modelo viejo de cupo mensual; informativo)
   creditos: CreditosSaldo;         // saldo real que controla la emisión
+  /** Precio por certificado (solo modo "Pago por certificado"). null = no aplica. */
+  precio_certificado?: number | null;
 }
 
 /** Un movimiento del saldo de créditos (ledger). */

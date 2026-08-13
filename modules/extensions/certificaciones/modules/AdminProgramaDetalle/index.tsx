@@ -44,7 +44,7 @@ function AulaRow({ aula, empresa, puedeImportar, esAdmin, onVerInscritos, onImpo
       onMouseEnter={e => (e.currentTarget.style.background = '#FAFAF8')}
       onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
     >
-      <div className="flex items-center gap-3 min-w-0">
+      <div className="flex items-center gap-3 min-w-0 flex-1">
         <div className="w-9 h-9 rounded-xl flex-shrink-0 flex items-center justify-center"
           style={{ background: aula.activo ? '#DCFCE7' : '#F5F4F0' }}>
           <Layers size={16} style={{ color: aula.activo ? '#15803D' : '#B0A898' }} />
@@ -57,7 +57,7 @@ function AulaRow({ aula, empresa, puedeImportar, esAdmin, onVerInscritos, onImpo
           {fmtHorario(aula) && (
             <div className="flex items-center gap-1.5 mt-1 text-[11px]" style={{ color: '#C9962C' }}>
               <Clock size={11} className="flex-shrink-0" />
-              <span className="font-medium">{fmtHorario(aula)}</span>
+              <span className="font-medium whitespace-nowrap">{fmtHorario(aula)}</span>
             </div>
           )}
         </div>

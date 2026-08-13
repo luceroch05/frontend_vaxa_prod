@@ -11,6 +11,9 @@ export interface CertVarValues {
   horas: string | number;
   creditos?: string | number;
   calidad?: string;      // Participante, Ponente, Organizador…
+  tipoPrograma?: string; // Curso, Taller, Diplomado… (variable {tipo})
+  documento?: string;    // número de documento del participante
+  tipoDocumento?: string; // código del tipo de documento (DNI, CE…)
   fecha?: string;        // fecha de emisión
   fechaInicio?: string;
   fechaFin?: string;
@@ -20,6 +23,9 @@ export interface CertVarValues {
 export const VARIABLES_CERTIFICADO: { token: string; desc: string }[] = [
   { token: '{participante}', desc: 'Nombre del participante' },
   { token: '{calidad}',      desc: 'Calidad (Participante, Ponente, Organizador…)' },
+  { token: '{tipoDocumento}', desc: 'Tipo de documento (DNI, CE…)' },
+  { token: '{documento}',    desc: 'Número de documento' },
+  { token: '{tipo}',         desc: 'Tipo de programa (Curso, Taller, Diplomado…)' },
   { token: '{programa}',     desc: 'Nombre del programa' },
   { token: '{horas}',        desc: 'Horas académicas' },
   { token: '{creditos}',     desc: 'Créditos académicos' },
@@ -76,6 +82,9 @@ export function expandirVariablesCertificado(texto: string, v: CertVarValues): s
     .replace(/\{nombre\}/gi,       v.participante)
     .replace(/\{participante\}/gi, v.participante)
     .replace(/\{calidad\}/gi,      v.calidad ?? 'Participante')
+    .replace(/\{tipoDocumento\}/gi, v.tipoDocumento ?? '')
+    .replace(/\{documento\}/gi,    v.documento ?? '')
+    .replace(/\{tipo\}/gi,         v.tipoPrograma ?? '')
     .replace(/\{programa\}/gi,     v.programa)
     .replace(/\{curso\}/gi,        v.programa)
     .replace(/\{horas\}/gi,        String(v.horas ?? ''))

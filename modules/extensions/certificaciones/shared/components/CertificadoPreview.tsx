@@ -36,6 +36,8 @@ interface Props {
 /* Datos de ejemplo: así el usuario VE cómo queda con un alumno real. */
 const EJEMPLO = {
   participante: 'Ana María Torres López',
+  tipoDocumento: 'DNI',
+  documento:    '12345678',
   fechaInicio:  '15 de agosto de 2026',
   fechaFin:     '22 de agosto de 2026',
   fecha:        '25 de agosto de 2026',
@@ -63,6 +65,7 @@ export default function CertificadoPreview({
     nombre: EJEMPLO.participante, participante: EJEMPLO.participante,
     nombreCorto: 'Ana Torres López',
     calidad: 'Participante',
+    tipoDocumento: EJEMPLO.tipoDocumento, documento: EJEMPLO.documento,
     programa, curso: programa, tipo,
     fecha: EJEMPLO.fecha, fechaInicio: EJEMPLO.fechaInicio, fechaFin: EJEMPLO.fechaFin,
     mesEmision: EJEMPLO.mesEmision,
@@ -77,6 +80,9 @@ export default function CertificadoPreview({
     programa,
     horas: horas ?? 40,
     creditos: creditos ?? '',
+    tipoPrograma: tipo,
+    tipoDocumento: EJEMPLO.tipoDocumento,
+    documento: EJEMPLO.documento,
     fecha: EJEMPLO.fecha,
     fechaInicio: EJEMPLO.fechaInicio,
     fechaFin: EJEMPLO.fechaFin,

@@ -236,7 +236,9 @@
       "PowerShell(Add-Type -AssemblyName System.Drawing; foreach \\($f in @\\('vaxa-comprobante.png','vaxa-rounded.png','vaxa.png','vaxa-logo-white.png'\\)\\) { $p = \"C:\\\\Users\\\\Lucero\\\\Desktop\\\\frontend_vaxa_prod\\\\public\\\\$f\"; $b = New-Object System.Drawing.Bitmap\\($p\\); $c = $b.GetPixel\\(2,2\\); Write-Output \\(\"{0} -> esquina ARGB = A:{1} R:{2} G:{3} B:{4}\" -f $f,$c.A,$c.R,$c.G,$c.B\\); $b.Dispose\\(\\) })",
       "PowerShell(Add-Type -AssemblyName System.Drawing; $p=\"C:\\\\Users\\\\Lucero\\\\Desktop\\\\backend-vaxa-prod\\\\uploads\\\\marca\\\\vaxa-comprobante.png\"; $b=New-Object System.Drawing.Bitmap\\($p\\); $c=$b.GetPixel\\(2,2\\); Write-Output \\(\"backend local vaxa-comprobante.png -> A:{0} R:{1} G:{2} B:{3}\" -f $c.A,$c.R,$c.G,$c.B\\); $b.Dispose\\(\\))",
       "PowerShell(Copy-Item *)",
-      "PowerShell($src=\"C:\\\\Users\\\\Lucero\\\\Desktop\\\\frontend-crecemos-prod\\\\public\\\\assets\\\\img\\\\libro-reclamaciones.webp\"; $dst=\"C:\\\\Users\\\\Lucero\\\\Desktop\\\\frontend_vaxa_prod\\\\public\\\\libro-reclamaciones.webp\"; if \\(Test-Path $src\\) { Copy-Item $src $dst -Force; Write-Output \\(\"copiado -> {0} \\({1} bytes\\)\" -f $dst,\\(\\(Get-Item $dst\\).Length\\)\\) } else { Write-Output \"NO EXISTE el origen: $src\" })"
+      "PowerShell($src=\"C:\\\\Users\\\\Lucero\\\\Desktop\\\\frontend-crecemos-prod\\\\public\\\\assets\\\\img\\\\libro-reclamaciones.webp\"; $dst=\"C:\\\\Users\\\\Lucero\\\\Desktop\\\\frontend_vaxa_prod\\\\public\\\\libro-reclamaciones.webp\"; if \\(Test-Path $src\\) { Copy-Item $src $dst -Force; Write-Output \\(\"copiado -> {0} \\({1} bytes\\)\" -f $dst,\\(\\(Get-Item $dst\\).Length\\)\\) } else { Write-Output \"NO EXISTE el origen: $src\" })",
+      "Bash(ls node_modules/exceljs)",
+      "Bash(ls \"C:\\\\Users\\\\Lucero\\\\Downloads\\\\Plantilla participantes — Grupo A.xlsx\")"
     ],
     "deny": [],
     "ask": []

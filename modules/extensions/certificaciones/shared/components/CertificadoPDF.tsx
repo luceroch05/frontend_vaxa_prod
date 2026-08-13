@@ -170,11 +170,16 @@ export function CertificadoPDF({ certificado, config, onClose }: Props) {
     certificado.horas_academicas ?? ''
   } horas académicas${periodo}.`;
   const cuerpoBase  = config.texto_personalizado?.trim() || cuerpoDefault;
+  const docNum  = (certificado as any).numero_documento ?? '';
+  const docTipo = (certificado as any).tipo_doc_codigo ?? (certificado as any).tipo_documento ?? '';
   const cuerpoTexto = expandirVariablesCertificado(cuerpoBase, {
     participante: certificado.participante_nombre,
     programa:     certificado.programa_nombre,
     horas:        certificado.horas_academicas ?? '',
     creditos:     certificado.creditos ?? '',
+    tipoPrograma: certificado.tipo_programa_nombre ?? 'Certificado',
+    tipoDocumento: docTipo,
+    documento:    docNum,
     fecha:        fmtDate(certificado.fecha_emision),
     fechaInicio,
     fechaFin,
@@ -195,6 +200,7 @@ export function CertificadoPDF({ certificado, config, onClose }: Props) {
     nombre: certificado.participante_nombre, participante: certificado.participante_nombre,
     nombreCorto: nombreCortoDe(certificado.participante_nombre),
     calidad: (certificado as any).calidad ?? 'Participante',
+    tipoDocumento: docTipo, documento: docNum,
     programa: certificado.programa_nombre, curso: certificado.programa_nombre,
     tipo: certificado.tipo_programa_nombre ?? 'Certificado',
     fecha: fmtDate(certificado.fecha_emision), fechaInicio, fechaFin,

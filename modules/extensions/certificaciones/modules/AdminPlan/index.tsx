@@ -72,6 +72,12 @@ export default function AdminPlan() {
   const sinCreditos = !ilimitado && creditos.disponibles <= 0;
   const pocos = !ilimitado && !sinCreditos && creditos.disponibles <= 10;
 
+  // Modo "Pago por certificado": recarga a S/precio por certificado (no paquetes ni tramos).
+  const esPagoCert = plan.slug === 'pago_certificado';
+  const precioCert = Number(estado.precio_certificado ?? 0) || 20;
+  const CERT_DESC_DESDE = 10, CERT_DESC_PCT = 10;
+  const precioCertDesc = Math.round(precioCert * (1 - CERT_DESC_PCT / 100) * 100) / 100;
+
   // Movimientos: filtro por tipo + paginación (cliente).
   const MOV_POR_PAGINA = 8;
   const movsFiltrados = movimientos.filter(m => movTipo === 'todos' || m.tipo === movTipo);
@@ -206,8 +212,37 @@ export default function AdminPlan() {
           <p className="text-[13px] font-bold" style={{ color: '#0D0E12' }}>¿Necesitas más créditos?</p>
         </div>
         <p className="text-[12.5px] mb-4" style={{ color: '#9CA3AF' }}>
-          Recarga el paquete de tu plan y escríbenos para activarlo. Se suma a tu saldo, es acumulable y no vence.
+          {esPagoCert
+            ? <>Estás en <b>pago por certificado</b>: cada certificado cuesta <b>{sol(precioCert)}</b>. Escríbenos cuántos quieres y los sumamos a tu saldo (acumulables, no vencen).</>
+            : <>Recarga el paquete de tu plan y escríbenos para activarlo. Se suma a tu saldo, es acumulable y no vence.</>}
         </p>
+
+        {esPagoCert ? (
+          /* ── Pago por certificado: precio por unidad + descuento por volumen ── */
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="rounded-xl p-4" style={{ background: '#FAFAF8', border: '1px solid #EEECE6' }}>
+                <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: '#B0A898' }}>Precio por certificado</p>
+                <p className="text-[26px] font-bold leading-none tabular-nums mt-1" style={{ color: '#0D0E12' }}>{sol(precioCert)}</p>
+                <p className="text-[11px] mt-1.5" style={{ color: '#9CA3AF' }}>1 crédito = 1 certificado</p>
+              </div>
+              <div className="rounded-xl p-4" style={{ background: '#ECFDF5', border: '1px solid #A7F3D0' }}>
+                <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: '#059669' }}>Desde {CERT_DESC_DESDE} · {CERT_DESC_PCT}% menos</p>
+                <p className="text-[26px] font-bold leading-none tabular-nums mt-1" style={{ color: '#047857' }}>{sol(precioCertDesc)}</p>
+                <p className="text-[11px] mt-1.5" style={{ color: '#059669' }}>por certificado con descuento por volumen</p>
+              </div>
+            </div>
+            <a
+              href={`https://wa.me/${VAXA_WA}?text=${encodeURIComponent(`Hola Vaxa 👋, soy de "${empresa}" y quiero recargar certificados (${sol(precioCert)} c/u, ${sol(precioCertDesc)} desde ${CERT_DESC_DESDE}).`)}`}
+              target="_blank" rel="noreferrer"
+              className="mt-3 inline-flex items-center justify-center gap-1.5 text-[12.5px] font-semibold px-4 py-2 rounded-lg"
+              style={{ background: '#25D366', color: '#04110C' }}
+            >
+              <MessageCircle size={14} /> Solicitar recarga
+            </a>
+          </>
+        ) : (
+        <>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {PAQUETES_CREDITOS.filter(pq => pq.planSlug === plan.slug).map(pq => {
             const costoCert = pq.precio / pq.creditos;   // costo por certificado del paquete
@@ -248,6 +283,8 @@ export default function AdminPlan() {
         <p className="text-[11.5px] mt-3" style={{ color: '#9CA3AF' }}>
           1 crédito = 1 certificado. La recarga la activa Vaxa al confirmar el pago (boleta o factura).
         </p>
+        </>
+        )}
       </div>
       )}
 

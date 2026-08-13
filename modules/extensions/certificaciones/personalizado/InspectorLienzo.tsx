@@ -7,6 +7,7 @@
  * para saltar entre elementos sin tener que cazarlos en el lienzo.
  * Aislado: opera sobre el LayoutLienzo y avisa por onChange/onSelect.
  * ──────────────────────────────────────────────────────────────── */
+import { useState, useEffect } from 'react';
 import {
   CampoFirma, CampoLinea, CampoLogo, CampoQR, CampoTexto, LayoutLienzo,
   VARIABLES_LIENZO, labelCampo, tipoCampo, indiceLogo, indiceFirma,
@@ -21,19 +22,49 @@ interface Props {
   onSelect: (key: string | null) => void;
 }
 
-/* Input numérico compacto con etiqueta arriba. */
+/* Input numérico compacto con etiqueta arriba.
+ * Mantiene un estado de TEXTO local: te deja escribir libre (borrar todo, dígitos
+ * intermedios por debajo del mínimo, etc.). Manda el valor al padre mientras escribes
+ * (preview en vivo, SIN clampear) y recién ajusta al rango [min,max] cuando sales del
+ * campo (blur). Así no pasa lo de "escribe un número cercano y baja con la flecha". */
 function NumBox({ label, value, onChange, min = 0, max = 2000 }: {
   label: string; value: number | undefined; onChange: (n: number) => void; min?: number; max?: number;
 }) {
+  const [text, setText] = useState<string>(value == null ? '' : String(value));
+  const [focused, setFocused] = useState(false);
+
+  // Sincroniza desde afuera (ej. cuando arrastras el elemento en el lienzo) solo si
+  // NO lo estás editando, para no pisar lo que escribes.
+  useEffect(() => {
+    if (!focused) setText(value == null ? '' : String(value));
+  }, [value, focused]);
+
+  const handleChange = (raw: string) => {
+    setText(raw);
+    if (raw.trim() === '' || raw === '-') return;   // deja el campo vacío/parcial mientras escribes
+    const n = Number(raw);
+    if (Number.isFinite(n)) onChange(n);            // preview en vivo, sin clamp
+  };
+
+  const handleBlur = () => {
+    setFocused(false);
+    const n = Number(text);
+    const val = Number.isFinite(n) && text.trim() !== '' ? Math.max(min, Math.min(max, n)) : (value ?? min);
+    setText(String(val));
+    onChange(val);                                   // recién aquí se ajusta al rango
+  };
+
   return (
     <label style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
       <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: '#9CA3AF' }}>{label}</span>
       <input
         type="number"
-        value={value ?? 0}
+        value={text}
         min={min}
         max={max}
-        onChange={e => onChange(Math.max(min, Math.min(max, Number(e.target.value) || 0)))}
+        onFocus={() => setFocused(true)}
+        onChange={e => handleChange(e.target.value)}
+        onBlur={handleBlur}
         className="vx-input"
         style={{ padding: '5px 8px', fontSize: 12, width: 72 }}
       />

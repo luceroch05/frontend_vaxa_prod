@@ -8,6 +8,7 @@ import {
 } from '../../shared/api/creditos.admin.api';
 import Pager from '../../shared/components/Pager';
 import { esEmpresa, docLabel } from '../../shared/docs';
+import { CERTIFICADO_INDIVIDUAL } from '../../shared/data/tarifario';
 
 interface TabPlanProps {
   empresa: EmpresaCreditos;
@@ -82,6 +83,19 @@ export default function TabPlan({ empresa, onChange, section }: TabPlanProps) {
   // Confirmación del pago del ciclo (renueva el vencimiento; NO emite factura).
   const [pagando, setPagando]                 = useState(false);
   const [ventaModal, setVentaModal]           = useState(false);
+
+  // ── Modo "Pago por certificado" ─────────────────────────────
+  // Precio por certificado editable (S/ por cada uno emitido).
+  const [precioCertEdit, setPrecioCertEdit] = useState<string>('');
+  const [guardandoPrecio, setGuardandoPrecio] = useState(false);
+  // Cantidad de certificados a cobrar (post-pago por lo emitido).
+  const [certQty, setCertQty] = useState<string>('');
+  // Recarga de certificados (créditos) en modo pago-por-certificado.
+  const [recargaCert, setRecargaCert] = useState<string>('');
+  // Sincroniza el input del precio con el valor vigente de la empresa.
+  useEffect(() => {
+    setPrecioCertEdit(empresa.precio_certificado != null ? String(Number(empresa.precio_certificado)) : '20');
+  }, [empresa.precio_certificado]);
 
   // Historial de pagos (con filtro de texto + paginación).
   const [pagos, setPagos] = useState<PagoHist[]>([]);
@@ -253,6 +267,20 @@ export default function TabPlan({ empresa, onChange, section }: TabPlanProps) {
     finally { setAjustando(false); }
   };
 
+  // Guarda el precio por certificado de la empresa (modo "Pago por certificado").
+  const guardarPrecioCert = async () => {
+    const precio = Number(precioCertEdit);
+    if (!Number.isFinite(precio) || precio <= 0 || guardandoPrecio) return;
+    setGuardandoPrecio(true); setError(null); setOkMsg(null);
+    try {
+      await creditosAdminApi.editarEmpresa(empresa.id, { precio_certificado: precio });
+      setOkMsg(`Precio por certificado actualizado a ${sol(precio)}.`);
+      onChange?.();   // refresca el perfil → baja el nuevo empresa.precio_certificado
+      setTimeout(() => setOkMsg(null), 3500);
+    } catch (e) { setError((e as Error).message); }
+    finally { setGuardandoPrecio(false); }
+  };
+
   const marcarPagado = async () => {
     if (pagando) return;
     setPagando(true); setError(null); setOkMsg(null);
@@ -331,6 +359,37 @@ export default function TabPlan({ empresa, onChange, section }: TabPlanProps) {
   const showCobros   = !section || section === 'cobros';
   const showCreditos = !section || section === 'creditos';
 
+  // ── Modo "Pago por certificado" ─────────────────────────────
+  // Sin mantenimiento ni ciclo: se cobra S/precioCert por cada certificado emitido.
+  const esPagoCert = estado?.plan?.slug === 'pago_certificado';
+  const precioCert = Number(empresa.precio_certificado ?? 0) || 20;
+  // Total emitido de por vida (créditos consumidos = saldo negativo en modo ilimitado).
+  const emitidos = cr?.consumidos ?? 0;
+  // Descuento por volumen (tarifario oficial): a partir de N certificados, X% menos c/u.
+  const precioCertVol = (qty: number) =>
+    qty >= CERTIFICADO_INDIVIDUAL.descuentoDesde
+      ? Math.round(precioCert * (1 - CERTIFICADO_INDIVIDUAL.pctDescuento / 100) * 100) / 100
+      : precioCert;
+
+  // Cantidad a cobrar: lo que teclee el admin, o por defecto todo lo emitido.
+  const certQtyNum = certQty.trim() === '' ? emitidos : Math.max(0, Math.floor(Number(certQty)) || 0);
+  const certUnit = precioCertVol(certQtyNum);          // precio unitario ya con descuento si aplica
+  const certConDesc = certUnit < precioCert;
+  const certTotal = Math.round(certUnit * certQtyNum * 100) / 100;
+  // Recarga: cuántos certificados (créditos) darle y su valor (cantidad × precio, con descuento por volumen).
+  const recargaCertNum = Math.max(0, Math.floor(Number(recargaCert)) || 0);
+  const recargaUnit = precioCertVol(recargaCertNum);
+  const recargaConDesc = recargaUnit < precioCert;
+  const recargaCertMonto = Math.round(recargaUnit * recargaCertNum * 100) / 100;
+
+  // Recarga créditos al precio por certificado del cliente (no usa los tramos sueltos).
+  const recargarCerts = async (ev: React.FormEvent) => {
+    ev.preventDefault();
+    if (recargaCertNum <= 0) return;
+    await doRecargar(recargaCertNum, recargaCertMonto);
+    setRecargaCert('');
+  };
+
   return (
     <div className="space-y-6">
       {error && (
@@ -345,7 +404,7 @@ export default function TabPlan({ empresa, onChange, section }: TabPlanProps) {
       )}
 
       {/* ── Acción principal: registrar una venta ───────────── */}
-      {showCobros && estado?.plan && (
+      {showCobros && estado?.plan && !esPagoCert && (
         <div className="rounded-2xl p-4 flex items-center justify-between gap-3 flex-wrap"
           style={{ background: 'linear-gradient(135deg, #0D0E12, #2A2D35)' }}>
           <div className="text-white">
@@ -361,8 +420,62 @@ export default function TabPlan({ empresa, onChange, section }: TabPlanProps) {
         </div>
       )}
 
+      {/* ── Cobrar certificados emitidos (modo "Pago por certificado") ── */}
+      {showCobros && esPagoCert && estado?.plan && (
+        <div className="rounded-2xl p-5" style={{ background: '#fff', border: '1px solid #EEECE6' }}>
+          <div className="flex items-center gap-2 mb-1">
+            <FileText className="w-4 h-4" style={{ color: '#059669' }} />
+            <h3 className="text-[14px] font-bold" style={{ color: '#0D0E12' }}>Cobrar certificados</h3>
+          </div>
+          <p className="text-[12.5px] mb-4" style={{ color: '#9CA3AF' }}>
+            Este cliente paga por cada certificado emitido. Ha emitido <b style={{ color: '#374151' }}>{emitidos}</b> certificado{emitidos === 1 ? '' : 's'} a <b style={{ color: '#374151' }}>{sol(precioCert)}</b> c/u.
+            Desde <b style={{ color: '#374151' }}>{CERTIFICADO_INDIVIDUAL.descuentoDesde}</b> se aplica <b style={{ color: '#059669' }}>{CERTIFICADO_INDIVIDUAL.pctDescuento}% de descuento</b>. Indica cuántos vas a cobrar y genera la venta.
+          </p>
+
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="w-[140px]">
+              <label className="block text-[11px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: '#374151' }}>Cantidad a cobrar</label>
+              <input
+                type="number" min={0} step={1} value={certQty}
+                onChange={(e) => setCertQty(e.target.value)}
+                placeholder={String(emitidos)} className="sv-input w-full"
+              />
+            </div>
+            <div className="rounded-xl px-4 py-2.5" style={{ background: '#FAFAF8', border: '1px solid #EEECE6' }}>
+              <p className="text-[10.5px] font-semibold uppercase tracking-wider" style={{ color: '#B0A898' }}>Precio unitario</p>
+              <p className="text-[15px] font-bold tabular-nums" style={{ color: certConDesc ? '#059669' : '#0D0E12' }}>
+                {sol(certUnit)}{certConDesc && <span className="text-[10.5px] font-semibold ml-1">(-{CERTIFICADO_INDIVIDUAL.pctDescuento}%)</span>}
+              </p>
+            </div>
+            <div className="rounded-xl px-4 py-2.5" style={{ background: '#FAFAF8', border: '1px solid #EEECE6' }}>
+              <p className="text-[10.5px] font-semibold uppercase tracking-wider" style={{ color: '#B0A898' }}>Total a cobrar</p>
+              <p className="text-[18px] font-bold tabular-nums" style={{ color: certQtyNum > 0 ? '#059669' : '#9CA3AF' }}>
+                {sol(certTotal)}
+              </p>
+            </div>
+            <button
+              type="button"
+              disabled={certQtyNum <= 0}
+              onClick={() => {
+                setVentaPrefill({
+                  lineas: [{ descripcion: certConDesc ? `Emisión de certificado (-${CERTIFICADO_INDIVIDUAL.pctDescuento}% por volumen)` : 'Emisión de certificado', cantidad: certQtyNum, precioUnitario: certUnit }],
+                  marcar: [],
+                });
+                setVentaModal(true);
+              }}
+              className="sv-btn sv-btn-primary px-5"
+            >
+              <ArrowRight className="w-4 h-4" /> Cobrar {certQtyNum > 0 ? certQtyNum : ''} → Nueva venta
+            </button>
+          </div>
+          <p className="text-[11px] mt-3" style={{ color: '#9CA3AF' }}>
+            La cantidad por defecto es todo lo emitido. Ajústala si ya cobraste una parte antes.
+          </p>
+        </div>
+      )}
+
       {/* ── Resumen de lo que hay que cobrar (mantenimiento + usuarios extra prorrateados) ── */}
-      {showCobros && resumen?.plan && (resumen.lineas.length > 0 || resumen.enCurso.length > 0) && (() => {
+      {showCobros && !esPagoCert && resumen?.plan && (resumen.lineas.length > 0 || resumen.enCurso.length > 0) && (() => {
         const v = resumen.vencimiento;
         const hayCobro = resumen.lineas.length > 0;   // hay algo vencido a cobrar ahora
         const sem = v ? COBRANZA[v.estado_cobranza] : null;
@@ -489,7 +602,19 @@ export default function TabPlan({ empresa, onChange, section }: TabPlanProps) {
         </div>
 
         {/* Créditos disponibles */}
-        {cr?.ilimitado ? (
+        {esPagoCert ? (
+          <div className="rounded-2xl p-5" style={{ background: '#FAFAF8', border: '1px solid #EEECE6' }}>
+            <p className="text-[11px] font-semibold uppercase tracking-wider mb-2" style={{ color: '#9CA3AF' }}>
+              Créditos disponibles
+            </p>
+            <p className="text-[32px] font-bold leading-none tabular-nums" style={{ color: (cr?.disponibles ?? 0) > 0 ? '#0D0E12' : '#B45309' }}>{cr?.disponibles ?? 0}</p>
+            <p className="text-[12px] mt-2" style={{ color: (cr?.disponibles ?? 0) > 0 ? '#64748B' : '#B45309' }}>
+              {(cr?.disponibles ?? 0) > 0
+                ? <>quedan de {cr?.asignados ?? 0} recargados · {sol(precioCert)} c/u</>
+                : <>Sin saldo · no puede emitir hasta que recargues</>}
+            </p>
+          </div>
+        ) : cr?.ilimitado ? (
           <div className="rounded-2xl p-5" style={{ background: '#ECFDF5', border: '1px solid #A7F3D0' }}>
             <p className="text-[11px] font-semibold uppercase tracking-wider mb-2" style={{ color: '#9CA3AF' }}>
               Créditos disponibles
@@ -553,8 +678,39 @@ export default function TabPlan({ empresa, onChange, section }: TabPlanProps) {
       </div>
       )}
 
+      {/* ── Precio por certificado (modo "Pago por certificado") ── */}
+      {showPlan && esPagoCert && (
+        <div className="rounded-2xl p-5" style={{ background: '#fff', border: '1px solid #EEECE6' }}>
+          <div className="flex items-center gap-2 mb-1">
+            <CreditCard className="w-4 h-4" style={{ color: '#059669' }} />
+            <h3 className="text-[14px] font-bold" style={{ color: '#0D0E12' }}>Precio por certificado</h3>
+          </div>
+          <p className="text-[12.5px] mb-4" style={{ color: '#9CA3AF' }}>
+            Cuánto se le cobra a esta empresa por cada certificado emitido. Aplica a los que emita de aquí en adelante.
+          </p>
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="w-[160px]">
+              <label className="block text-[11px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: '#374151' }}>Precio (S/)</label>
+              <input
+                type="number" min={0} step="0.5" value={precioCertEdit}
+                onChange={(e) => setPrecioCertEdit(e.target.value)}
+                className="sv-input w-full"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={guardarPrecioCert}
+              disabled={guardandoPrecio || !(Number(precioCertEdit) > 0) || Number(precioCertEdit) === precioCert}
+              className="sv-btn sv-btn-primary px-5"
+            >
+              {guardandoPrecio ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />} Guardar precio
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ── Cobranza / Renovación del ciclo ─────────────────── */}
-      {showCobros && estado?.suscripcion && (
+      {showCobros && !esPagoCert && estado?.suscripcion && (
         <div className="rounded-2xl p-5" style={{ background: '#fff', border: '1px solid #EEECE6' }}>
           <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
             <div>
@@ -631,8 +787,73 @@ export default function TabPlan({ empresa, onChange, section }: TabPlanProps) {
         </div>
       )}
 
+      {/* ── Créditos en "Pago por certificado": saldo + recarga al precio del cliente ── */}
+      {showCreditos && esPagoCert && estado?.plan && (
+        <>
+        <div className="rounded-2xl p-5" style={{ background: '#fff', border: '1px solid #EEECE6' }}>
+          <div className="flex items-center gap-2 mb-1">
+            <CreditCard className="w-4 h-4" style={{ color: '#059669' }} />
+            <h3 className="text-[14px] font-bold" style={{ color: '#0D0E12' }}>Créditos de esta empresa</h3>
+          </div>
+          <p className="text-[12.5px] mb-4" style={{ color: '#9CA3AF' }}>
+            Cada certificado consume 1 crédito, a <b>{sol(precioCert)}</b> c/u. <b>Solo puede emitir los créditos que le recargues</b>:
+            cuando el saldo llega a 0, su sistema bloquea la emisión hasta la próxima recarga.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="rounded-2xl p-4" style={{ background: (cr?.disponibles ?? 0) >= 0 ? '#FAFAF8' : '#FFFBEB', border: `1px solid ${(cr?.disponibles ?? 0) >= 0 ? '#EEECE6' : '#FDE68A'}` }}>
+              <p className="text-[11px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: '#9CA3AF' }}>Créditos disponibles</p>
+              <p className="text-[28px] font-bold leading-none tabular-nums" style={{ color: (cr?.disponibles ?? 0) >= 0 ? '#0D0E12' : '#B45309' }}>{cr?.disponibles ?? 0}</p>
+              <p className="text-[11.5px] mt-1.5" style={{ color: '#64748B' }}>de {cr?.asignados ?? 0} recargados</p>
+            </div>
+            <div className="rounded-2xl p-4" style={{ background: '#FAFAF8', border: '1px solid #EEECE6' }}>
+              <p className="text-[11px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: '#9CA3AF' }}>Certificados emitidos</p>
+              <p className="text-[28px] font-bold leading-none tabular-nums" style={{ color: '#0D0E12' }}>{emitidos}</p>
+              <p className="text-[11.5px] mt-1.5" style={{ color: '#64748B' }}>de por vida · sin tope</p>
+            </div>
+            <div className="rounded-2xl p-4" style={{ background: '#FAFAF8', border: '1px solid #EEECE6' }}>
+              <p className="text-[11px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: '#9CA3AF' }}>Precio por certificado</p>
+              <p className="text-[28px] font-bold leading-none tabular-nums" style={{ color: '#0D0E12' }}>{sol(precioCert)}</p>
+              <p className="text-[11.5px] mt-1.5" style={{ color: '#64748B' }}>editable en la pestaña Plan</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Recargar certificados (créditos) al precio del cliente */}
+        <form onSubmit={recargarCerts} className="rounded-2xl p-5" style={{ background: '#fff', border: '1px solid #EEECE6' }}>
+          <div className="flex items-center gap-2 mb-1">
+            <Plus className="w-4 h-4" style={{ color: '#059669' }} />
+            <h3 className="text-[14px] font-bold" style={{ color: '#0D0E12' }}>Recargar certificados</h3>
+          </div>
+          <p className="text-[12.5px] mb-4" style={{ color: '#9CA3AF' }}>
+            Súmale certificados (créditos) al saldo, a <b>{sol(precioCert)}</b> c/u
+            {' '}(desde <b>{CERTIFICADO_INDIVIDUAL.descuentoDesde}</b>, <b style={{ color: '#059669' }}>{CERTIFICADO_INDIVIDUAL.pctDescuento}% menos</b>). El cobro/comprobante se registra aparte
+            en la pestaña Cobros.
+          </p>
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="w-[160px]">
+              <label className="block text-[11px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: '#374151' }}>Cantidad</label>
+              <input
+                type="number" min={1} step={1} value={recargaCert}
+                onChange={(e) => setRecargaCert(e.target.value)}
+                placeholder="Ej. 50" className="sv-input w-full"
+              />
+            </div>
+            <div className="rounded-xl px-4 py-2.5" style={{ background: '#FAFAF8', border: '1px solid #EEECE6' }}>
+              <p className="text-[10.5px] font-semibold uppercase tracking-wider" style={{ color: '#B0A898' }}>Valor referencial</p>
+              <p className="text-[18px] font-bold tabular-nums" style={{ color: recargaCertNum > 0 ? '#059669' : '#9CA3AF' }}>
+                {sol(recargaCertMonto)}{recargaConDesc && <span className="text-[10.5px] font-semibold ml-1" style={{ color: '#059669' }}>(-{CERTIFICADO_INDIVIDUAL.pctDescuento}%)</span>}
+              </p>
+            </div>
+            <button type="submit" disabled={recargaCertNum <= 0 || recargando} className="sv-btn sv-btn-primary px-5">
+              {recargando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />} Recargar{recargaCertNum > 0 ? ` ${recargaCertNum}` : ''}
+            </button>
+          </div>
+        </form>
+        </>
+      )}
+
       {/* ── Recargar créditos (suma al saldo) — no aplica a planes ilimitados ── */}
-      {showCreditos && estado?.plan && !cr?.ilimitado && (
+      {showCreditos && estado?.plan && !cr?.ilimitado && !esPagoCert && (
         <form onSubmit={recargar} className="rounded-2xl p-5" style={{ background: '#fff', border: '1px solid #EEECE6' }}>
           <div className="flex items-center gap-2 mb-1">
             <Plus className="w-4 h-4" style={{ color: '#059669' }} />
@@ -705,7 +926,7 @@ export default function TabPlan({ empresa, onChange, section }: TabPlanProps) {
       )}
 
       {/* ── Quitar créditos (ajuste por error) — no aplica a planes ilimitados ── */}
-      {showCreditos && estado?.plan && !cr?.ilimitado && (
+      {showCreditos && estado?.plan && !cr?.ilimitado && !esPagoCert && (
         <form onSubmit={ajustarQuitar} className="rounded-2xl p-5" style={{ background: '#fff', border: '1px solid #FEE2E2' }}>
           <div className="flex items-center gap-2 mb-1">
             <Minus className="w-4 h-4" style={{ color: '#DC2626' }} />
@@ -1024,9 +1245,18 @@ function NuevaVentaModal({ empresa, plan, ciclo, prefill, onClose, onDone }: {
 }) {
   const meses = /semestral/i.test(ciclo) ? 5 : /anual/i.test(ciclo) ? 10 : 1;
   const mantTotal = Math.round(plan.mantenimiento_mensual * meses * 100) / 100;
+  const esPagoCert = plan.slug === 'pago_certificado';
+  const precioCert = Number(empresa.precio_certificado ?? 0) || 20;
 
   // Catálogo de productos sugeridos (rellenan la fila de agregar al elegirlos).
-  const CATALOGO: Array<{ id: string; label: string; precio: number; creditos?: number; renueva?: boolean }> = [
+  // En "Pago por certificado" no hay mantenimiento ni paquetes: solo el certificado.
+  const CATALOGO: Array<{ id: string; label: string; precio: number; creditos?: number; renueva?: boolean }> = esPagoCert
+    ? [
+        // Vender certificados: cobra Y suma al saldo (1 crédito c/u) en una sola venta.
+        { id: 'cert', label: 'Certificado (pago por certificado)', precio: precioCert, creditos: 1 },
+        { id: 'usr-act', label: 'Activación usuario adicional', precio: 50 },
+      ]
+    : [
     // Mantenimiento: SOLO factura. NO renueva el mes — la renovación se hace al
     // "Confirmar pago del mantenimiento" (decisión del usuario: factura primero, pago después).
     { id: 'mant', label: `Mantenimiento ${plan.nombre} (${ciclo})`, precio: mantTotal },

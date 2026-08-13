@@ -23,6 +23,7 @@ export interface EmpresaCreditos {
   creditos_consumidos: number;
   ilimitado?: boolean;      // plan ilimitado (Corporativo): saldo sin tope
   permite_diseno?: boolean; // servicio a medida: editor de "Diseño personalizado (Lienzo)" (lo activa Vaxa)
+  precio_certificado?: number | null; // modo "Pago por certificado": S/ por cert emitido (null = no aplica)
 }
 
 export interface MovimientoCredito {
@@ -86,6 +87,8 @@ export interface EstadoPlanEmpresa {
     monto_adicional: number; restantes: number;
   };
   creditos: CreditosSaldo;
+  /** Precio por certificado (solo modo "Pago por certificado"). null = no aplica. */
+  precio_certificado?: number | null;
 }
 
 /** Fila del control de cobranza (una por empresa). */
@@ -195,6 +198,8 @@ export interface EditarEmpresaDto {
   /** Servicio a medida que activa/desactiva Vaxa: editor de "Diseño personalizado (Lienzo)".
    *  Requiere la columna empresas.permite_diseno en el backend para persistir/enforzar. */
   permite_diseno?: boolean;
+  /** Modo "Pago por certificado": S/ por cada certificado emitido (por empresa). */
+  precio_certificado?: number;
 }
 
 export interface CrearUsuarioDto {

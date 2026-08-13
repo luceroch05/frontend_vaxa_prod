@@ -17,7 +17,7 @@ import { ApiError } from '@/lib/api/client';
 import { creditosAdminApi, type EmpresaCreditos, type PlanCatalogo } from '../../shared/api/creditos.admin.api';
 import { cotizacionesApi, type Cotizacion, type CotizacionConDetalle, type EstadoCotizacion, COT_ESTADO } from '../../shared/api/cotizaciones.admin.api';
 import { tarifarioApi, type TarifaPaquete } from '../../shared/api/tarifario.admin.api';
-import { PAQUETES_CREDITOS, USUARIO_EXTRA, WEB_PLANES, DOMINIOS, HOSTING } from '../../shared/data/tarifario';
+import { PAQUETES_CREDITOS, USUARIO_EXTRA, WEB_PLANES, DOMINIOS, HOSTING, CERTIFICADO_INDIVIDUAL } from '../../shared/data/tarifario';
 
 interface Props { tenantId: string; tenant: TenantConfig; }
 interface Usuario { email: string; nombre: string; role: string; }
@@ -394,6 +394,7 @@ function NuevaCotizacionModal({ empresas, editar, onClose, onDone }: {
   const [planInfo, setPlanInfo] = useState('');
   const [planesCat, setPlanesCat] = useState<PlanCatalogo[]>([]);       // TODOS los planes (para cotizar migraciones)
   const [planActualSlug, setPlanActualSlug] = useState<string | null>(null);
+  const [precioCertSel, setPrecioCertSel] = useState<number>(0);   // > 0 si el cliente es "Pago por certificado"
 
   // Prospecto (si se edita un prospecto, se pre-cargan sus datos)
   const [docTipo, setDocTipo] = useState(editar && !editar.empresa_id ? editar.cliente_tipo_doc : '6');   // cat.06: 6 RUC · 1 DNI · 4 CE · 0 sin doc
@@ -452,20 +453,30 @@ function NuevaCotizacionModal({ empresas, editar, onClose, onDone }: {
 
   // Plan vigente de la empresa: solo informativo (se marca "actual" en el catálogo).
   useEffect(() => {
-    if (clienteModo !== 'empresa' || !empresaId) { setPlanInfo(''); setPlanActualSlug(null); return; }
+    if (clienteModo !== 'empresa' || !empresaId) { setPlanInfo(''); setPlanActualSlug(null); setPrecioCertSel(0); return; }
     creditosAdminApi.getPlanEmpresa(empresaId).then((est) => {
+      setPrecioCertSel(Number(est.precio_certificado ?? 0));
       if (est.plan) {
         setPlanActualSlug(est.plan.slug);
         setPlanInfo(`Plan actual: ${est.plan.nombre} · Mant. ${sol(est.plan.mantenimiento_mensual)}/mes`);
       } else { setPlanActualSlug(null); setPlanInfo('Sin plan asignado.'); }
-    }).catch(() => { setPlanInfo(''); setPlanActualSlug(null); });
+    }).catch(() => { setPlanInfo(''); setPlanActualSlug(null); setPrecioCertSel(0); });
   }, [empresaId, clienteModo]);
 
   // Catálogo sugerido: mantenimiento + implementación de CADA plan, paquetes de
   // créditos y usuario adicional. Igual para empresa registrada y prospecto.
+  // Vender certificados (pago único, sin mantenimiento). SOLO para clientes en el plan
+  // "Pago por certificado" o SIN plan asignado (prospecto). Un cliente con plan de
+  // mantenimiento NO compra certificados sueltos: compra créditos con los paquetes.
+  const puedeCert = !planActualSlug || planActualSlug === 'pago_certificado';
+
   const catalogo: Array<{ id: string; label: string; precio: number; creditos?: number; renueva?: boolean; grupo: string }> = [
+    ...(puedeCert
+      ? [{ id: 'cert', label: 'Certificado (pago por certificado)', precio: precioCertSel || CERTIFICADO_INDIVIDUAL.precio, creditos: 1, grupo: 'Créditos' }]
+      : []),
     ...servicios,
-    ...planesCat.flatMap((p) => {
+    // "Pago por certificado" no tiene mantenimiento ni implementación → se omite (no ensuciar el catálogo con S/0).
+    ...planesCat.filter(p => p.slug !== 'pago_certificado').flatMap((p) => {
       const actual = p.slug === planActualSlug ? ' · plan actual' : '';
       return [
         { id: `mant-${p.slug}`, label: `Mantenimiento ${p.nombre}${actual} (mensual)`, precio: p.mantenimiento_mensual, renueva: true, grupo: 'Planes' },

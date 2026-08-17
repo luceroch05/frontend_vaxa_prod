@@ -100,7 +100,8 @@ async function asegurarFuentes(): Promise<void> {
   try {
     const fonts = (document as unknown as { fonts?: FontFaceSet }).fonts;
     if (!fonts) return;
-    const familias = ['Barlow Condensed', 'Bebas Neue', 'Montserrat', 'Georgia'];
+    const familias = ['Barlow Condensed', 'Bebas Neue', 'Montserrat', 'Georgia', 'Poppins', 'Great Vibes', 'Cardo', 'Lobster',
+      'Pacifico', 'Sacramento', 'Allura', 'Alex Brush', 'Parisienne', 'Tangerine', 'Cinzel Decorative', 'Abril Fatface', 'Crimson Text'];
     const pesos = ['400', '600', '700', '800'];
     await Promise.all(
       familias.flatMap((fam) => pesos.map((w) => fonts.load(`${w} 40px "${fam}"`).catch(() => undefined))),

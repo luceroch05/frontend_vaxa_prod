@@ -22,9 +22,12 @@ export interface CampoTexto {
   bold?:      boolean;
   italic?:    boolean;
   uppercase?: boolean;
-  /** Familia tipográfica. Default 'sans'. 'bebas' = Bebas Neue (títulos, MAYÚS).
-   *  'barlow' = Barlow Condensed (condensada tipo señalética, alternativa libre a MVB Embarcadero). */
-  font?:      'sans' | 'serif' | 'bebas' | 'barlow';
+  /** Familia tipográfica. Default 'sans'. 'bebas'=Bebas Neue (títulos MAYÚS),
+   *  'barlow'=Barlow Condensed, 'poppins'=Poppins (moderna), 'vibes'=Great Vibes
+   *  (manuscrita), 'cardo'=Cardo (serif formal), 'lobster'=Lobster (script títulos). */
+  font?:      'sans' | 'serif' | 'bebas' | 'barlow' | 'poppins' | 'vibes' | 'cardo' | 'lobster'
+            | 'pacifico' | 'sacramento' | 'allura' | 'alexbrush' | 'tangerine' | 'parisienne'
+            | 'cinzel' | 'abril' | 'crimson';
   /** Peso Montserrat/Barlow: 400/500/600/700/800. Si no, usa bold?700:400. */
   weight?:    400 | 500 | 600 | 700 | 800;
   /** Espaciado entre letras en px (para el look "alargado"). */
@@ -34,11 +37,25 @@ export interface CampoTexto {
 }
 
 /** Familia CSS para la vista previa según el `font` del campo.
- *  'sans' = Montserrat, 'serif' = Times/Georgia, 'bebas' = Bebas Neue, 'barlow' = Barlow Condensed. */
-export function fontFamilyCss(font?: 'sans' | 'serif' | 'bebas' | 'barlow'): string {
-  if (font === 'serif')  return 'Georgia, "Times New Roman", serif';
-  if (font === 'bebas')  return "'Bebas Neue', 'Montserrat', sans-serif";
-  if (font === 'barlow') return "'Barlow Condensed', 'Oswald', 'Montserrat', sans-serif";
+ *  'sans'=Montserrat, 'serif'=Times/Georgia, 'bebas'=Bebas Neue, 'barlow'=Barlow Condensed,
+ *  'poppins'=Poppins, 'vibes'=Great Vibes, 'cardo'=Cardo, 'lobster'=Lobster. */
+export function fontFamilyCss(font?: string): string {
+  if (font === 'serif')      return 'Georgia, "Times New Roman", serif';
+  if (font === 'bebas')      return "'Bebas Neue', 'Montserrat', sans-serif";
+  if (font === 'barlow')     return "'Barlow Condensed', 'Oswald', 'Montserrat', sans-serif";
+  if (font === 'poppins')    return "'Poppins', 'Montserrat', Helvetica, Arial, sans-serif";
+  if (font === 'vibes')      return "'Great Vibes', 'Segoe Script', cursive";
+  if (font === 'cardo')      return "'Cardo', Georgia, 'Times New Roman', serif";
+  if (font === 'lobster')    return "'Lobster', 'Segoe Script', cursive";
+  if (font === 'pacifico')   return "'Pacifico', 'Segoe Script', cursive";
+  if (font === 'sacramento') return "'Sacramento', 'Segoe Script', cursive";
+  if (font === 'allura')     return "'Allura', 'Segoe Script', cursive";
+  if (font === 'alexbrush')  return "'Alex Brush', 'Segoe Script', cursive";
+  if (font === 'tangerine')  return "'Tangerine', 'Segoe Script', cursive";
+  if (font === 'parisienne') return "'Parisienne', 'Segoe Script', cursive";
+  if (font === 'cinzel')     return "'Cinzel Decorative', Georgia, serif";
+  if (font === 'abril')      return "'Abril Fatface', Georgia, serif";
+  if (font === 'crimson')    return "'Crimson Text', Georgia, 'Times New Roman', serif";
   return "'Montserrat', Helvetica, Arial, sans-serif";
 }
 
@@ -294,6 +311,30 @@ export function nuevaFirma(campos: Record<string, unknown>): { key: string; camp
 /** Cantidad de slots de firma (firmaN) ya colocados en el lienzo. */
 export function contarFirmas(campos: Record<string, unknown>): number {
   return Object.keys(campos).filter(k => /^firma\d+$/i.test(k)).length;
+}
+
+/**
+ * Sincroniza los espacios de firma del lienzo con las firmas ELEGIDAS en la
+ * configuración: crea firma1..firmaN (conservando posiciones ya puestas) y quita
+ * las sobrantes. Así no hay que "agregar firma" a mano en el editor — salen solas
+ * según lo seleccionado. Devuelve los campos y si hubo cambios.
+ */
+export function sincronizarFirmas(
+  campos: Record<string, any>, numFirmas: number,
+): { campos: Record<string, any>; changed: boolean } {
+  const n = Math.max(0, Math.min(numFirmas, MAX_FIRMAS));
+  const next = { ...campos };
+  let changed = false;
+  // Quita las sobrantes (más slots que firmas seleccionadas).
+  for (let i = n + 1; i <= MAX_FIRMAS; i++) {
+    if (next[`firma${i}`]) { delete next[`firma${i}`]; changed = true; }
+  }
+  // Agrega las que faltan, con una posición por defecto (el usuario luego las mueve).
+  for (let i = 1; i <= n; i++) {
+    const key = `firma${i}`;
+    if (!next[key]) { next[key] = { on: true, x: 300 + (i - 1) * 260, y: 615, w: 260, h: 58 }; changed = true; }
+  }
+  return { campos: next, changed };
 }
 
 /** true si el layout está activo y con al menos un campo → se usa el lienzo. */

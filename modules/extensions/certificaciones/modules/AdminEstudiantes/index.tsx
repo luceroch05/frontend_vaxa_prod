@@ -7,6 +7,7 @@ import { useEsAdmin } from '../../shared/hooks/useEsAdmin';
 import { participantesApi } from '../../shared/api/participantes.api';
 import { inscripcionesApi } from '../../shared/api/inscripciones.api';
 import { useCatalogos } from '../../shared/hooks/useCatalogos';
+import { useCalidades } from '../../shared/hooks/useCalidades';
 import { useGrupos } from '../../shared/hooks/useGrupos';
 import { usePagination } from '../../shared/hooks/usePagination';
 import Pagination from '../../shared/components/Pagination';
@@ -25,9 +26,6 @@ const GRADOS_OPCIONES = [
 /** Convierte el CSV guardado ("Mag.,Lic.") al arreglo del formulario. */
 const parseGrados = (csv?: string | null): string[] =>
   String(csv ?? '').split(',').map(s => s.trim()).filter(Boolean);
-
-/** Calidades de participación (mismas que el resto del sistema). */
-const CALIDADES = ['Participante', 'Organizador', 'Colaborador', 'Ponente'];
 
 /** Multi-select de grados en chips: clic para marcar/desmarcar. Sale antes del nombre. */
 function GradosPicker({ value, onChange, disabled }: {
@@ -85,6 +83,7 @@ function InscribirModal({ empresa, onClose, onDone }: {
 }) {
   const { catalogos } = useCatalogos(empresa);
   const { grupos }     = useGrupos(empresa);
+  const { nombres: calidadNombres } = useCalidades(empresa);
 
   const tiposDoc = catalogos?.tipos_documento ?? [];
   const dniId = tiposDoc.find(t => t.codigo === 'DNI')?.id ?? tiposDoc[0]?.id ?? 1;
@@ -285,12 +284,7 @@ function InscribirModal({ empresa, onClose, onDone }: {
               <SelectVx
                 value={calidad}
                 onChange={v => setCalidad(v)}
-                options={[
-                  { value: 'Organizador',  label: 'Organizador' },
-                  { value: 'Colaborador',  label: 'Colaborador' },
-                  { value: 'Participante', label: 'Participante' },
-                  { value: 'Ponente',      label: 'Ponente' },
-                ]}
+                options={calidadNombres.map(n => ({ value: n, label: n }))}
                 placeholder="Participante"
               />
             </div>
@@ -322,6 +316,7 @@ function EditarModal({ empresa, participante, onClose, onDone }: {
   onDone: () => void;
 }) {
   const { catalogos } = useCatalogos(empresa);
+  const { nombres: CALIDADES } = useCalidades(empresa);
   const tiposDoc = catalogos?.tipos_documento ?? [];
 
   const [tipoDoc,   setTipoDoc]   = useState<number>(participante.tipo_documento_id);

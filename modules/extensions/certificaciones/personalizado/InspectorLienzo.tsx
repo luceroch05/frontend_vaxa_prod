@@ -244,10 +244,29 @@ export default function InspectorLienzo({ layout, selectedKey, onChange, onSelec
                     <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: '#9CA3AF' }}>Fuente</span>
                     <select value={c.font ?? 'sans'} onChange={e => setCampo(sel, { font: e.target.value as CampoTexto['font'] })}
                       className="vx-input" style={{ padding: '5px 6px', fontSize: 12 }}>
-                      <option value="sans">Sans (Montserrat)</option>
-                      <option value="serif">Serif</option>
-                      <option value="bebas">Bebas Neue</option>
-                      <option value="barlow">Barlow Condensed</option>
+                      <optgroup label="Modernas (limpias)">
+                        <option value="sans">Montserrat</option>
+                        <option value="poppins">Poppins</option>
+                        <option value="barlow">Barlow Condensed</option>
+                        <option value="bebas">Bebas Neue (títulos)</option>
+                      </optgroup>
+                      <optgroup label="Clásicas / formales (diploma)">
+                        <option value="serif">Serif clásica</option>
+                        <option value="cardo">Cardo</option>
+                        <option value="crimson">Crimson Text</option>
+                        <option value="cinzel">Cinzel (mayúsc. diploma)</option>
+                        <option value="abril">Abril Fatface (título grueso)</option>
+                      </optgroup>
+                      <optgroup label="Manuscritas (para nombres)">
+                        <option value="vibes">Great Vibes</option>
+                        <option value="allura">Allura</option>
+                        <option value="tangerine">Tangerine</option>
+                        <option value="sacramento">Sacramento</option>
+                        <option value="alexbrush">Alex Brush</option>
+                        <option value="parisienne">Parisienne</option>
+                        <option value="pacifico">Pacifico</option>
+                        <option value="lobster">Lobster</option>
+                      </optgroup>
                     </select>
                   </label>
                   <label style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>

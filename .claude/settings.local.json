@@ -238,7 +238,9 @@
       "PowerShell(Copy-Item *)",
       "PowerShell($src=\"C:\\\\Users\\\\Lucero\\\\Desktop\\\\frontend-crecemos-prod\\\\public\\\\assets\\\\img\\\\libro-reclamaciones.webp\"; $dst=\"C:\\\\Users\\\\Lucero\\\\Desktop\\\\frontend_vaxa_prod\\\\public\\\\libro-reclamaciones.webp\"; if \\(Test-Path $src\\) { Copy-Item $src $dst -Force; Write-Output \\(\"copiado -> {0} \\({1} bytes\\)\" -f $dst,\\(\\(Get-Item $dst\\).Length\\)\\) } else { Write-Output \"NO EXISTE el origen: $src\" })",
       "Bash(ls node_modules/exceljs)",
-      "Bash(ls \"C:\\\\Users\\\\Lucero\\\\Downloads\\\\Plantilla participantes — Grupo A.xlsx\")"
+      "Bash(ls \"C:\\\\Users\\\\Lucero\\\\Downloads\\\\Plantilla participantes — Grupo A.xlsx\")",
+      "Bash(grep -viE \"^\\\\s*//|comentario\")",
+      "Bash(grep -nE \"export \\(const|{\\).*\\\\bW\\\\b|export const W|export const H|^export .*\\\\bW,|\\\\bW =|\\\\bH =\" modules/extensions/certificaciones/shared/components/CertificadoPDF.tsx)"
     ],
     "deny": [],
     "ask": []

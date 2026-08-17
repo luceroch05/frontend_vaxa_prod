@@ -27,6 +27,16 @@ import PublicValidar  from '../modules/extensions/certificaciones/modules/Public
 // Libro de Reclamaciones Virtual (público, sin login — importación directa para NO envolverlo en AuthGuard)
 import LibroReclamaciones from '../modules/extensions/sistemas-vaxa/modules/LibroReclamaciones';
 
+// Módulo SaaS de Historias Clínicas (centros terapéuticos) — importación directa
+import TerapLayout   from '../modules/extensions/terapeutico/shared/TerapLayout';
+import TerapGuard    from '../modules/extensions/terapeutico/shared/TerapGuard';
+import TerapShell    from '../modules/extensions/terapeutico/shared/TerapShell';
+import TerapLogin        from '../modules/extensions/terapeutico/modules/Login';
+import TerapPacientes    from '../modules/extensions/terapeutico/modules/Pacientes';
+import TerapPacienteDetalle from '../modules/extensions/terapeutico/modules/PacienteDetalle';
+import TerapAgenda       from '../modules/extensions/terapeutico/modules/Agenda';
+import TerapServicios    from '../modules/extensions/terapeutico/modules/Servicios';
+
 /** Compatibilidad: la ruta vieja /admin/login redirige al nuevo login. */
 function LoginRedirect() {
   const { empresa } = useParams<{ empresa: string }>();
@@ -71,6 +81,25 @@ function certificadosChildren() {
       {/* Compat: rutas viejas con /admin → nuevas */}
       <Route path="admin/login" element={<LoginRedirect />} />
       <Route path="admin/*"     element={<PanelRedirect />} />
+    </>
+  );
+}
+
+/* ── Hijos del área de Historias Clínicas (centros terapéuticos). Se montan bajo
+      /:empresa/terapeutico. Login público-por-slug + panel protegido por rol. ── */
+function terapeuticoChildren() {
+  return (
+    <>
+      <Route index element={<TerapLogin />} />
+      <Route path="login" element={<TerapLogin />} />
+      <Route path="panel" element={<TerapGuard />}>
+        <Route element={<TerapShell />}>
+          <Route index element={<TerapPacientes />} />
+          <Route path="agenda" element={<TerapAgenda />} />
+          <Route path="servicios" element={<TerapServicios />} />
+          <Route path="pacientes/:id" element={<TerapPacienteDetalle />} />
+        </Route>
+      </Route>
     </>
   );
 }
@@ -139,6 +168,10 @@ export default function App() {
 
       <Route path="/:empresa/certificados" element={<CertificadosLayout />}>
         {certificadosChildren()}
+      </Route>
+
+      <Route path="/:empresa/terapeutico" element={<TerapLayout />}>
+        {terapeuticoChildren()}
       </Route>
 
       <Route path="/:tenantId" element={<TenantLayout />}>

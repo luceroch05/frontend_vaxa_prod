@@ -23,6 +23,16 @@ export function certPath(empresa: string, sub = ''): string {
 }
 
 /**
+ * Ruta interna del área de Historias Clínicas (centros terapéuticos) de una empresa.
+ *   sub: '', '/login', '/panel', '/panel/pacientes/:id', ...
+ * Por ahora siempre lleva el segmento /terapeutico (aún no hay subdominio propio;
+ * cuando lo haya, se replica el patrón de certPath con su HostMode).
+ */
+export function terapPath(empresa: string, sub = ''): string {
+  return `/${empresa}/terapeutico${sub}`;
+}
+
+/**
  * Ruta interna de un tenant del sistema interno (sistemas-vaxa / certificaciones).
  *   sub: '', '/login', '/sistemas', '/certificaciones/empresas', ...
  * En el subdominio `sistemas.` el tenant es fijo, así que va sin prefijo.

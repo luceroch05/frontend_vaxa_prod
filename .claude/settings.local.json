@@ -238,7 +238,10 @@
       "PowerShell(Copy-Item *)",
       "PowerShell($src=\"C:\\\\Users\\\\Lucero\\\\Desktop\\\\frontend-crecemos-prod\\\\public\\\\assets\\\\img\\\\libro-reclamaciones.webp\"; $dst=\"C:\\\\Users\\\\Lucero\\\\Desktop\\\\frontend_vaxa_prod\\\\public\\\\libro-reclamaciones.webp\"; if \\(Test-Path $src\\) { Copy-Item $src $dst -Force; Write-Output \\(\"copiado -> {0} \\({1} bytes\\)\" -f $dst,\\(\\(Get-Item $dst\\).Length\\)\\) } else { Write-Output \"NO EXISTE el origen: $src\" })",
       "Bash(ls node_modules/exceljs)",
-      "Bash(ls \"C:\\\\Users\\\\Lucero\\\\Downloads\\\\Plantilla participantes — Grupo A.xlsx\")"
+      "Bash(ls \"C:\\\\Users\\\\Lucero\\\\Downloads\\\\Plantilla participantes — Grupo A.xlsx\")",
+      "PowerShell(npx --prefix C:\\\\Users\\\\Lucero\\\\Desktop\\\\backend-vaxa-prod tsc -p C:\\\\Users\\\\Lucero\\\\Desktop\\\\backend-vaxa-prod\\\\tsconfig.json --noEmit 2>&1 | Select-Object -First 40)",
+      "PowerShell($c = Get-NetTCPConnection -LocalPort 4000 -State Listen -ErrorAction SilentlyContinue; if \\($c\\) { $c | Select-Object -First 1 | ForEach-Object { $p = Get-Process -Id $_.OwningProcess; Write-Output \\(\"PID {0} = {1}\" -f $p.Id, $p.ProcessName\\) } } else { Write-Output \"Nada escuchando en 4000\" })",
+      "PowerShell($c = Get-NetTCPConnection -LocalPort 4000 -State Listen -ErrorAction SilentlyContinue; if \\($c\\) { $pid0 = \\($c | Select-Object -First 1\\).OwningProcess; Stop-Process -Id $pid0 -Force; Write-Output \"Detenido PID $pid0\" } else { Write-Output \"Nada en 4000\" })"
     ],
     "deny": [],
     "ask": []

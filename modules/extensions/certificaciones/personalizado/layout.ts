@@ -95,6 +95,10 @@ export interface CampoLinea {
   w?:         number;  // px (largo)
   thickness?: number;  // px (grosor)
   color?:     string;  // #hex
+  /** Si apunta a la clave de un campo de texto, la línea toma el ANCHO y el centro
+   *  horizontal de ese texto (subrayado que se adapta a "nombre", "calidad"…). Se
+   *  ignoran x/w cuando está puesto. */
+  sigueA?:    string;
 }
 
 export interface LayoutLienzo {
@@ -116,6 +120,29 @@ export function indiceLogo(key: string): number {
   return Math.max(0, Number(key.replace(/\D/g, '')) - 1);
 }
 export const indiceFirma = indiceLogo;
+
+/** Clave del slot de logo para un índice 0-based (0 → 'logo1'). */
+export function logoKey(index: number): string { return `logo${index + 1}`; }
+
+/**
+ * Asegura que el logo OBLIGATORIO de la empresa (el que Vaxa sube en sistemas-vaxa,
+ * es_default) tenga SIEMPRE su slot en el lienzo y esté visible: lo crea si falta y
+ * lo fuerza a on. El cliente puede moverlo/redimensionarlo pero no ocultarlo ni
+ * borrarlo (eso lo bloquea el inspector). Devuelve los campos y si hubo cambios.
+ */
+export function sincronizarLogoObligatorio(
+  campos: Record<string, any>, defaultIndex: number | null | undefined,
+): { campos: Record<string, any>; changed: boolean } {
+  if (defaultIndex == null || defaultIndex < 0) return { campos, changed: false };
+  const key = logoKey(defaultIndex);
+  const actual = campos[key];
+  if (actual && actual.on !== false) return { campos, changed: false };
+  const next = { ...campos };
+  next[key] = actual
+    ? { ...actual, on: true }                               // estaba oculto → forzar visible
+    : { on: true, x: 972, y: 30, size: 110 };               // no existía → crearlo (esquina sup. der.)
+  return { campos: next, changed: true };
+}
 
 /** Dimensiones del viewport del lienzo (coincide con el PDF). */
 export const LIENZO_W = 1122, LIENZO_H = 794;
@@ -218,7 +245,8 @@ export const VARIABLES_LIENZO: { token: string; desc: string }[] = [
   { token: '{fecha}',       desc: 'Fecha de emisión (día completo)' },
   { token: '{mesEmision}',  desc: 'Mes y año de emisión (ej. septiembre 2026)' },
   { token: '{fechaInicio}', desc: 'Fecha de inicio' },
-  { token: '{fechaFin}',    desc: 'Fecha de fin' },
+  { token: '{fechaFin}',    desc: 'Fecha de fin (vacía si el curso es de un solo día)' },
+  { token: '{periodo}',     desc: 'Periodo ya redactado: "el 22 de agosto de 2026", "los días 22, 23 y 24…" o "del X al Y". Úsalo en vez de "{fechaInicio} al {fechaFin}".' },
   { token: '{horas}',       desc: 'Horas académicas' },
   { token: '{creditos}',    desc: 'Créditos' },
   { token: '{codigo}',      desc: 'Código único del certificado' },
@@ -359,4 +387,27 @@ export function expandirLienzo(txt: string, vars: Record<string, string>): strin
     const key = Object.keys(vars).find(v => v.toLowerCase() === String(k).toLowerCase());
     return key ? vars[key] : '';
   });
+}
+
+/* ── Negrita parcial: **texto** dentro de un campo de texto ──────
+   Permite poner en negrita solo una parte (ej. "Otorgado a **{nombre}**").
+   Espejo del backend (personalizado/lienzo.service.ts). */
+
+/** Divide un texto en tramos normales / en negrita según las marcas **. */
+export function segmentosBold(txt: string): { text: string; bold: boolean }[] {
+  const out: { text: string; bold: boolean }[] = [];
+  const re = /\*\*([\s\S]+?)\*\*/g;
+  let last = 0, m: RegExpExecArray | null;
+  while ((m = re.exec(txt))) {
+    if (m.index > last) out.push({ text: txt.slice(last, m.index), bold: false });
+    out.push({ text: m[1], bold: true });
+    last = m.index + m[0].length;
+  }
+  if (last < txt.length) out.push({ text: txt.slice(last), bold: false });
+  return out.length ? out : [{ text: txt, bold: false }];
+}
+
+/** Quita las marcas ** (para medir el texto en el auto-ajuste). */
+export function quitarBold(txt: string): string {
+  return txt.replace(/\*\*([\s\S]+?)\*\*/g, '$1');
 }

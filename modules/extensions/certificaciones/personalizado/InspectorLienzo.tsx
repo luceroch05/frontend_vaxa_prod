@@ -7,12 +7,12 @@
  * para saltar entre elementos sin tener que cazarlos en el lienzo.
  * Aislado: opera sobre el LayoutLienzo y avisa por onChange/onSelect.
  * ──────────────────────────────────────────────────────────────── */
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   CampoFirma, CampoLinea, CampoLogo, CampoQR, CampoTexto, LayoutLienzo,
   VARIABLES_LIENZO, labelCampo, tipoCampo, indiceLogo, indiceFirma,
 } from './layout';
-import { MousePointerClick, Trash2, Layers } from '@/components/ui/icon';
+import { MousePointerClick, Trash2, Layers, Lock } from '@/components/ui/icon';
 
 interface Props {
   layout: LayoutLienzo | null;
@@ -20,6 +20,9 @@ interface Props {
   selectedKey: string | null;
   onChange: (l: LayoutLienzo) => void;
   onSelect: (key: string | null) => void;
+  /** Clave del slot del logo OBLIGATORIO de la empresa (el de sistemas-vaxa). Ese
+   *  logo no se puede ocultar ni eliminar; solo mover/redimensionar. */
+  logoObligKey?: string | null;
 }
 
 /* Input numérico compacto con etiqueta arriba.
@@ -96,7 +99,7 @@ function chipLabel(key: string, c: CampoTexto): string {
   return key;
 }
 
-export default function InspectorLienzo({ layout, selectedKey, onChange, onSelect }: Props) {
+export default function InspectorLienzo({ layout, selectedKey, onChange, onSelect, logoObligKey }: Props) {
   const campos = (layout?.campos ?? {}) as Record<string, CampoTexto & CampoQR & CampoLogo & CampoFirma & CampoLinea>;
   const entries = Object.entries(campos);
 
@@ -113,6 +116,41 @@ export default function InspectorLienzo({ layout, selectedKey, onChange, onSelec
   const sel = selectedKey && campos[selectedKey] ? selectedKey : null;
   const c = sel ? campos[sel] : null;
   const t = sel ? tipoCampo(sel) : null;
+
+  // Cursor del textarea (para insertar variables/negrita donde está el foco, no al final).
+  const textAreaRef = useRef<HTMLTextAreaElement>(null);
+  const caretRef = useRef<{ s: number; e: number } | null>(null);
+  const guardaCaret = (ta: HTMLTextAreaElement) => { caretRef.current = { s: ta.selectionStart, e: ta.selectionEnd }; };
+  useEffect(() => { caretRef.current = null; }, [sel]);   // al cambiar de elemento, olvida el cursor viejo
+
+  // Inserta un texto en la posición del cursor (o al final si aún no se tocó el campo).
+  const insertarEnCursor = (fragmento: string) => {
+    if (!sel) return;
+    const val = c?.text ?? '';
+    const car = caretRef.current;
+    const a = car ? car.s : val.length;
+    const b = car ? car.e : val.length;
+    const nuevo = val.slice(0, a) + fragmento + val.slice(b);
+    setCampo(sel, { text: nuevo });
+    const pos = a + fragmento.length;
+    caretRef.current = { s: pos, e: pos };
+    const ta = textAreaRef.current;
+    if (ta) requestAnimationFrame(() => { ta.focus(); ta.setSelectionRange(pos, pos); });
+  };
+
+  // Envuelve el texto seleccionado en **…** (negrita parcial).
+  const envolverNegrita = () => {
+    if (!sel) return;
+    const val = c?.text ?? '';
+    const car = caretRef.current;
+    if (!car || car.s === car.e) { textAreaRef.current?.focus(); return; }  // sin selección: nada
+    const { s: a, e: b } = car;
+    const nuevo = val.slice(0, a) + '**' + val.slice(a, b) + '**' + val.slice(b);
+    setCampo(sel, { text: nuevo });
+    caretRef.current = { s: a + 2, e: b + 2 };
+    const ta = textAreaRef.current;
+    if (ta) requestAnimationFrame(() => { ta.focus(); ta.setSelectionRange(a + 2, b + 2); });
+  };
 
   return (
     <div className="rounded-2xl flex flex-col" style={{ background: '#fff', border: '1px solid #EEECE6', minHeight: 360 }}>
@@ -188,12 +226,21 @@ export default function InspectorLienzo({ layout, selectedKey, onChange, onSelec
               ) : (
                 <p className="text-[12.5px] font-bold flex-1" style={{ color: '#0D0E12' }}>{labelCampo(sel, c)}</p>
               )}
-              <label style={{ display: 'inline-flex', alignItems: 'center', gap: 5, cursor: 'pointer' }}>
-                <input type="checkbox" checked={c.on !== false} onChange={e => setCampo(sel, { on: e.target.checked })} />
-                <span className="text-[11px] font-semibold" style={{ color: c.on !== false ? '#15803D' : '#B0A898' }}>
-                  {c.on !== false ? 'Visible' : 'Oculto'}
+              {sel === logoObligKey ? (
+                // Logo obligatorio de la empresa: no se puede ocultar (solo mover/tamaño).
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full inline-flex items-center gap-1"
+                  title="Logo de la empresa (sistemas-vaxa): obligatorio, no se puede ocultar ni quitar"
+                  style={{ background: '#ECFDF5', color: '#047857', border: '1px solid #A7F3D0' }}>
+                  <Lock size={9} /> Obligatorio
                 </span>
-              </label>
+              ) : (
+                <label style={{ display: 'inline-flex', alignItems: 'center', gap: 5, cursor: 'pointer' }}>
+                  <input type="checkbox" checked={c.on !== false} onChange={e => setCampo(sel, { on: e.target.checked })} />
+                  <span className="text-[11px] font-semibold" style={{ color: c.on !== false ? '#15803D' : '#B0A898' }}>
+                    {c.on !== false ? 'Visible' : 'Oculto'}
+                  </span>
+                </label>
+              )}
               {(t === 'texto' || t === 'linea' || t === 'firma') && (
                 <button type="button" onClick={() => removeCampo(sel)} title="Quitar elemento"
                   className="p-1 rounded-md" style={{ color: '#B91C1C' }}>
@@ -206,17 +253,33 @@ export default function InspectorLienzo({ layout, selectedKey, onChange, onSelec
             {t === 'texto' && (
               <>
                 <textarea
+                  ref={textAreaRef}
                   value={c.text ?? ''}
-                  onChange={e => setCampo(sel, { text: e.target.value })}
+                  onChange={e => { setCampo(sel, { text: e.target.value }); guardaCaret(e.currentTarget); }}
+                  onSelect={e => guardaCaret(e.currentTarget)}
+                  onFocus={e => guardaCaret(e.currentTarget)}
                   placeholder="Texto o {variable}  ·  Enter = salto de línea"
                   rows={c.text && c.text.includes('\n') ? 3 : 2}
                   className="vx-input w-full resize-y"
                   style={{ padding: '6px 10px', fontSize: 12, lineHeight: 1.5 }}
                 />
+                {/* Negrita parcial: selecciona texto y pulsa B, o escribe **así** */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button type="button" onClick={envolverNegrita}
+                    title="Pone en negrita SOLO el texto que selecciones en el recuadro de arriba"
+                    className="text-[11px] px-2 py-1 rounded-md"
+                    style={{ background: '#FAFAF8', border: '1px solid #EEECE6', color: '#0D0E12' }}>
+                    <b>B</b> Negrita
+                  </button>
+                  <span className="text-[10px]" style={{ color: '#9CA3AF' }}>
+                    Selecciona una palabra y pulsa <b>B</b>, o escríbela entre{' '}
+                    <code style={{ fontFamily: 'monospace', color: '#C2410C' }}>**dobles asteriscos**</code>.
+                  </span>
+                </div>
                 <div className="flex flex-wrap gap-1">
                   {VARIABLES_LIENZO.map(v => (
                     <button key={v.token} type="button" title={v.desc}
-                      onClick={() => setCampo(sel, { text: (c.text ?? '') + v.token })}
+                      onClick={() => insertarEnCursor(v.token)}
                       className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md"
                       style={{ background: '#FFF7ED', color: '#C2410C', border: '1px solid #FED7AA', fontFamily: 'monospace' }}>
                       {v.token}
@@ -326,16 +389,36 @@ export default function InspectorLienzo({ layout, selectedKey, onChange, onSelec
               </div>
             )}
 
-            {/* ── LÍNEA ── */}
-            {t === 'linea' && (
-              <div className="flex flex-wrap items-end gap-2">
-                <NumBox label="X" value={c.x} onChange={n => setCampo(sel, { x: n })} />
-                <NumBox label="Y" value={c.y} onChange={n => setCampo(sel, { y: n })} />
-                <NumBox label="Largo" value={c.w} min={20} max={1122} onChange={n => setCampo(sel, { w: n })} />
-                <NumBox label="Grosor" value={c.thickness} min={1} max={12} onChange={n => setCampo(sel, { thickness: n })} />
-                <ColorBox label="Color" value={c.color} fallback="#c9a24b" onChange={v => setCampo(sel, { color: v })} />
-              </div>
-            )}
+            {/* ── LÍNEA (recta o subrayado que se adapta a un texto) ── */}
+            {t === 'linea' && (() => {
+              const linea = c as CampoLinea;
+              const textos = entries.filter(([k]) => tipoCampo(k) === 'texto');
+              const sigue = !!linea.sigueA && !!campos[linea.sigueA] && tipoCampo(linea.sigueA) === 'texto';
+              return (
+                <div className="space-y-2">
+                  <label style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: '#9CA3AF' }}>Adaptar ancho a</span>
+                    <select value={linea.sigueA ?? ''} onChange={e => setCampo(sel, { sigueA: e.target.value || undefined })}
+                      className="vx-input" style={{ padding: '5px 6px', fontSize: 12 }}>
+                      <option value="">Ancho fijo (recta normal)</option>
+                      {textos.map(([k, raw]) => <option key={k} value={k}>Subrayar: {chipLabel(k, raw)}</option>)}
+                    </select>
+                  </label>
+                  <div className="flex flex-wrap items-end gap-2">
+                    {!sigue && <NumBox label="X" value={c.x} onChange={n => setCampo(sel, { x: n })} />}
+                    <NumBox label="Y" value={c.y} onChange={n => setCampo(sel, { y: n })} />
+                    {!sigue && <NumBox label="Largo" value={c.w} min={20} max={1122} onChange={n => setCampo(sel, { w: n })} />}
+                    <NumBox label="Grosor" value={c.thickness} min={1} max={12} onChange={n => setCampo(sel, { thickness: n })} />
+                    <ColorBox label="Color" value={c.color} fallback="#c9a24b" onChange={v => setCampo(sel, { color: v })} />
+                  </div>
+                  {sigue && (
+                    <p className="text-[10.5px]" style={{ color: '#9CA3AF' }}>
+                      Toma el ancho y el centro del texto <b>{chipLabel(linea.sigueA!, campos[linea.sigueA!])}</b>. Solo mueves su altura (Y) para pegarla debajo.
+                    </p>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* ── QR ── */}
             {t === 'qr' && (

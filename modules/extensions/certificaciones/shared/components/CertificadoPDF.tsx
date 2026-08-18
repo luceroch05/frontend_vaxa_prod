@@ -184,6 +184,7 @@ export function CertificadoPDF({ certificado, config, onClose }: Props) {
     fecha:        fmtDate(certificado.fecha_emision),
     fechaInicio,
     fechaFin,
+    periodo:      periodoFrase,
   });
 
   // Tamaño cuerpo adaptativo (igual que el otro proyecto)
@@ -204,7 +205,7 @@ export function CertificadoPDF({ certificado, config, onClose }: Props) {
     tipoDocumento: docTipo, documento: docNum,
     programa: certificado.programa_nombre, curso: certificado.programa_nombre,
     tipo: certificado.tipo_programa_nombre ?? 'Certificado',
-    fecha: fmtDate(certificado.fecha_emision), fechaInicio, fechaFin,
+    fecha: fmtDate(certificado.fecha_emision), fechaInicio, fechaFin, periodo: periodoFrase,
     mesEmision: fmtMesAnio(certificado.fecha_emision),
     horas: String(certificado.horas_academicas ?? ''),
     creditos: certificado.creditos ? String(certificado.creditos) : '',

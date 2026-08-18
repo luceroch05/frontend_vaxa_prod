@@ -203,9 +203,15 @@ export default function LienzoDragLayer({ layout, scale, onMove, selectedKey: se
         const c = (raw ?? {}) as Campo;
         if (c.on === false) return null;
         // Los logos usan una caja que abraza la imagen real (no el cuadrado size×size).
-        const box = tipoCampo(key) === 'logo'
+        let box = tipoCampo(key) === 'logo'
           ? logoHugBox(c, aspects[imgUrl(logos[indiceLogo(key)]?.imagen_logo ?? '')])
           : campoBox(key, c);
+        // Línea que subraya un texto: el agarre cubre la zona del texto (su ancho real
+        // lo mide el render; aquí basta con la caja del texto para poder tomarla).
+        if (tipoCampo(key) === 'linea' && c.sigueA && campos[c.sigueA] && tipoCampo(c.sigueA) === 'texto') {
+          const t = campos[c.sigueA] as Campo;
+          box = { x: t.x ?? 0, y: (c.y ?? 0) - 5, w: t.w ?? 400, h: box.h };
+        }
         const sel = selectedKey === key;
         return (
           <div

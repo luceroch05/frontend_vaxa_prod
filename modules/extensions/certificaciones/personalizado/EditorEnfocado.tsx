@@ -13,7 +13,7 @@ import CertificadoPreview from '../shared/components/CertificadoPreview';
 import { W, H } from '../shared/components/CertificadoPDF';
 import EditorLienzo from './EditorLienzo';
 import InspectorLienzo from './InspectorLienzo';
-import { type LayoutLienzo, sincronizarFirmas } from './layout';
+import { type LayoutLienzo, sincronizarFirmas, sincronizarLogoObligatorio, logoKey } from './layout';
 import { X } from '@/components/ui/icon';
 
 type PreviewProps = ComponentProps<typeof CertificadoPreview>;
@@ -27,10 +27,18 @@ interface Props {
   programaNombre?: string;
   horas?: number;
   creditos?: number;
+  /** Fechas reales del aula (ISO) para que el preview muestre las fechas correctas. */
+  fechaInicio?: string | null;
+  fechaFin?: string | null;
+  fechaDia2?: string | null;
+  fechaDia3?: string | null;
   layout: LayoutLienzo | null;
   onLayoutChange: (l: LayoutLienzo) => void;
   /** Nº de firmas ELEGIDAS en la config → se crean solas como espacios en el lienzo. */
   numFirmas: number;
+  /** Índice 0-based del logo OBLIGATORIO de la empresa (es_default) dentro de los
+   *  logos seleccionados. Su slot no se puede ocultar ni borrar. -1/null = ninguno. */
+  logoObligIndex?: number | null;
   selectedKey: string | null;
   onSelectField: (k: string | null) => void;
   baseLayout?: LayoutLienzo | null;
@@ -75,6 +83,15 @@ export default function EditorEnfocado(props: Props) {
     if (changed) props.onLayoutChange({ ...(actual ?? { activo: true }), activo: true, campos });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.numFirmas]);
+
+  // El logo obligatorio de la empresa (es_default) SIEMPRE debe tener su slot visible:
+  // se crea si falta y se fuerza a visible (el inspector impide ocultarlo/borrarlo).
+  useEffect(() => {
+    const actual = layoutRef.current;
+    const { campos, changed } = sincronizarLogoObligatorio(actual?.campos ?? {}, props.logoObligIndex);
+    if (changed) props.onLayoutChange({ ...(actual ?? { activo: true }), activo: true, campos });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.logoObligIndex]);
 
   // Esc cierra + bloquea scroll del fondo.
   useEffect(() => {
@@ -126,6 +143,10 @@ export default function EditorEnfocado(props: Props) {
               programaNombre={props.programaNombre}
               horas={props.horas}
               creditos={props.creditos}
+              fechaInicio={props.fechaInicio}
+              fechaFin={props.fechaFin}
+              fechaDia2={props.fechaDia2}
+              fechaDia3={props.fechaDia3}
               layout={props.layout}
               displayWidth={canvasW}
               editable
@@ -141,6 +162,7 @@ export default function EditorEnfocado(props: Props) {
             selectedKey={props.selectedKey}
             onChange={props.onLayoutChange}
             onSelect={props.onSelectField}
+            logoObligKey={props.logoObligIndex != null && props.logoObligIndex >= 0 ? logoKey(props.logoObligIndex) : null}
           />
         </div>
       </div>

@@ -1091,9 +1091,15 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
         const gruposProg = grupos.filter(gr => gr.programa_id === p.id);
         const gruposConCfgSet = gruposConCfg[p.id] ?? new Set();
         const grupoEsCustom = g !== 0 && gruposConCfgSet.has(g);
+        // Aula seleccionada (si es un grupo concreto): sus fechas reales van a la vista
+        // previa para que muestre las fechas correctas y no las de ejemplo.
+        const aulaSel = g !== 0 ? gruposProg.find(gr => gr.id === g) : undefined;
         // Logos/firmas seleccionados (en el orden definido) para la vista previa en vivo.
         const selLogos  = orderedLogos.map(id => logos.find(l => l.id === id)).filter(Boolean) as Logo[];
         const selFirmas = c.firmas.map(id => firmas.find(f => f.id === id)).filter(Boolean) as Firma[];
+        // Índice del logo obligatorio (es_default) dentro de los seleccionados → su
+        // slot en el lienzo (logoN) no se puede ocultar ni borrar.
+        const logoObligIndex = selLogos.findIndex(l => !!l.es_default);
 
         return (
           <div key={p.id} className="bg-white rounded-2xl overflow-hidden" style={{ border: '1px solid #EEECE6' }}>
@@ -1269,6 +1275,10 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
                         programaNombre={p.nombre}
                         horas={p.horas_academicas}
                         creditos={p.creditos}
+                        fechaInicio={aulaSel?.fecha_inicio}
+                        fechaFin={aulaSel?.fecha_fin}
+                        fechaDia2={aulaSel?.fecha_dia2}
+                        fechaDia3={aulaSel?.fecha_dia3}
                         layout={c.layout}
                         displayWidth={canvasW}
                         editable={permiteDiseno && !modoLienzo}
@@ -1294,9 +1304,14 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
                         programaNombre={p.nombre}
                         horas={p.horas_academicas}
                         creditos={p.creditos}
+                        fechaInicio={aulaSel?.fecha_inicio}
+                        fechaFin={aulaSel?.fecha_fin}
+                        fechaDia2={aulaSel?.fecha_dia2}
+                        fechaDia3={aulaSel?.fecha_dia3}
                         layout={c.layout}
                         onLayoutChange={l => setCfg(p.id, g, { layout: l })}
                         numFirmas={selFirmas.length}
+                        logoObligIndex={logoObligIndex}
                         selectedKey={selectedKey}
                         onSelectField={setSelectedKey}
                         baseLayout={layoutBase}

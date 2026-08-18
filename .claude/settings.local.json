@@ -240,7 +240,8 @@
       "Bash(ls node_modules/exceljs)",
       "Bash(ls \"C:\\\\Users\\\\Lucero\\\\Downloads\\\\Plantilla participantes — Grupo A.xlsx\")",
       "Bash(grep -viE \"^\\\\s*//|comentario\")",
-      "Bash(grep -nE \"export \\(const|{\\).*\\\\bW\\\\b|export const W|export const H|^export .*\\\\bW,|\\\\bW =|\\\\bH =\" modules/extensions/certificaciones/shared/components/CertificadoPDF.tsx)"
+      "Bash(grep -nE \"export \\(const|{\\).*\\\\bW\\\\b|export const W|export const H|^export .*\\\\bW,|\\\\bW =|\\\\bH =\" modules/extensions/certificaciones/shared/components/CertificadoPDF.tsx)",
+      "Bash(echo \"=== FRONT BUILD EXIT: $? ===\")"
     ],
     "deny": [],
     "ask": []

@@ -17,6 +17,7 @@ export interface CertVarValues {
   fecha?: string;        // fecha de emisión
   fechaInicio?: string;
   fechaFin?: string;
+  periodo?: string;      // frase del periodo ya resuelta ("el 22 de agosto…", "del X al Y"…)
 }
 
 /** Variables visibles para el usuario (chips que se insertan con clic). */
@@ -30,7 +31,8 @@ export const VARIABLES_CERTIFICADO: { token: string; desc: string }[] = [
   { token: '{horas}',        desc: 'Horas académicas' },
   { token: '{creditos}',     desc: 'Créditos académicos' },
   { token: '{fechaInicio}',  desc: 'Fecha de inicio' },
-  { token: '{fechaFin}',     desc: 'Fecha de fin' },
+  { token: '{fechaFin}',     desc: 'Fecha de fin (vacía si el curso es de un solo día)' },
+  { token: '{periodo}',      desc: 'Periodo del curso ya redactado: "el 22 de agosto de 2026", "los días 22, 23 y 24…" o "del X al Y". Úsalo en vez de "{fechaInicio} al {fechaFin}".' },
   { token: '{fecha}',        desc: 'Fecha de emisión' },
 ];
 
@@ -52,6 +54,18 @@ function ymd(d?: string | null): { y: number; m: number; d: number } | null {
   return { y, m, d: dd };
 }
 const fechaLarga = (p: { y: number; m: number; d: number }) => `${p.d} de ${MESES_LARGO[p.m - 1]} de ${p.y}`;
+
+/** Formatea una fecha ISO (YYYY-MM-DD) a "15 de agosto de 2026". Vacía → "". */
+export function fechaLargaISO(iso?: string | null): string {
+  const p = ymd(iso);
+  return p ? fechaLarga(p) : '';
+}
+
+/** Mes + año de una fecha ISO, ej. "agosto 2026" (para {mesEmision}). Vacía → "". */
+export function mesAnioISO(iso?: string | null): string {
+  const p = ymd(iso);
+  return p ? `${MESES_LARGO[p.m - 1]} ${p.y}` : '';
+}
 const unirDias = (arr: string[]) =>
   arr.length === 2 ? `${arr[0]} y ${arr[1]}` : `${arr.slice(0, -1).join(', ')} y ${arr[arr.length - 1]}`;
 
@@ -89,6 +103,7 @@ export function expandirVariablesCertificado(texto: string, v: CertVarValues): s
     .replace(/\{curso\}/gi,        v.programa)
     .replace(/\{horas\}/gi,        String(v.horas ?? ''))
     .replace(/\{creditos\}/gi,     v.creditos ? String(v.creditos) : '')
+    .replace(/\{periodo\}/gi,      v.periodo ?? '')
     .replace(/\{fecha\}/gi,        v.fecha ?? '')
     .replace(/\{fechaInicio\}/gi,  v.fechaInicio ?? '')
     .replace(/\{fechaFin\}/gi,     v.fechaFin ?? '');

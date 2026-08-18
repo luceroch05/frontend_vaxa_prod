@@ -60,7 +60,10 @@ function celdaTexto(v: ExcelJS.CellValue): string {
 export async function generarPlantilla(
   tiposDocumento: TipoDocumento[],
   contexto: { programa: string; aula: string },
+  /** Calidades del catálogo de la empresa; si no llega, usa las estándar. */
+  calidadesLista: readonly string[] = CALIDADES,
 ): Promise<void> {
+  const calOpciones = calidadesLista.length ? calidadesLista : CALIDADES;
   const wb = new ExcelJS.Workbook();
   wb.creator = 'Vaxa';
   wb.created = new Date();
@@ -122,10 +125,10 @@ export async function generarPlantilla(
     ws.getCell(`G${row}`).dataValidation = {
       type: 'list',
       allowBlank: true,
-      formulae: [`"${CALIDADES.join(',')}"`],
+      formulae: [`"${calOpciones.join(',')}"`],
       showErrorMessage: true,
       errorTitle: 'Calidad',
-      error: `Elige una: ${CALIDADES.join(', ')}`,
+      error: `Elige una: ${calOpciones.join(', ')}`,
     };
   }
 
@@ -144,7 +147,7 @@ export async function generarPlantilla(
     { t: '3. Columnas obligatorias: Tipo de documento, Número de documento, Nombres y Apellidos.' },
     { t: '4. Email y Teléfono son opcionales.' },
     { t: `5. Tipo de documento: usa uno de estos códigos → ${tiposDocumento.map((t) => `${t.codigo} (${t.nombre})`).join('  ·  ')}` },
-    { t: `6. Calidad (opcional): elige una de la lista → ${CALIDADES.join(', ')}. En blanco queda "Participante". Aparece en el certificado ("en calidad de: ___").` },
+    { t: `6. Calidad (opcional): elige una de la lista → ${calOpciones.join(', ')}. En blanco queda "Participante". Aparece en el certificado ("en calidad de: ___").` },
     { t: '7. No cambies los títulos de las columnas ni el orden.' },
     { t: '' },
     { t: 'Al subir el archivo verás una vista previa con el estado de cada fila antes de confirmar.', color: 'FF15803D' },

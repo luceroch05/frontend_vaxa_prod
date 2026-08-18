@@ -1,11 +1,10 @@
 import { useState, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useParams } from 'react-router-dom';
-import { Star, Loader2, AlertCircle, Search, Users } from '@/components/ui/icon';
+import { Star, Loader2, AlertCircle, Search, Users, Settings, Plus, X } from '@/components/ui/icon';
 import { useInscripciones } from '../../shared/hooks/useInscripciones';
+import { useCalidades } from '../../shared/hooks/useCalidades';
 import CalidadBadge from '../../shared/components/CalidadBadge';
-
-/** Calidades editables (mismas que el resto del sistema). */
-const CALIDADES = ['Participante', 'Organizador', 'Colaborador', 'Ponente'];
 
 /* ── Ponentes / Staff ───────────────────────────────────────────
  * Lista SOLO a las personas con un rol distinto a "Participante"
@@ -19,11 +18,13 @@ const esParticipante = (calidad?: string) =>
 export default function PonentesStaff() {
   const { empresa } = useParams<{ empresa: string }>();
   const { inscripciones, loading, error, cambiarCalidad } = useInscripciones(empresa!);
+  const { nombres: CALIDADES, calidades, crear, actualizar } = useCalidades(empresa!);
 
   const [busqueda, setBusqueda]         = useState('');
   const [filtroCalidad, setFiltroCalidad] = useState('todas');
   const [calSaving, setCalSaving]       = useState<number | null>(null);
   const [calError, setCalError]         = useState<string | null>(null);
+  const [gestionar, setGestionar]       = useState(false);
 
   const handleCambiarCalidad = async (id: number, calidad: string) => {
     setCalError(null);
@@ -59,12 +60,18 @@ export default function PonentesStaff() {
         <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: '#F3F0FF' }}>
           <Star size={18} style={{ color: '#7C3AED' }} />
         </div>
-        <div>
+        <div className="flex-1">
           <h1 className="text-[20px] font-bold" style={{ color: '#0D0E12' }}>Ponentes y Staff</h1>
           <p className="text-[13px]" style={{ color: '#9CA3AF' }}>
             Personas con un rol distinto a Participante en todos los eventos.
           </p>
         </div>
+        <button onClick={() => setGestionar(true)}
+          className="flex items-center gap-1.5 text-[12.5px] font-semibold px-3 py-2 rounded-lg shrink-0"
+          style={{ border: '1px solid #E5E7EB', color: '#4B5563' }}
+          title="Administrar las calidades disponibles">
+          <Settings size={14} /> Gestionar calidades
+        </button>
       </div>
 
       {/* Filtros */}
@@ -163,6 +170,85 @@ export default function PonentesStaff() {
           </div>
         </>
       )}
+
+      {gestionar && (
+        <GestionarCalidades
+          calidades={calidades}
+          onClose={() => setGestionar(false)}
+          onCrear={crear}
+          onActualizar={actualizar}
+        />
+      )}
     </div>
+  );
+}
+
+// ── Modal: administrar el catálogo de calidades ───────────────────────────────
+function GestionarCalidades({ calidades, onClose, onCrear, onActualizar }: {
+  calidades: import('../../shared/api/calidades.api').Calidad[];
+  onClose: () => void;
+  onCrear: (nombre: string) => Promise<unknown>;
+  onActualizar: (id: number, data: { nombre?: string; activo?: boolean }) => Promise<unknown>;
+}) {
+  const [nuevo, setNuevo] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const agregar = async () => {
+    const nom = nuevo.trim();
+    if (!nom) return;
+    setBusy(true); setErr(null);
+    try { await onCrear(nom); setNuevo(''); }
+    catch (e: unknown) { setErr((e as Error).message); }
+    finally { setBusy(false); }
+  };
+
+  const esParticipante = (n: string) => n.trim().toLowerCase() === 'participante';
+
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" style={{ background: 'rgba(13,14,18,0.45)' }}>
+      <div className="bg-white rounded-2xl w-full max-w-md">
+        <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid #EEF0F2' }}>
+          <h2 className="text-[16px] font-bold" style={{ color: '#0D0E12' }}>Calidades de participación</h2>
+          <button onClick={onClose}><X size={18} style={{ color: '#6B7280' }} /></button>
+        </div>
+        <div className="p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <input className="vx-input flex-1" placeholder="Nueva calidad (ej. Moderador)" value={nuevo}
+              onChange={e => setNuevo(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') agregar(); }} />
+            <button onClick={agregar} disabled={busy || !nuevo.trim()}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-white text-[12.5px] font-semibold disabled:opacity-50" style={{ background: '#7C3AED' }}>
+              {busy ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />} Agregar
+            </button>
+          </div>
+          {err && <p className="text-[12.5px] mb-2" style={{ color: '#B91C1C' }}>{err}</p>}
+
+          {calidades.length === 0 ? (
+            <p className="text-[12.5px]" style={{ color: '#9CA3AF' }}>Aún no hay calidades. Agrega la primera arriba.</p>
+          ) : (
+            <ul className="space-y-1.5 max-h-[320px] overflow-y-auto">
+              {calidades.map(c => (
+                <li key={c.id} className="flex items-center justify-between px-3 py-2 rounded-lg text-[13px]"
+                  style={{ background: c.activo ? '#F8F9FB' : '#F3F4F6', opacity: c.activo ? 1 : 0.6 }}>
+                  <span style={{ color: '#0D0E12' }}>{c.nombre}{!c.activo && ' (inactiva)'}</span>
+                  {esParticipante(c.nombre) ? (
+                    <span className="text-[11px]" style={{ color: '#9CA3AF' }}>por defecto</span>
+                  ) : (
+                    <button onClick={() => onActualizar(c.id, { activo: !c.activo })}
+                      className="text-[12px] font-semibold" style={{ color: c.activo ? '#B91C1C' : '#7C3AED' }}>
+                      {c.activo ? 'Desactivar' : 'Activar'}
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+          <p className="text-[11.5px] mt-3" style={{ color: '#9CA3AF' }}>
+            Desactivar una calidad la quita del desplegable; las inscripciones que ya la tienen no se modifican.
+          </p>
+        </div>
+      </div>
+    </div>,
+    document.body,
   );
 }

@@ -63,6 +63,35 @@
   font-weight: 800; font-style: normal; font-display: swap;
 }
 
+/* ── Fuentes extra para los textos del lienzo (deben coincidir con las que el
+   backend registra en pdfkit: ver lienzo.service.ts) ── */
+/* Poppins — sans geométrica moderna (400/500/600/700). */
+@font-face { font-family: 'Poppins'; src: url('/fonts/Poppins-Regular.ttf')  format('truetype'); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Poppins'; src: url('/fonts/Poppins-Medium.ttf')   format('truetype'); font-weight: 500; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Poppins'; src: url('/fonts/Poppins-SemiBold.ttf') format('truetype'); font-weight: 600; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Poppins'; src: url('/fonts/Poppins-Bold.ttf')     format('truetype'); font-weight: 700; font-style: normal; font-display: swap; }
+/* Great Vibes — manuscrita elegante (un solo peso; ideal para nombres). */
+@font-face { font-family: 'Great Vibes'; src: url('/fonts/GreatVibes-Regular.ttf') format('truetype'); font-weight: 400; font-style: normal; font-display: swap; }
+/* Cardo — serif clásica formal (regular/negrita). */
+@font-face { font-family: 'Cardo'; src: url('/fonts/Cardo-Regular.ttf') format('truetype'); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Cardo'; src: url('/fonts/Cardo-Bold.ttf')    format('truetype'); font-weight: 700; font-style: normal; font-display: swap; }
+/* Lobster — script display para títulos (un solo peso). */
+@font-face { font-family: 'Lobster'; src: url('/fonts/Lobster-Regular.ttf') format('truetype'); font-weight: 400; font-style: normal; font-display: swap; }
+/* Manuscritas / script (para nombres). */
+@font-face { font-family: 'Pacifico';   src: url('/fonts/Pacifico-Regular.ttf')   format('truetype'); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Sacramento'; src: url('/fonts/Sacramento-Regular.ttf') format('truetype'); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Allura';     src: url('/fonts/Allura-Regular.ttf')     format('truetype'); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Alex Brush'; src: url('/fonts/AlexBrush-Regular.ttf')  format('truetype'); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Parisienne'; src: url('/fonts/Parisienne-Regular.ttf') format('truetype'); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Tangerine';  src: url('/fonts/Tangerine-Regular.ttf')  format('truetype'); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Tangerine';  src: url('/fonts/Tangerine-Bold.ttf')     format('truetype'); font-weight: 700; font-style: normal; font-display: swap; }
+/* Serif formal / display (diploma). */
+@font-face { font-family: 'Cinzel Decorative'; src: url('/fonts/CinzelDecorative-Regular.ttf') format('truetype'); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Cinzel Decorative'; src: url('/fonts/CinzelDecorative-Bold.ttf')    format('truetype'); font-weight: 700; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Abril Fatface';     src: url('/fonts/AbrilFatface-Regular.ttf')     format('truetype'); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Crimson Text';      src: url('/fonts/CrimsonText-Regular.ttf')      format('truetype'); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Crimson Text';      src: url('/fonts/CrimsonText-Bold.ttf')         format('truetype'); font-weight: 700; font-style: normal; font-display: swap; }
+
 body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   background: #F5F4F0;

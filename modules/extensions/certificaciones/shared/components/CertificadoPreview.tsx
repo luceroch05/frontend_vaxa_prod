@@ -1,7 +1,7 @@
 import {
   W, H, getLogoSlots, logoSlotStyle, logoImgStyle, firmasGap, SIG_ITEM_W, SIG_IMG_H,
 } from './CertificadoPDF';
-import { expandirVariablesCertificado } from '../utils/certVariables';
+import { expandirVariablesCertificado, periodoCurso, fechaLargaISO, mesAnioISO } from '../utils/certVariables';
 import { imgUrl } from '@/lib/api/client';
 import LienzoCampos from '../../personalizado/LienzoCampos';
 import LienzoDragLayer from '../../personalizado/LienzoDragLayer';
@@ -19,6 +19,12 @@ interface Props {
   programaNombre?: string;
   horas?: number;
   creditos?: number;
+  /** Fechas REALES del aula seleccionada (ISO YYYY-MM-DD). Si faltan (config por
+   *  defecto sin aula), se usan las de ejemplo. La fecha de emisión siempre es hoy. */
+  fechaInicio?: string | null;
+  fechaFin?: string | null;
+  fechaDia2?: string | null;
+  fechaDia3?: string | null;
   /** Layout del modo "Diseño Personalizado (Lienzo)". Si está activo, sustituye al diseño por defecto. */
   layout?: LayoutLienzo | null;
   /** Ancho en px al que se muestra el certificado (se escala desde 1122). */
@@ -51,7 +57,8 @@ const EJEMPLO = {
  * dónde caen las firmas y cómo se expande el texto con variables.
  * ─────────────────────────────────────────────────────────────── */
 export default function CertificadoPreview({
-  plantillaUrl, logos, firmas, texto, tipoPrograma, programaNombre, horas, creditos, layout, displayWidth = 460,
+  plantillaUrl, logos, firmas, texto, tipoPrograma, programaNombre, horas, creditos,
+  fechaInicio, fechaFin, fechaDia2, fechaDia3, layout, displayWidth = 460,
   editable = false, onLayoutChange, selectedKey, onSelectField,
 }: Props) {
   const scale = displayWidth / W;
@@ -60,6 +67,18 @@ export default function CertificadoPreview({
   const tipo     = tipoPrograma   || 'Certificado';
   const usarLienzo = layoutActivo(layout);
 
+  // Fechas del preview: las del aula seleccionada si vinieron; si no, las de ejemplo.
+  // La fecha de EMISIÓN siempre es HOY (así se emitiría ahora mismo).
+  const hoyISO      = new Date().toLocaleDateString('en-CA');   // YYYY-MM-DD local
+  const fEmision    = fechaLargaISO(hoyISO) || EJEMPLO.fecha;
+  const fMesEmision = mesAnioISO(hoyISO)    || EJEMPLO.mesEmision;
+  const fInicio     = fechaLargaISO(fechaInicio) || EJEMPLO.fechaInicio;
+  const fFin        = fechaLargaISO(fechaFin)    || EJEMPLO.fechaFin;
+  // Frase del periodo con las fechas reales del aula (mismo formato que el PDF).
+  // Si no hay aula (config por defecto), se usa una frase de ejemplo.
+  const periodoReal = periodoCurso(fechaInicio, fechaFin, fechaDia2, fechaDia3)
+    || 'los días 15, 18 y 22 de agosto de 2026';
+
   // Variables de ejemplo para los campos del lienzo (así el admin ve cómo queda).
   const varsLienzo: Record<string, string> = {
     nombre: EJEMPLO.participante, participante: EJEMPLO.participante,
@@ -67,12 +86,12 @@ export default function CertificadoPreview({
     calidad: 'Participante',
     tipoDocumento: EJEMPLO.tipoDocumento, documento: EJEMPLO.documento,
     programa, curso: programa, tipo,
-    fecha: EJEMPLO.fecha, fechaInicio: EJEMPLO.fechaInicio, fechaFin: EJEMPLO.fechaFin,
-    mesEmision: EJEMPLO.mesEmision,
+    fecha: fEmision, fechaInicio: fInicio, fechaFin: fFin, periodo: periodoReal,
+    mesEmision: fMesEmision,
     horas: String(horas ?? 40), creditos: creditos ? String(creditos) : '', codigo: 'CERT-EJEMPLO',
   };
 
-  const periodo = `, realizado los días 15, 18 y 22 de agosto de 2026`;
+  const periodo = `, realizado ${periodoReal || 'los días 15, 18 y 22 de agosto de 2026'}`;
   const cuerpoDefault = `Por haber completado satisfactoriamente ${tipo} "${programa}" con una duración de ${horas ?? 40} horas académicas${periodo}.`;
   const cuerpoBase = texto?.trim() || cuerpoDefault;
   const cuerpo = expandirVariablesCertificado(cuerpoBase, {
@@ -83,9 +102,10 @@ export default function CertificadoPreview({
     tipoPrograma: tipo,
     tipoDocumento: EJEMPLO.tipoDocumento,
     documento: EJEMPLO.documento,
-    fecha: EJEMPLO.fecha,
-    fechaInicio: EJEMPLO.fechaInicio,
-    fechaFin: EJEMPLO.fechaFin,
+    fecha: fEmision,
+    fechaInicio: fInicio,
+    fechaFin: fFin,
+    periodo: periodoReal,
   });
 
   const cuerpoSize = (cuerpo.length > 200 ? 18 : 20);
@@ -200,7 +220,7 @@ export default function CertificadoPreview({
             espacio que ocupa y no colocar campos encima. No interfiere con el arrastre. */}
         <div style={{ position: 'absolute', left: 0, top: 764, width: W, pointerEvents: 'none', fontFamily: 'Helvetica, Arial, sans-serif' }}>
           <p style={{ position: 'absolute', left: 40, top: 4, margin: 0, fontSize: 11, color: '#9ca3af', whiteSpace: 'nowrap' }}>
-            Fecha de emisión: {EJEMPLO.fecha}
+            Fecha de emisión: {fEmision}
           </p>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
             <span style={{ fontSize: 11, color: '#9ca3af' }}>Certificado emitido por</span>

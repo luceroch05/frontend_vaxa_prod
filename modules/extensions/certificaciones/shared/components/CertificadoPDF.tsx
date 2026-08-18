@@ -100,7 +100,8 @@ async function asegurarFuentes(): Promise<void> {
   try {
     const fonts = (document as unknown as { fonts?: FontFaceSet }).fonts;
     if (!fonts) return;
-    const familias = ['Barlow Condensed', 'Bebas Neue', 'Montserrat', 'Georgia'];
+    const familias = ['Barlow Condensed', 'Bebas Neue', 'Montserrat', 'Georgia', 'Poppins', 'Great Vibes', 'Cardo', 'Lobster',
+      'Pacifico', 'Sacramento', 'Allura', 'Alex Brush', 'Parisienne', 'Tangerine', 'Cinzel Decorative', 'Abril Fatface', 'Crimson Text'];
     const pesos = ['400', '600', '700', '800'];
     await Promise.all(
       familias.flatMap((fam) => pesos.map((w) => fonts.load(`${w} 40px "${fam}"`).catch(() => undefined))),
@@ -183,6 +184,7 @@ export function CertificadoPDF({ certificado, config, onClose }: Props) {
     fecha:        fmtDate(certificado.fecha_emision),
     fechaInicio,
     fechaFin,
+    periodo:      periodoFrase,
   });
 
   // Tamaño cuerpo adaptativo (igual que el otro proyecto)
@@ -203,7 +205,7 @@ export function CertificadoPDF({ certificado, config, onClose }: Props) {
     tipoDocumento: docTipo, documento: docNum,
     programa: certificado.programa_nombre, curso: certificado.programa_nombre,
     tipo: certificado.tipo_programa_nombre ?? 'Certificado',
-    fecha: fmtDate(certificado.fecha_emision), fechaInicio, fechaFin,
+    fecha: fmtDate(certificado.fecha_emision), fechaInicio, fechaFin, periodo: periodoFrase,
     mesEmision: fmtMesAnio(certificado.fecha_emision),
     horas: String(certificado.horas_academicas ?? ''),
     creditos: certificado.creditos ? String(certificado.creditos) : '',

@@ -22,9 +22,12 @@ export interface CampoTexto {
   bold?:      boolean;
   italic?:    boolean;
   uppercase?: boolean;
-  /** Familia tipográfica. Default 'sans'. 'bebas' = Bebas Neue (títulos, MAYÚS).
-   *  'barlow' = Barlow Condensed (condensada tipo señalética, alternativa libre a MVB Embarcadero). */
-  font?:      'sans' | 'serif' | 'bebas' | 'barlow';
+  /** Familia tipográfica. Default 'sans'. 'bebas'=Bebas Neue (títulos MAYÚS),
+   *  'barlow'=Barlow Condensed, 'poppins'=Poppins (moderna), 'vibes'=Great Vibes
+   *  (manuscrita), 'cardo'=Cardo (serif formal), 'lobster'=Lobster (script títulos). */
+  font?:      'sans' | 'serif' | 'bebas' | 'barlow' | 'poppins' | 'vibes' | 'cardo' | 'lobster'
+            | 'pacifico' | 'sacramento' | 'allura' | 'alexbrush' | 'tangerine' | 'parisienne'
+            | 'cinzel' | 'abril' | 'crimson';
   /** Peso Montserrat/Barlow: 400/500/600/700/800. Si no, usa bold?700:400. */
   weight?:    400 | 500 | 600 | 700 | 800;
   /** Espaciado entre letras en px (para el look "alargado"). */
@@ -34,11 +37,25 @@ export interface CampoTexto {
 }
 
 /** Familia CSS para la vista previa según el `font` del campo.
- *  'sans' = Montserrat, 'serif' = Times/Georgia, 'bebas' = Bebas Neue, 'barlow' = Barlow Condensed. */
-export function fontFamilyCss(font?: 'sans' | 'serif' | 'bebas' | 'barlow'): string {
-  if (font === 'serif')  return 'Georgia, "Times New Roman", serif';
-  if (font === 'bebas')  return "'Bebas Neue', 'Montserrat', sans-serif";
-  if (font === 'barlow') return "'Barlow Condensed', 'Oswald', 'Montserrat', sans-serif";
+ *  'sans'=Montserrat, 'serif'=Times/Georgia, 'bebas'=Bebas Neue, 'barlow'=Barlow Condensed,
+ *  'poppins'=Poppins, 'vibes'=Great Vibes, 'cardo'=Cardo, 'lobster'=Lobster. */
+export function fontFamilyCss(font?: string): string {
+  if (font === 'serif')      return 'Georgia, "Times New Roman", serif';
+  if (font === 'bebas')      return "'Bebas Neue', 'Montserrat', sans-serif";
+  if (font === 'barlow')     return "'Barlow Condensed', 'Oswald', 'Montserrat', sans-serif";
+  if (font === 'poppins')    return "'Poppins', 'Montserrat', Helvetica, Arial, sans-serif";
+  if (font === 'vibes')      return "'Great Vibes', 'Segoe Script', cursive";
+  if (font === 'cardo')      return "'Cardo', Georgia, 'Times New Roman', serif";
+  if (font === 'lobster')    return "'Lobster', 'Segoe Script', cursive";
+  if (font === 'pacifico')   return "'Pacifico', 'Segoe Script', cursive";
+  if (font === 'sacramento') return "'Sacramento', 'Segoe Script', cursive";
+  if (font === 'allura')     return "'Allura', 'Segoe Script', cursive";
+  if (font === 'alexbrush')  return "'Alex Brush', 'Segoe Script', cursive";
+  if (font === 'tangerine')  return "'Tangerine', 'Segoe Script', cursive";
+  if (font === 'parisienne') return "'Parisienne', 'Segoe Script', cursive";
+  if (font === 'cinzel')     return "'Cinzel Decorative', Georgia, serif";
+  if (font === 'abril')      return "'Abril Fatface', Georgia, serif";
+  if (font === 'crimson')    return "'Crimson Text', Georgia, 'Times New Roman', serif";
   return "'Montserrat', Helvetica, Arial, sans-serif";
 }
 
@@ -78,6 +95,10 @@ export interface CampoLinea {
   w?:         number;  // px (largo)
   thickness?: number;  // px (grosor)
   color?:     string;  // #hex
+  /** Si apunta a la clave de un campo de texto, la línea toma el ANCHO y el centro
+   *  horizontal de ese texto (subrayado que se adapta a "nombre", "calidad"…). Se
+   *  ignoran x/w cuando está puesto. */
+  sigueA?:    string;
 }
 
 export interface LayoutLienzo {
@@ -99,6 +120,29 @@ export function indiceLogo(key: string): number {
   return Math.max(0, Number(key.replace(/\D/g, '')) - 1);
 }
 export const indiceFirma = indiceLogo;
+
+/** Clave del slot de logo para un índice 0-based (0 → 'logo1'). */
+export function logoKey(index: number): string { return `logo${index + 1}`; }
+
+/**
+ * Asegura que el logo OBLIGATORIO de la empresa (el que Vaxa sube en sistemas-vaxa,
+ * es_default) tenga SIEMPRE su slot en el lienzo y esté visible: lo crea si falta y
+ * lo fuerza a on. El cliente puede moverlo/redimensionarlo pero no ocultarlo ni
+ * borrarlo (eso lo bloquea el inspector). Devuelve los campos y si hubo cambios.
+ */
+export function sincronizarLogoObligatorio(
+  campos: Record<string, any>, defaultIndex: number | null | undefined,
+): { campos: Record<string, any>; changed: boolean } {
+  if (defaultIndex == null || defaultIndex < 0) return { campos, changed: false };
+  const key = logoKey(defaultIndex);
+  const actual = campos[key];
+  if (actual && actual.on !== false) return { campos, changed: false };
+  const next = { ...campos };
+  next[key] = actual
+    ? { ...actual, on: true }                               // estaba oculto → forzar visible
+    : { on: true, x: 972, y: 30, size: 110 };               // no existía → crearlo (esquina sup. der.)
+  return { campos: next, changed: true };
+}
 
 /** Dimensiones del viewport del lienzo (coincide con el PDF). */
 export const LIENZO_W = 1122, LIENZO_H = 794;
@@ -201,7 +245,8 @@ export const VARIABLES_LIENZO: { token: string; desc: string }[] = [
   { token: '{fecha}',       desc: 'Fecha de emisión (día completo)' },
   { token: '{mesEmision}',  desc: 'Mes y año de emisión (ej. septiembre 2026)' },
   { token: '{fechaInicio}', desc: 'Fecha de inicio' },
-  { token: '{fechaFin}',    desc: 'Fecha de fin' },
+  { token: '{fechaFin}',    desc: 'Fecha de fin (vacía si el curso es de un solo día)' },
+  { token: '{periodo}',     desc: 'Periodo ya redactado: "el 22 de agosto de 2026", "los días 22, 23 y 24…" o "del X al Y". Úsalo en vez de "{fechaInicio} al {fechaFin}".' },
   { token: '{horas}',       desc: 'Horas académicas' },
   { token: '{creditos}',    desc: 'Créditos' },
   { token: '{codigo}',      desc: 'Código único del certificado' },
@@ -296,6 +341,30 @@ export function contarFirmas(campos: Record<string, unknown>): number {
   return Object.keys(campos).filter(k => /^firma\d+$/i.test(k)).length;
 }
 
+/**
+ * Sincroniza los espacios de firma del lienzo con las firmas ELEGIDAS en la
+ * configuración: crea firma1..firmaN (conservando posiciones ya puestas) y quita
+ * las sobrantes. Así no hay que "agregar firma" a mano en el editor — salen solas
+ * según lo seleccionado. Devuelve los campos y si hubo cambios.
+ */
+export function sincronizarFirmas(
+  campos: Record<string, any>, numFirmas: number,
+): { campos: Record<string, any>; changed: boolean } {
+  const n = Math.max(0, Math.min(numFirmas, MAX_FIRMAS));
+  const next = { ...campos };
+  let changed = false;
+  // Quita las sobrantes (más slots que firmas seleccionadas).
+  for (let i = n + 1; i <= MAX_FIRMAS; i++) {
+    if (next[`firma${i}`]) { delete next[`firma${i}`]; changed = true; }
+  }
+  // Agrega las que faltan, con una posición por defecto (el usuario luego las mueve).
+  for (let i = 1; i <= n; i++) {
+    const key = `firma${i}`;
+    if (!next[key]) { next[key] = { on: true, x: 300 + (i - 1) * 260, y: 615, w: 260, h: 58 }; changed = true; }
+  }
+  return { campos: next, changed };
+}
+
 /** true si el layout está activo y con al menos un campo → se usa el lienzo. */
 export function layoutActivo(l: LayoutLienzo | null | undefined): boolean {
   return !!(l && l.activo && l.campos && Object.keys(l.campos).length > 0);
@@ -318,4 +387,27 @@ export function expandirLienzo(txt: string, vars: Record<string, string>): strin
     const key = Object.keys(vars).find(v => v.toLowerCase() === String(k).toLowerCase());
     return key ? vars[key] : '';
   });
+}
+
+/* ── Negrita parcial: **texto** dentro de un campo de texto ──────
+   Permite poner en negrita solo una parte (ej. "Otorgado a **{nombre}**").
+   Espejo del backend (personalizado/lienzo.service.ts). */
+
+/** Divide un texto en tramos normales / en negrita según las marcas **. */
+export function segmentosBold(txt: string): { text: string; bold: boolean }[] {
+  const out: { text: string; bold: boolean }[] = [];
+  const re = /\*\*([\s\S]+?)\*\*/g;
+  let last = 0, m: RegExpExecArray | null;
+  while ((m = re.exec(txt))) {
+    if (m.index > last) out.push({ text: txt.slice(last, m.index), bold: false });
+    out.push({ text: m[1], bold: true });
+    last = m.index + m[0].length;
+  }
+  if (last < txt.length) out.push({ text: txt.slice(last), bold: false });
+  return out.length ? out : [{ text: txt, bold: false }];
+}
+
+/** Quita las marcas ** (para medir el texto en el auto-ajuste). */
+export function quitarBold(txt: string): string {
+  return txt.replace(/\*\*([\s\S]+?)\*\*/g, '$1');
 }

@@ -18,6 +18,7 @@ import CertificadoPreview from '../../shared/components/CertificadoPreview';
 import { VARIABLES_CERTIFICADO } from '../../shared/utils/certVariables';
 import EditorLienzo from '../../personalizado/EditorLienzo';
 import InspectorLienzo from '../../personalizado/InspectorLienzo';
+import EditorEnfocado from '../../personalizado/EditorEnfocado';
 import { LayoutLienzo, layoutActivo, parseLayout } from '../../personalizado/layout';
 import type { Logo, Firma } from '../../shared/types';
 
@@ -757,6 +758,8 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
   // Campo seleccionado en el lienzo (clic) → sus propiedades salen en el panel de la
   // derecha (InspectorLienzo). Se comparte con la capa de arrastre de la vista previa.
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  // Abre el editor de diseño en modo enfocado (tipo Canva) sobre el área de trabajo.
+  const [editando, setEditando] = useState(false);
   // Ancho disponible del área de vista previa (para que el lienzo se ADAPTE y no se
   // desborde junto al panel de propiedades). Se mide con ResizeObserver.
   const areaRef = useRef<HTMLDivElement | null>(null);
@@ -971,6 +974,19 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
     finally { setSaving(null); }
   };
 
+  /* Autoguardado tipo Canva: cada cambio del programa/grupo abierto se guarda SOLO
+   * (con un pequeño retraso para no saturar). No hace falta pulsar "Guardar".
+   * NO toca la "plantilla base" (eso sigue siendo una acción deliberada). */
+  useEffect(() => {
+    if (expandedId == null) return;
+    const g = grupoActivo(expandedId);
+    if (saving === expandedId) return;         // ya hay un guardado en curso
+    if (!esModificado(expandedId, g)) return;  // nada nuevo que guardar
+    const t = setTimeout(() => { handleSave(expandedId); }, 900);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [configs, expandedId, grupoSelected]);
+
   /* Eliminar config del grupo → vuelve a heredar del programa */
   const handleEliminarConfigGrupo = async (progId: number, grupoId: number) => {
     if (!(await confirm({
@@ -1075,9 +1091,15 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
         const gruposProg = grupos.filter(gr => gr.programa_id === p.id);
         const gruposConCfgSet = gruposConCfg[p.id] ?? new Set();
         const grupoEsCustom = g !== 0 && gruposConCfgSet.has(g);
+        // Aula seleccionada (si es un grupo concreto): sus fechas reales van a la vista
+        // previa para que muestre las fechas correctas y no las de ejemplo.
+        const aulaSel = g !== 0 ? gruposProg.find(gr => gr.id === g) : undefined;
         // Logos/firmas seleccionados (en el orden definido) para la vista previa en vivo.
         const selLogos  = orderedLogos.map(id => logos.find(l => l.id === id)).filter(Boolean) as Logo[];
         const selFirmas = c.firmas.map(id => firmas.find(f => f.id === id)).filter(Boolean) as Firma[];
+        // Índice del logo obligatorio (es_default) dentro de los seleccionados → su
+        // slot en el lienzo (logoN) no se puede ocultar ni borrar.
+        const logoObligIndex = selLogos.findIndex(l => !!l.es_default);
 
         return (
           <div key={p.id} className="bg-white rounded-2xl overflow-hidden" style={{ border: '1px solid #EEECE6' }}>
@@ -1110,25 +1132,26 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
                 </div>
               </div>
 
-              {/* Botón guardar (visible solo cuando expandido) + Chevron */}
-              {isExpanded && (
-                <button
-                  onClick={e => { e.stopPropagation(); handleSave(p.id); }}
-                  disabled={saving === p.id || (!esModificado(p.id, g) && savedOk !== p.id)}
-                  className="flex items-center gap-1.5 text-[12px] font-semibold px-3.5 py-2 rounded-xl transition-all flex-shrink-0 disabled:opacity-50"
-                  style={savedOk === p.id
-                    ? { background: '#F0FDF4', color: '#15803D', border: '1px solid #BBF7D0' }
-                    : { background: '#0D0E12', color: '#fff' }
-                  }
-                >
-                  {saving === p.id ? <Loader2 size={13} className="animate-spin" /> : savedOk === p.id ? <CheckCircle size={13} /> : <Save size={13} />}
-                  {saving === p.id
-                    ? 'Guardando...'
-                    : savedOk === p.id
-                      ? '¡Guardado!'
-                      : g === 0 ? 'Guardar' : 'Guardar para este grupo'}
-                </button>
-              )}
+              {/* Indicador de AUTOGUARDADO (tipo Canva). Ya no hay que pulsar guardar:
+                  cada cambio se guarda solo. Aclara si aplica al programa o al grupo. */}
+              {isExpanded && (() => {
+                const guardando = saving === p.id || esModificado(p.id, g);
+                const alcance = g === 0 ? 'este programa' : 'este grupo';
+                return (
+                  <span
+                    onClick={e => e.stopPropagation()}
+                    title={`Se guarda automáticamente. Aplica a ${alcance}.`}
+                    className="flex items-center gap-1.5 text-[12px] font-semibold px-3 py-2 rounded-xl flex-shrink-0"
+                    style={guardando
+                      ? { background: '#FFFBEB', color: '#B45309', border: '1px solid #FDE68A' }
+                      : { background: '#F0FDF4', color: '#15803D', border: '1px solid #BBF7D0' }}
+                  >
+                    {guardando ? <Loader2 size={13} className="animate-spin" /> : <CheckCircle size={13} />}
+                    {guardando ? 'Guardando…' : 'Guardado'}
+                    <span className="hidden sm:inline font-normal" style={{ opacity: 0.75 }}>· {alcance}</span>
+                  </span>
+                );
+              })()}
 
               <ChevronDown
                 size={16}
@@ -1223,76 +1246,81 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
                   propiedades del elemento seleccionado a la derecha. */}
               {(() => {
                 const modoLienzo = permiteDiseno && layoutActivo(c.layout);
-                // Panel de propiedades SIEMPRE a la derecha (dos columnas). `areaW` mide el
-                // hueco REAL del lienzo (columna izquierda) → el preview ocupa EXACTAMENTE
-                // ese ancho (nunca más), así llena el espacio SIN scroll. Tope 760 para que
-                // tampoco quede gigante en pantallas anchas.
-                const INSPECTOR_W = 280, GAP = 12;
-                const canvasW = Math.floor(Math.min(modoLienzo ? 760 : 680, areaW || 640));
+                const canvasW = Math.floor(Math.min(760, areaW || 640));
                 return (
                   <div className="rounded-2xl p-4" style={{ background: '#0F1115', border: '1px solid #1F2937' }}>
-                    <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center justify-between mb-3 gap-3">
                       <p className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: '#9CA3AF' }}>
                         Vista previa
                       </p>
-                      <span className="text-[10.5px]" style={{ color: '#6B7280' }}>
-                        {modoLienzo
-                          ? 'arrastra para ubicar · clic = editar propiedades · guías al alinear · Ctrl+Z deshace'
-                          : 'datos de ejemplo · así quedará al emitir'}
-                      </span>
-                    </div>
-                    <div
-                      style={{
-                        display: 'flex',
-                        gap: GAP,
-                        flexDirection: 'row',
-                        alignItems: 'flex-start',
-                        justifyContent: 'center',
-                      }}
-                    >
-                      <div ref={areaRef} style={{
-                        flex: '1 1 0%',
-                        minWidth: 0,
-                        display: 'flex', justifyContent: 'center',
-                      }}>
-                        <CertificadoPreview
-                          plantillaUrl={c.plantilla_url}
-                          logos={selLogos}
-                          firmas={selFirmas}
-                          texto={c.texto_personalizado}
-                          tipoPrograma={p.tipo_programa_nombre}
-                          programaNombre={p.nombre}
-                          horas={p.horas_academicas}
-                          creditos={p.creditos}
-                          layout={c.layout}
-                          displayWidth={canvasW}
-                          editable={permiteDiseno}
-                          onLayoutChange={l => setCfg(p.id, g, { layout: l })}
-                          selectedKey={selectedKey}
-                          onSelectField={setSelectedKey}
-                        />
-                      </div>
-                      {modoLienzo && (
-                        <div style={{ width: INSPECTOR_W, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
-                          <EditorLienzo
-                            value={c.layout}
-                            onChange={l => setCfg(p.id, g, { layout: l })}
-                            onSelect={setSelectedKey}
-                            baseLayout={layoutBase}
-                            onSaveBase={handleGuardarBase}
-                            savingBase={savingBase}
-                            baseSaved={baseSaved}
-                            compact
-                          />
-                          <InspectorLienzo
-                            layout={c.layout}
-                            selectedKey={selectedKey}
-                            onChange={l => setCfg(p.id, g, { layout: l })}
-                            onSelect={setSelectedKey}
-                          />
-                        </div>
+                      {modoLienzo ? (
+                        <button onClick={() => setEditando(true)}
+                          className="flex items-center gap-1.5 text-[12px] font-semibold px-3.5 py-1.5 rounded-lg text-white shrink-0"
+                          style={{ background: '#7C3AED' }}
+                          title="Abrir el editor de diseño en grande (tipo Canva), sin scroll">
+                          <Pencil size={13} /> Editar diseño
+                        </button>
+                      ) : (
+                        <span className="text-[10.5px]" style={{ color: '#6B7280' }}>datos de ejemplo · así quedará al emitir</span>
                       )}
                     </div>
+
+                    <div ref={areaRef} style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
+                      <CertificadoPreview
+                        plantillaUrl={c.plantilla_url}
+                        logos={selLogos}
+                        firmas={selFirmas}
+                        texto={c.texto_personalizado}
+                        tipoPrograma={p.tipo_programa_nombre}
+                        programaNombre={p.nombre}
+                        horas={p.horas_academicas}
+                        creditos={p.creditos}
+                        fechaInicio={aulaSel?.fecha_inicio}
+                        fechaFin={aulaSel?.fecha_fin}
+                        fechaDia2={aulaSel?.fecha_dia2}
+                        fechaDia3={aulaSel?.fecha_dia3}
+                        layout={c.layout}
+                        displayWidth={canvasW}
+                        editable={permiteDiseno && !modoLienzo}
+                        onLayoutChange={l => setCfg(p.id, g, { layout: l })}
+                        selectedKey={selectedKey}
+                        onSelectField={setSelectedKey}
+                      />
+                    </div>
+                    {modoLienzo && (
+                      <p className="text-[10.5px] text-center mt-2" style={{ color: '#6B7280' }}>
+                        Pulsa <b style={{ color: '#A78BFA' }}>Editar diseño</b> para acomodar los elementos en grande.
+                      </p>
+                    )}
+
+                    {/* Editor enfocado (tipo Canva): lienzo grande que cabe entero, sin scroll */}
+                    {modoLienzo && editando && (
+                      <EditorEnfocado
+                        plantillaUrl={c.plantilla_url}
+                        logos={selLogos}
+                        firmas={selFirmas}
+                        texto={c.texto_personalizado}
+                        tipoPrograma={p.tipo_programa_nombre}
+                        programaNombre={p.nombre}
+                        horas={p.horas_academicas}
+                        creditos={p.creditos}
+                        fechaInicio={aulaSel?.fecha_inicio}
+                        fechaFin={aulaSel?.fecha_fin}
+                        fechaDia2={aulaSel?.fecha_dia2}
+                        fechaDia3={aulaSel?.fecha_dia3}
+                        layout={c.layout}
+                        onLayoutChange={l => setCfg(p.id, g, { layout: l })}
+                        numFirmas={selFirmas.length}
+                        logoObligIndex={logoObligIndex}
+                        selectedKey={selectedKey}
+                        onSelectField={setSelectedKey}
+                        baseLayout={layoutBase}
+                        onSaveBase={handleGuardarBase}
+                        savingBase={savingBase}
+                        baseSaved={baseSaved}
+                        onClose={() => setEditando(false)}
+                      />
+                    )}
                   </div>
                 );
               })()}

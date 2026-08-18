@@ -8,7 +8,7 @@
  * ──────────────────────────────────────────────────────────────── */
 import type { CSSProperties } from 'react';
 import { imgUrl } from '@/lib/api/client';
-import { CampoFirma, CampoLinea, CampoLogo, CampoQR, CampoTexto, LayoutLienzo, expandirLienzo, fontFamilyCss, tipoCampo, indiceLogo, indiceFirma } from './layout';
+import { CampoFirma, CampoLinea, CampoLogo, CampoQR, CampoTexto, LayoutLienzo, expandirLienzo, fontFamilyCss, tipoCampo, indiceLogo, indiceFirma, segmentosBold, quitarBold } from './layout';
 
 interface Props {
   layout: LayoutLienzo;
@@ -26,20 +26,47 @@ interface Props {
 /* Mide el ancho del texto con una fuente dada y encoge el tamaño hasta que
    entre en maxW en una sola línea (auto-ajuste del nombre). */
 let _mCanvas: HTMLCanvasElement | null = null;
-function fitSize(text: string, maxW: number, base: number, weight: number, italic: boolean, family: string, tracking: number): number {
-  if (typeof document === 'undefined') return base;
+/** Ancho del texto (línea más ancha) con la fuente/estilo dados. */
+function medirAncho(text: string, size: number, weight: number, italic: boolean, family: string, tracking: number): number {
+  if (typeof document === 'undefined') return 0;
   _mCanvas = _mCanvas || document.createElement('canvas');
   const ctx = _mCanvas.getContext('2d');
-  if (!ctx) return base;
+  if (!ctx) return 0;
+  ctx.font = `${italic ? 'italic ' : ''}${weight} ${size}px ${family}`;
   const lineas = text.split('\n');
+  return Math.max(0, ...lineas.map(l => ctx.measureText(l).width + tracking * Math.max(0, l.length - 1)));
+}
+function fitSize(text: string, maxW: number, base: number, weight: number, italic: boolean, family: string, tracking: number): number {
+  if (typeof document === 'undefined') return base;
   let size = base;
   while (size > 8) {
-    ctx.font = `${italic ? 'italic ' : ''}${weight} ${size}px ${family}`;
-    const w = Math.max(...lineas.map(l => ctx.measureText(l).width + tracking * Math.max(0, l.length - 1)));
-    if (w <= maxW) break;
+    if (medirAncho(text, size, weight, italic, family, tracking) <= maxW) break;
     size -= 1;
   }
   return size;
+}
+
+/** Ancho y posición X de una línea que "sigue" a un campo de texto (subrayado
+ *  adaptado). Devuelve null si el objetivo no existe o no es texto. */
+function lineaSigueTexto(
+  campo: CampoTexto, vars: Record<string, string>,
+): { x: number; w: number } | null {
+  let txt = quitarBold(expandirLienzo(campo.text ?? '', vars));
+  if (campo.uppercase) txt = txt.toUpperCase();
+  if (!txt.trim()) return null;
+  const weight = campo.weight ?? (campo.bold ? 700 : 400);
+  const fam = fontFamilyCss(campo.font);
+  const base = campo.size ?? 20;
+  const size = campo.autoFit
+    ? fitSize(txt, campo.w ?? 400, base, weight, !!campo.italic, fam, campo.tracking ?? 0)
+    : base;
+  const tw = medirAncho(txt, size, weight, !!campo.italic, fam, campo.tracking ?? 0);
+  if (tw <= 0) return null;
+  const boxX = campo.x ?? 0, boxW = campo.w ?? 400;
+  const left = campo.align === 'left'  ? boxX
+             : campo.align === 'right' ? boxX + boxW - tw
+             :                           boxX + (boxW - tw) / 2;   // center (default)
+  return { x: left, w: tw };
 }
 
 export default function LienzoCampos({ layout, vars, codigo, qrDataUrl, logos = [], firmas = [] }: Props) {
@@ -80,11 +107,17 @@ export default function LienzoCampos({ layout, vars, codigo, qrDataUrl, logos = 
           );
         }
 
-        // ── LÍNEA decorativa ──
+        // ── LÍNEA decorativa (opcionalmente subrayado adaptado a un texto) ──
         if (tipoCampo(key) === 'linea') {
           const c = raw as CampoLinea;
+          let left = c.x ?? 0, width = c.w ?? 200;
+          const obj = c.sigueA ? campos[c.sigueA] : undefined;
+          if (obj && tipoCampo(c.sigueA!) === 'texto') {
+            const fit = lineaSigueTexto(obj as CampoTexto, vars);
+            if (fit) { left = fit.x; width = fit.w; }
+          }
           return (
-            <div key={key} style={{ position: 'absolute', left: c.x ?? 0, top: c.y ?? 0, width: c.w ?? 200, borderTop: `${c.thickness ?? 1.5}px solid ${c.color ?? '#c9a24b'}` }} />
+            <div key={key} style={{ position: 'absolute', left, top: c.y ?? 0, width, borderTop: `${c.thickness ?? 1.5}px solid ${c.color ?? '#c9a24b'}` }} />
           );
         }
 
@@ -115,9 +148,10 @@ export default function LienzoCampos({ layout, vars, codigo, qrDataUrl, logos = 
         // ── Campo de texto ──
         const c = raw as CampoTexto;
         const txt = expandirLienzo(c.text ?? '', vars);
-        if (!txt.trim()) return null;
+        const plano = quitarBold(txt);            // sin marcas ** (para medir / detectar vacío)
+        if (!plano.trim()) return null;
         const weight = c.weight ?? (c.bold ? 700 : 400);
-        const measureTxt = c.uppercase ? txt.toUpperCase() : txt;
+        const measureTxt = c.uppercase ? plano.toUpperCase() : plano;
         const fontSize = c.autoFit
           ? fitSize(measureTxt, c.w ?? 400, c.size ?? 20, weight, !!c.italic, fontFamilyCss(c.font), c.tracking ?? 0)
           : (c.size ?? 20);
@@ -138,7 +172,16 @@ export default function LienzoCampos({ layout, vars, codigo, qrDataUrl, logos = 
           whiteSpace: 'pre-wrap',
           fontFamily: fontFamilyCss(c.font),
         };
-        return <p key={key} style={style}>{txt}</p>;
+        const boldWeight = Math.max(weight, 700);
+        return (
+          <p key={key} style={style}>
+            {segmentosBold(txt).map((s, i) =>
+              s.bold
+                ? <strong key={i} style={{ fontWeight: boldWeight }}>{s.text}</strong>
+                : <span key={i}>{s.text}</span>,
+            )}
+          </p>
+        );
       })}
     </>
   );

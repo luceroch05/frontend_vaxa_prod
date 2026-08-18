@@ -4,6 +4,7 @@ import {
   X, Download, Upload, FileSpreadsheet, Loader2, AlertCircle, CheckCircle, Users,
 } from '@/components/ui/icon';
 import { useCatalogos } from '../hooks/useCatalogos';
+import { useCalidades } from '../hooks/useCalidades';
 import { inscripcionesApi, type ImportarResultado } from '../api/inscripciones.api';
 import { generarPlantilla, parsearArchivo, type FilaParseada } from '../utils/importarExcel';
 import type { Grupo } from '../types';
@@ -27,6 +28,7 @@ const ESTADO_META: Record<string, { label: string; bg: string; color: string }> 
 
 export default function ImportarExcelModal({ empresa, aula, programaNombre, onClose, onDone }: Props) {
   const { catalogos } = useCatalogos(empresa);
+  const { nombres: calidadNombres } = useCalidades(empresa);
   const tiposDoc = catalogos?.tipos_documento ?? [];
 
   const [emitir, setEmitir]       = useState(true);
@@ -217,7 +219,7 @@ export default function ImportarExcelModal({ empresa, aula, programaNombre, onCl
                   Llénala con tus participantes (un alumno por fila) y guárdala.
                 </p>
                 <button
-                  onClick={() => generarPlantilla(tiposDoc, { programa: programaNombre, aula: aula.nombre_grupo })}
+                  onClick={() => generarPlantilla(tiposDoc, { programa: programaNombre, aula: aula.nombre_grupo }, calidadNombres)}
                   disabled={!tiposDoc.length}
                   className="inline-flex items-center gap-2 text-[13px] font-semibold px-4 py-2 rounded-xl transition-colors"
                   style={{ background: '#0D0E12', color: '#fff' }}>

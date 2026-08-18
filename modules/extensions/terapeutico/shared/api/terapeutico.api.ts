@@ -11,6 +11,7 @@ export interface Catalogos {
   estados_historia: Catalogo[];
   tipos_diagnostico: Catalogo[];
   estados_cita: Catalogo[];
+  estados_objetivo?: Catalogo[];
 }
 
 export interface Paciente {
@@ -146,6 +147,102 @@ export interface Adjunto {
   subido_por: string | null;
 }
 
+export interface Objetivo {
+  id: number;
+  historia_id: number;
+  descripcion: string;
+  unidad: string;
+  meta: number;
+  estado_id: number;
+  estado_codigo?: string | null;
+  estado_nombre?: string | null;
+  fecha_inicio: string;
+  fecha_logro: string | null;
+  ultimo_valor: number | null;
+  avances: number;
+}
+export interface ObjetivoDto {
+  descripcion?: string;
+  unidad?: string | null;
+  meta?: number | null;
+  estado_id?: number;
+}
+export interface ObjetivoAvance {
+  id: number;
+  objetivo_id: number;
+  sesion_id: number | null;
+  valor: number;
+  fecha: string;
+  nota: string | null;
+}
+export interface AvanceDto {
+  valor: number;
+  fecha?: string | null;
+  sesion_id?: number | null;
+  nota?: string | null;
+}
+
+export interface Tarea {
+  id: number;
+  historia_id: number;
+  sesion_id: number | null;
+  descripcion: string;
+  detalle: string | null;
+  adjunto_ruta: string | null;
+  adjunto_nombre: string | null;
+  adjunto_mime: string | null;
+  fecha_limite: string | null;
+  cumplida: number;
+  cumplida_at: string | null;
+  activo: number;
+  created_at: string;
+}
+export interface TareaDto {
+  descripcion?: string;
+  detalle?: string | null;
+  fecha_limite?: string | null;
+  cumplida?: boolean;
+  activo?: boolean;
+}
+
+export interface AccesoApoderado { id: number; paciente_id: number; token: string; activo: number; }
+
+export interface PortalObjetivo {
+  id: number;
+  descripcion: string;
+  unidad: string;
+  meta: number;
+  estado_codigo: string | null;
+  estado_nombre: string | null;
+  ultimo_valor: number | null;
+  avances: { valor: number; fecha: string }[];
+}
+export interface PortalCita {
+  inicio: string;
+  estado_id: number;
+  estado_nombre: string | null;
+  servicio_nombre: string | null;
+  terapeuta_nombre: string | null;
+}
+export interface PortalTarea {
+  id: number;
+  descripcion: string;
+  detalle: string | null;
+  adjunto_ruta: string | null;
+  adjunto_nombre: string | null;
+  adjunto_mime: string | null;
+  fecha_limite: string | null;
+  cumplida: number;
+  cumplida_at: string | null;
+}
+export interface PortalData {
+  centro: { razon_social: string | null; logo_url: string | null };
+  paciente: { nombres: string; apellidos: string };
+  objetivos: PortalObjetivo[];
+  citas_proximas: PortalCita[];
+  tareas: PortalTarea[];
+}
+
 export interface LoginResponse { token: string; usuario: AuthUser; }
 
 // Opciones de auth (tenant header + token) por empresa.
@@ -246,6 +343,67 @@ export const terapApi = {
     api.post<Cita>(`${B}/citas`, data, opts(empresa)),
   updateCita: (empresa: string, id: number, data: CitaUpdateDto) =>
     api.patch<Cita>(`${B}/citas/${id}`, data, opts(empresa)),
+
+  // Objetivos terapéuticos + progreso
+  listObjetivos: (empresa: string, historiaId: number) =>
+    api.get<Objetivo[]>(`${B}/historias/${historiaId}/objetivos`, opts(empresa)),
+  createObjetivo: (empresa: string, historiaId: number, data: ObjetivoDto) =>
+    api.post<Objetivo>(`${B}/historias/${historiaId}/objetivos`, data, opts(empresa)),
+  updateObjetivo: (empresa: string, objetivoId: number, data: ObjetivoDto) =>
+    api.patch<Objetivo>(`${B}/objetivos/${objetivoId}`, data, opts(empresa)),
+  deleteObjetivo: (empresa: string, objetivoId: number) =>
+    api.delete<void>(`${B}/objetivos/${objetivoId}`, opts(empresa)),
+  listAvance: (empresa: string, objetivoId: number) =>
+    api.get<ObjetivoAvance[]>(`${B}/objetivos/${objetivoId}/avance`, opts(empresa)),
+  addAvance: (empresa: string, objetivoId: number, data: AvanceDto) =>
+    api.post<{ objetivo: Objetivo; avance: ObjetivoAvance[] }>(`${B}/objetivos/${objetivoId}/avance`, data, opts(empresa)),
+
+  // Acceso del apoderado al portal (enlace mágico)
+  getAcceso: (empresa: string, pacienteId: number) =>
+    api.get<AccesoApoderado | null>(`${B}/pacientes/${pacienteId}/acceso`, opts(empresa)),
+  crearAcceso: (empresa: string, pacienteId: number) =>
+    api.post<AccesoApoderado>(`${B}/pacientes/${pacienteId}/acceso`, {}, opts(empresa)),
+  regenerarAcceso: (empresa: string, pacienteId: number) =>
+    api.post<AccesoApoderado>(`${B}/pacientes/${pacienteId}/acceso/regenerar`, {}, opts(empresa)),
+  revocarAcceso: (empresa: string, pacienteId: number) =>
+    api.delete<void>(`${B}/pacientes/${pacienteId}/acceso`, opts(empresa)),
+
+  // Tareas para casa
+  listTareas: (empresa: string, historiaId: number) =>
+    api.get<Tarea[]>(`${B}/historias/${historiaId}/tareas`, opts(empresa)),
+  createTarea: (empresa: string, historiaId: number, data: TareaDto) =>
+    api.post<Tarea>(`${B}/historias/${historiaId}/tareas`, data, opts(empresa)),
+  updateTarea: (empresa: string, tareaId: number, data: TareaDto) =>
+    api.patch<Tarea>(`${B}/tareas/${tareaId}`, data, opts(empresa)),
+  deleteTarea: (empresa: string, tareaId: number) =>
+    api.delete<void>(`${B}/tareas/${tareaId}`, opts(empresa)),
+  /** Adjunta un audio (mp3) o imagen a la tarea (binario crudo). */
+  uploadTareaAudio: async (empresa: string, tareaId: number, file: File): Promise<Tarea> => {
+    const res = await fetch(`${API_URL}${B}/tareas/${tareaId}/adjunto`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': file.type || 'application/octet-stream',
+        'x-file-name': encodeURIComponent(file.name),
+        'x-tenant-id': empresa,
+        ...(authStorage.getToken(empresa) ? { Authorization: `Bearer ${authStorage.getToken(empresa)}` } : {}),
+      },
+      body: file,
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({})) as { error?: string; message?: string };
+      throw new ApiError(data.error ?? data.message ?? 'No se pudo subir el audio', res.status, data);
+    }
+    return res.json() as Promise<Tarea>;
+  },
+  deleteTareaAudio: (empresa: string, tareaId: number) =>
+    api.delete<Tarea>(`${B}/tareas/${tareaId}/adjunto`, opts(empresa)),
+
+  /** Portal público del apoderado (sin login): datos por token del enlace. */
+  portalData: (token: string) =>
+    api.get<PortalData>(`/public/portal/${token}`),
+  /** Portal público: el apoderado marca/desmarca una tarea. */
+  portalMarcarTarea: (token: string, tareaId: number, cumplida: boolean) =>
+    api.post<{ id: number; cumplida: boolean }>(`/public/portal/${token}/tareas/${tareaId}/cumplir`, { cumplida }),
 
   // Adjuntos de la historia
   listAdjuntos: (empresa: string, historiaId: number) =>

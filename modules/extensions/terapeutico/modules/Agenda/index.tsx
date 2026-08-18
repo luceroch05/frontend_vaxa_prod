@@ -61,29 +61,49 @@ export default function Agenda() {
 
   const hoyStr = ymd(new Date());
   const mover = (n: number) => setCursor(c => new Date(c.getFullYear(), c.getMonth() + n, 1));
+  const enMes = citas.filter(c => { const d = new Date(c.inicio); return d.getMonth() === cursor.getMonth() && d.getFullYear() === cursor.getFullYear(); }).length;
+  const hoyCount = (citasPorDia.get(hoyStr) ?? []).length;
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-5 gap-3 flex-wrap">
+      <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
         <div className="flex items-center gap-2.5">
-          <div className="h-9 w-9 rounded-xl flex items-center justify-center" style={{ background: '#CCFBF1' }}>
-            <Calendar size={18} style={{ color: TEAL }} />
+          <div className="h-10 w-10 rounded-xl flex items-center justify-center" style={{ background: '#CCFBF1' }}>
+            <Calendar size={19} style={{ color: TEAL }} />
           </div>
-          <h1 className="text-[20px] font-bold" style={{ color: '#0E1A1A' }}>Agenda</h1>
+          <div>
+            <h1 className="text-[21px] font-bold leading-tight" style={{ color: '#0E1A1A' }}>Agenda</h1>
+            <p className="text-[12.5px]" style={{ color: '#6B7280' }}>
+              {enMes} {enMes === 1 ? 'cita' : 'citas'} este mes{hoyCount > 0 && <> · <b style={{ color: TEAL }}>{hoyCount} hoy</b></>}
+            </p>
+          </div>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={() => mover(-1)} className="p-2 rounded-lg" style={{ border: '1px solid #E5E9E7' }}><ChevronLeft size={16} /></button>
-          <span className="text-[14px] font-semibold w-40 text-center" style={{ color: '#0E1A1A' }}>{MESES[cursor.getMonth()]} {cursor.getFullYear()}</span>
-          <button onClick={() => mover(1)} className="p-2 rounded-lg" style={{ border: '1px solid #E5E9E7' }}><ChevronRight size={16} /></button>
+          <div className="inline-flex items-center rounded-xl overflow-hidden" style={{ border: '1px solid #E5E9E7' }}>
+            <button onClick={() => mover(-1)} className="p-2 hover:bg-gray-50" title="Mes anterior"><ChevronLeft size={16} /></button>
+            <span className="text-[13.5px] font-semibold w-36 text-center capitalize" style={{ color: '#0E1A1A' }}>{MESES[cursor.getMonth()]} {cursor.getFullYear()}</span>
+            <button onClick={() => mover(1)} className="p-2 hover:bg-gray-50" title="Mes siguiente"><ChevronRight size={16} /></button>
+          </div>
           <button onClick={() => setCursor(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); })}
-            className="text-[12.5px] font-semibold px-3 py-2 rounded-lg" style={{ border: '1px solid #E5E9E7', color: '#374151' }}>Hoy</button>
+            className="text-[12.5px] font-semibold px-3 py-2 rounded-lg hover:bg-gray-50" style={{ border: '1px solid #E5E9E7', color: '#374151' }}>Hoy</button>
           {puedeGestionar(rol) && (
-            <button onClick={() => setModalDia(hoyStr)} className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-white text-[13.5px] font-semibold" style={{ background: TEAL }}>
+            <button onClick={() => setModalDia(hoyStr)} className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-white text-[13.5px] font-semibold shadow-sm hover:opacity-95 transition" style={{ background: TEAL }}>
               <Plus size={15} /> Nueva cita
             </button>
           )}
         </div>
       </div>
+
+      {/* Leyenda de estados: los colores del calendario dejan de ser un misterio */}
+      {catalogos && (
+        <div className="flex items-center gap-3 mb-3 flex-wrap px-1">
+          {catalogos.estados_cita.map(e => (
+            <span key={e.id} className="inline-flex items-center gap-1.5 text-[11.5px]" style={{ color: '#64748B' }}>
+              <span className="h-2.5 w-2.5 rounded-full" style={{ background: COLOR_ESTADO[e.id] ?? '#6B7280' }} /> {e.nombre}
+            </span>
+          ))}
+        </div>
+      )}
 
       <div className="rounded-2xl bg-white overflow-hidden" style={{ border: '1px solid #E5E9E7' }}>
         {/* Cabecera de días */}
@@ -112,13 +132,18 @@ export default function Agenda() {
                     )}
                   </div>
                   <div className="mt-1 space-y-1">
-                    {cs.slice(0, 3).map(c => (
-                      <button key={c.id} onClick={() => setCitaSel(c)}
-                        className="w-full text-left px-1.5 py-0.5 rounded text-[10.5px] truncate hover:opacity-80" style={{ background: `${COLOR_ESTADO[c.estado_id] ?? '#6B7280'}1A`, color: COLOR_ESTADO[c.estado_id] ?? '#374151' }}
-                        title={`${horaDe(c.inicio)} · ${c.paciente_nombre}${c.servicio_nombre ? ' · ' + c.servicio_nombre : ''} — clic para ver / reprogramar`}>
-                        {horaDe(c.inicio)} {c.paciente_nombre}
-                      </button>
-                    ))}
+                    {cs.slice(0, 3).map(c => {
+                      const col = COLOR_ESTADO[c.estado_id] ?? '#6B7280';
+                      return (
+                        <button key={c.id} onClick={() => setCitaSel(c)}
+                          className="w-full flex items-center gap-1 text-left px-1.5 py-1 rounded-md hover:brightness-95 transition" style={{ background: `${col}14` }}
+                          title={`${horaDe(c.inicio)} · ${c.paciente_nombre}${c.servicio_nombre ? ' · ' + c.servicio_nombre : ''} — clic para ver / reprogramar`}>
+                          <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ background: col }} />
+                          <span className="text-[10.5px] font-bold shrink-0" style={{ color: col }}>{horaDe(c.inicio)}</span>
+                          <span className="text-[10.5px] truncate" style={{ color: '#475569' }}>{c.paciente_nombre}</span>
+                        </button>
+                      );
+                    })}
                     {cs.length > 3 && <div className="text-[10px] px-1" style={{ color: '#94A3B8' }}>+{cs.length - 3} más</div>}
                   </div>
                 </div>
@@ -201,13 +226,16 @@ function ModalCita({ slug, dia, cita, catalogos, puedeGestionar, onClose, onSave
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(13,26,26,0.45)' }}>
-      <div className="bg-white rounded-2xl w-full max-w-md">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(13,26,26,0.5)', backdropFilter: 'blur(3px)' }} onMouseDown={onClose}>
+      <div className="bg-white rounded-2xl w-full max-w-md shadow-xl" onMouseDown={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid #EEF2F1' }}>
-          <h2 className="text-[16px] font-bold" style={{ color: '#0E1A1A' }}>
-            {esEdicion ? (soloLectura ? 'Detalle de la cita' : 'Reprogramar cita') : 'Nueva cita'}
-          </h2>
-          <button onClick={onClose}><X size={18} style={{ color: '#6B7280' }} /></button>
+          <div className="flex items-center gap-2.5">
+            <div className="h-8 w-8 rounded-lg flex items-center justify-center" style={{ background: '#CCFBF1' }}><Calendar size={16} style={{ color: TEAL }} /></div>
+            <h2 className="text-[16px] font-bold" style={{ color: '#0E1A1A' }}>
+              {esEdicion ? (soloLectura ? 'Detalle de la cita' : 'Reprogramar cita') : 'Nueva cita'}
+            </h2>
+          </div>
+          <button onClick={onClose} className="p-1 rounded-lg hover:bg-gray-100"><X size={18} style={{ color: '#6B7280' }} /></button>
         </div>
         <form onSubmit={submit} className="p-5 space-y-3.5">
           <Campo label="Paciente *">
@@ -241,7 +269,7 @@ function ModalCita({ slug, dia, cita, catalogos, puedeGestionar, onClose, onSave
           )}
           <Campo label="Motivo"><input className="vx-input" disabled={soloLectura} value={f.motivo ?? ''} onChange={e => set('motivo', e.target.value)} placeholder="Opcional" /></Campo>
 
-          {error && <p className="text-[12.5px]" style={{ color: '#B91C1C' }}>{error}</p>}
+          {error && <p className="text-[12.5px] px-3 py-2 rounded-lg" style={{ background: '#FEF2F2', color: '#B91C1C' }}>{error}</p>}
           <div className="flex justify-end gap-2 pt-1">
             <button type="button" onClick={onClose} className="px-4 py-2 rounded-xl text-[13px] font-semibold" style={{ background: '#F1F5F4', color: '#374151' }}>
               {soloLectura ? 'Cerrar' : 'Cancelar'}

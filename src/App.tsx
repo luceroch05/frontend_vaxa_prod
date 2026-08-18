@@ -36,6 +36,7 @@ import TerapPacientes    from '../modules/extensions/terapeutico/modules/Pacient
 import TerapPacienteDetalle from '../modules/extensions/terapeutico/modules/PacienteDetalle';
 import TerapAgenda       from '../modules/extensions/terapeutico/modules/Agenda';
 import TerapServicios    from '../modules/extensions/terapeutico/modules/Servicios';
+import PortalPadres      from '../modules/extensions/terapeutico/modules/PortalPadres';
 
 /** Compatibilidad: la ruta vieja /admin/login redirige al nuevo login. */
 function LoginRedirect() {
@@ -92,6 +93,8 @@ function terapeuticoChildren() {
     <>
       <Route index element={<TerapLogin />} />
       <Route path="login" element={<TerapLogin />} />
+      {/* Portal público del apoderado (sin login): el token del enlace es la credencial. */}
+      <Route path="portal/:token" element={<PortalPadres />} />
       <Route path="panel" element={<TerapGuard />}>
         <Route element={<TerapShell />}>
           <Route index element={<TerapPacientes />} />

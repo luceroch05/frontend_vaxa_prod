@@ -1,13 +1,14 @@
 import { useEffect, useState, FormEvent } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Loader2, FileText, Activity, ClipboardList, Plus, Save, User, Users, X,
-  FolderOpen, Upload, Download, Trash2, PrinterIcon, Calendar as CalendarIcon } from '@/components/ui/icon';
+  FolderOpen, Upload, Download, Trash2, PrinterIcon, TrendingUp, ChevronDown, CheckCircle, Home, Calendar as CalendarIcon } from '@/components/ui/icon';
 import { authStorage } from '@/lib/auth';
 import { terapPath } from '@/lib/paths';
 import { imgUrl } from '@/lib/api/client';
 import {
   terapApi, terapAuthApi, type Paciente, type Historia, type Sesion, type Diagnostico, type Catalogos,
-  type Terapeuta, type Asignacion, type Servicio, type Adjunto, type Cita,
+  type Terapeuta, type Asignacion, type Servicio, type Adjunto, type Cita, type Objetivo, type ObjetivoAvance,
+  type AccesoApoderado, type Tarea,
 } from '../../shared/api/terapeutico.api';
 import { imprimirHistoria } from './imprimir';
 
@@ -15,11 +16,32 @@ const TEAL = '#0F766E';
 const escribeClinico = (rol?: string) => ['ADMINISTRADOR', 'TERAPEUTA'].includes((rol ?? '').toUpperCase());
 const gestiona = (rol?: string) => ['ADMINISTRADOR', 'ADMISION'].includes((rol ?? '').toUpperCase());
 
-type TabId = 'datos' | 'historia' | 'sesiones' | 'citas' | 'documentos';
+/* ── Presentación (mismo lenguaje que la lista de pacientes) ─────── */
+const DOC = { '1': 'DNI', '4': 'C.E.', '7': 'Pas.', '0': 'S/D' } as Record<string, string>;
+const iniciales = (n: string, a: string) => `${(n.trim()[0] ?? '')}${(a.trim()[0] ?? '')}`.toUpperCase() || '?';
+const AV = [
+  { bg: '#CCFBF1', fg: '#0F766E' }, { bg: '#DBEAFE', fg: '#1D4ED8' },
+  { bg: '#FCE7F3', fg: '#BE185D' }, { bg: '#FEF3C7', fg: '#B45309' },
+  { bg: '#E9D5FF', fg: '#7C3AED' }, { bg: '#D1FAE5', fg: '#047857' },
+];
+const avatar = (id: number) => AV[id % AV.length];
+function edad(fecha?: string | null): string | null {
+  if (!fecha) return null;
+  const f = new Date(fecha); if (isNaN(+f)) return null;
+  const hoy = new Date();
+  let a = hoy.getFullYear() - f.getFullYear();
+  const m = hoy.getMonth() - f.getMonth();
+  if (m < 0 || (m === 0 && hoy.getDate() < f.getDate())) a--;
+  return a > 0 ? `${a} años` : 'menor de 1 año';
+}
+
+type TabId = 'datos' | 'historia' | 'objetivos' | 'sesiones' | 'tareas' | 'citas' | 'documentos';
 const TABS: { id: TabId; label: string; icon: any }[] = [
   { id: 'datos',      label: 'Datos',       icon: User },
   { id: 'historia',   label: 'Historia',    icon: FileText },
+  { id: 'objetivos',  label: 'Objetivos',   icon: TrendingUp },
   { id: 'sesiones',   label: 'Sesiones',    icon: Activity },
+  { id: 'tareas',     label: 'Tareas',      icon: Home },
   { id: 'citas',      label: 'Citas',       icon: CalendarIcon },
   { id: 'documentos', label: 'Documentos',  icon: FolderOpen },
 ];
@@ -80,48 +102,66 @@ export default function PacienteDetalle() {
       </button>
 
       {/* Ficha del paciente */}
-      <div className="rounded-2xl bg-white p-5 mb-5" style={{ border: '1px solid #E5E9E7' }}>
-        <div className="flex items-start gap-3">
-          <div className="h-11 w-11 rounded-xl flex items-center justify-center" style={{ background: '#CCFBF1' }}>
-            <User size={20} style={{ color: TEAL }} />
+      {(() => {
+        const av = avatar(paciente.id);
+        const e = edad(paciente.fecha_nacimiento);
+        return (
+          <div className="rounded-2xl bg-white p-5 mb-5" style={{ border: '1px solid #E5E9E7' }}>
+            <div className="flex items-start gap-3.5">
+              <div className="h-14 w-14 rounded-2xl flex items-center justify-center text-[18px] font-bold shrink-0" style={{ background: av.bg, color: av.fg }}>
+                {iniciales(paciente.nombres, paciente.apellidos)}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h1 className="text-[20px] font-bold leading-tight" style={{ color: '#0E1A1A' }}>{paciente.apellidos}, {paciente.nombres}</h1>
+                  {paciente.activo === 0 && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: '#F1F5F4', color: '#94A3B8' }}>Inactivo</span>}
+                </div>
+                <p className="text-[12.5px] mt-1" style={{ color: '#6B7280' }}>
+                  {DOC[paciente.tipo_doc] ?? 'Doc'} {paciente.num_doc || '—'}
+                  {paciente.sexo_nombre ? ` · ${paciente.sexo_nombre}` : ''}
+                  {e ? ` · ${e}` : ''}
+                  {paciente.telefono ? ` · ${paciente.telefono}` : ''}
+                </p>
+                <div className="flex items-center gap-2 mt-2 flex-wrap">
+                  {historia?.numero
+                    ? <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold" style={{ background: '#DCFCE7', color: '#15803D' }}>
+                        <FileText size={11} /> {historia.numero} · {historia.estado_nombre}
+                      </span>
+                    : <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold" style={{ background: '#FEF3C7', color: '#B45309' }}>Sin historia clínica</span>}
+                  {paciente.apoderado_nombre && (
+                    <span className="inline-flex items-center gap-1 text-[11.5px]" style={{ color: '#6B7280' }}>
+                      <Users size={12} /> Apod.: {paciente.apoderado_nombre}
+                    </span>
+                  )}
+                </div>
+              </div>
+              {historia && (
+                <button
+                  onClick={() => imprimirHistoria({ slug, paciente, historia, diagnosticos, sesiones })}
+                  className="flex items-center gap-1.5 text-[12.5px] font-semibold px-3 py-2 rounded-lg shrink-0 hover:bg-[#F0FAF8] transition"
+                  style={{ border: `1px solid ${TEAL}`, color: TEAL }}
+                  title="Exportar / imprimir la historia clínica en PDF">
+                  <PrinterIcon size={14} /> Exportar PDF
+                </button>
+              )}
+            </div>
           </div>
-          <div className="flex-1">
-            <h1 className="text-[19px] font-bold" style={{ color: '#0E1A1A' }}>{paciente.apellidos}, {paciente.nombres}</h1>
-            <p className="text-[12.5px] mt-0.5" style={{ color: '#6B7280' }}>
-              {paciente.num_doc || 'Sin documento'}
-              {paciente.sexo_nombre ? ` · ${paciente.sexo_nombre}` : ''}
-              {paciente.fecha_nacimiento ? ` · ${paciente.fecha_nacimiento}` : ''}
-              {paciente.telefono ? ` · ${paciente.telefono}` : ''}
-            </p>
-            {historia?.numero && (
-              <span className="inline-block mt-2 px-2.5 py-0.5 rounded-full text-[11px] font-semibold" style={{ background: '#CCFBF1', color: TEAL }}>
-                {historia.numero} · {historia.estado_nombre}
-              </span>
-            )}
-          </div>
-          {historia && (
-            <button
-              onClick={() => imprimirHistoria({ slug, paciente, historia, diagnosticos, sesiones })}
-              className="flex items-center gap-1.5 text-[12.5px] font-semibold px-3 py-2 rounded-lg shrink-0"
-              style={{ border: `1px solid ${TEAL}`, color: TEAL }}
-              title="Exportar / imprimir la historia clínica en PDF">
-              <PrinterIcon size={14} /> Exportar PDF
-            </button>
-          )}
-        </div>
-      </div>
+        );
+      })()}
 
       {/* Barra de pestañas: divide el perfil en secciones para no ser un scroll infinito */}
       <div className="flex items-center gap-1 mb-5 overflow-x-auto pb-0.5" style={{ borderBottom: '1px solid #E5E9E7' }}>
         {TABS.map(t => {
           const activo = tab === t.id;
+          const count = t.id === 'sesiones' ? sesiones.length : t.id === 'historia' ? diagnosticos.length : undefined;
           return (
             <button key={t.id} onClick={() => setTab(t.id)}
-              className="flex items-center gap-1.5 px-3.5 py-2.5 text-[13px] font-semibold whitespace-nowrap -mb-px"
+              className="flex items-center gap-1.5 px-3.5 py-2.5 text-[13px] font-semibold whitespace-nowrap -mb-px transition"
               style={activo
                 ? { color: TEAL, borderBottom: `2px solid ${TEAL}` }
                 : { color: '#6B7280', borderBottom: '2px solid transparent' }}>
               <t.icon size={15} /> {t.label}
+              {count ? <span className="text-[10.5px] font-bold px-1.5 rounded-full" style={{ background: activo ? '#CCFBF1' : '#EEF2F1', color: activo ? TEAL : '#94A3B8' }}>{count}</span> : null}
             </button>
           );
         })}
@@ -132,6 +172,7 @@ export default function PacienteDetalle() {
         <>
           <BloqueDatos paciente={paciente} />
           <BloqueTerapeutas slug={slug} pacienteId={pacienteId} puedeGestionar={gestiona(rol)} />
+          {gestiona(rol) && <BloqueAcceso slug={slug} pacienteId={pacienteId} />}
         </>
       )}
 
@@ -145,10 +186,22 @@ export default function PacienteDetalle() {
         )
       )}
 
+      {tab === 'objetivos' && (
+        !historia ? <AbreHistoriaPrimero /> : (
+          <BloqueObjetivos slug={slug} historia={historia} puedeClinico={puedeClinico} />
+        )
+      )}
+
       {tab === 'sesiones' && (
         !historia ? <AbreHistoriaPrimero /> : (
           <BloqueEvoluciones slug={slug} historia={historia} sesiones={sesiones} puedeClinico={puedeClinico}
             onAdd={s => setSesiones(prev => [s, ...prev])} />
+        )
+      )}
+
+      {tab === 'tareas' && (
+        !historia ? <AbreHistoriaPrimero /> : (
+          <BloqueTareas slug={slug} historia={historia} puedeClinico={puedeClinico} />
         )
       )}
 
@@ -236,7 +289,7 @@ function BloqueCitas({ slug, pacienteId }: { slug: string; pacienteId: number })
       {loading ? (
         <div className="py-6 flex justify-center"><Loader2 size={18} className="animate-spin" style={{ color: TEAL }} /></div>
       ) : citas.length === 0 ? (
-        <p className="text-[12.5px]" style={{ color: '#94A3B8' }}>Este paciente no tiene citas registradas. Agéndalas desde la sección «Agenda».</p>
+        <Vacio icon={<CalendarIcon size={22} />} text="Sin citas registradas. Agéndalas desde la sección «Agenda»." />
       ) : (
         <div className="space-y-4">
           {proximas.length > 0 && <ListaCitas titulo="Próximas" citas={proximas} />}
@@ -311,9 +364,9 @@ function BloqueAdjuntos({ slug, historia, puedeClinico }: { slug: string; histor
           accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx" onChange={onFile} />
       </label>
     ) : undefined}>
-      {error && <p className="text-[12.5px] mb-2" style={{ color: '#B91C1C' }}>{error}</p>}
+      {error && <p className="text-[12.5px] mb-2 px-3 py-2 rounded-lg" style={{ background: '#FEF2F2', color: '#B91C1C' }}>{error}</p>}
       {adjuntos.length === 0 ? (
-        <p className="text-[12.5px]" style={{ color: '#94A3B8' }}>Sin documentos. Sube informes, exámenes o PDFs (máx. {MAX_MB} MB).</p>
+        <Vacio icon={<FolderOpen size={22} />} text={`Sin documentos. Sube informes, exámenes o PDFs (máx. ${MAX_MB} MB).`} />
       ) : (
         <ul className="space-y-1.5">
           {adjuntos.map(a => (
@@ -444,15 +497,24 @@ function BloqueDiagnosticos({ slug, historia, diagnosticos, catalogos, puedeClin
         </form>
       )}
       {diagnosticos.length === 0 ? (
-        <p className="text-[12.5px]" style={{ color: '#94A3B8' }}>Sin diagnósticos registrados.</p>
+        <Vacio icon={<ClipboardList size={22} />} text="Sin diagnósticos registrados." />
       ) : (
         <ul className="space-y-1.5">
-          {diagnosticos.map(d => (
-            <li key={d.id} className="flex items-center justify-between px-3 py-2 rounded-lg text-[13px]" style={{ background: '#F6FAF9' }}>
-              <span style={{ color: '#0E1A1A' }}>{d.codigo_cie10 ? <b>{d.codigo_cie10}</b> : null} {d.descripcion}</span>
-              <span className="text-[11px] px-2 py-0.5 rounded-full" style={{ background: '#E2E8E6', color: '#475569' }}>{d.tipo_nombre}</span>
-            </li>
-          ))}
+          {diagnosticos.map(d => {
+            const def = d.tipo_id === 2;
+            return (
+              <li key={d.id} className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg text-[13px]" style={{ background: '#F6FAF9', border: '1px solid #EEF2F1' }}>
+                <span className="min-w-0" style={{ color: '#0E1A1A' }}>
+                  {d.codigo_cie10 && <span className="font-mono font-bold mr-1.5 px-1.5 py-0.5 rounded text-[11.5px]" style={{ background: '#E2E8E6', color: '#475569' }}>{d.codigo_cie10}</span>}
+                  {d.descripcion}
+                </span>
+                <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full shrink-0"
+                  style={def ? { background: '#EFF6FF', color: '#2563EB' } : { background: '#FEF3C7', color: '#B45309' }}>
+                  {d.tipo_nombre}
+                </span>
+              </li>
+            );
+          })}
         </ul>
       )}
     </Section>
@@ -504,25 +566,31 @@ function BloqueEvoluciones({ slug, historia, sesiones, puedeClinico, onAdd }: {
       )}
 
       {sesiones.length === 0 ? (
-        <p className="text-[12.5px]" style={{ color: '#94A3B8' }}>Aún no hay evoluciones registradas.</p>
+        <Vacio icon={<Activity size={22} />} text="Aún no hay evoluciones registradas." />
       ) : (
         <ol className="space-y-3">
           {sesiones.map(s => (
-            <li key={s.id} className="rounded-xl p-3.5" style={{ background: '#F6FAF9', border: '1px solid #E5E9E7' }}>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-[12.5px] font-semibold" style={{ color: '#0E1A1A' }}>
-                  Sesión {s.numero_sesion ?? ''} · {new Date(s.fecha).toLocaleDateString()}
+            <li key={s.id} className="rounded-xl p-4" style={{ background: '#fff', border: '1px solid #E5E9E7' }}>
+              <div className="flex items-center justify-between mb-2.5 pb-2.5" style={{ borderBottom: '1px solid #F1F5F4' }}>
+                <span className="inline-flex items-center gap-2 text-[13px] font-bold" style={{ color: '#0E1A1A' }}>
+                  <span className="inline-flex items-center justify-center h-6 min-w-6 px-1.5 rounded-lg text-[11.5px]" style={{ background: '#CCFBF1', color: TEAL }}>
+                    #{s.numero_sesion ?? '—'}
+                  </span>
+                  {new Date(s.fecha).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })}
                 </span>
-                <span className="text-[11px]" style={{ color: '#6B7280' }}>
-                  {s.terapeuta_nombre}{s.firmada ? ' · ✔ firmada' : ''}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px]" style={{ color: '#6B7280' }}>{s.terapeuta_nombre}</span>
+                  {s.firmada
+                    ? <span className="text-[10.5px] font-bold px-2 py-0.5 rounded-full" style={{ background: '#DCFCE7', color: '#15803D' }}>✔ Firmada</span>
+                    : <span className="text-[10.5px] font-bold px-2 py-0.5 rounded-full" style={{ background: '#FEF3C7', color: '#B45309' }}>Borrador</span>}
+                </div>
               </div>
-              <div className="space-y-1 text-[12.5px]" style={{ color: '#374151' }}>
-                {s.subjetivo && <p><b>S:</b> {s.subjetivo}</p>}
-                {s.objetivo && <p><b>O:</b> {s.objetivo}</p>}
-                {s.analisis && <p><b>A:</b> {s.analisis}</p>}
-                {s.plan && <p><b>P:</b> {s.plan}</p>}
-                {s.evolucion && <p>{s.evolucion}</p>}
+              <div className="space-y-1.5">
+                <SoapLine tag="S" color="#0F766E" text={s.subjetivo} />
+                <SoapLine tag="O" color="#2563EB" text={s.objetivo} />
+                <SoapLine tag="A" color="#7C3AED" text={s.analisis} />
+                <SoapLine tag="P" color="#B45309" text={s.plan} />
+                {s.evolucion && <p className="text-[12.5px]" style={{ color: '#374151' }}>{s.evolucion}</p>}
               </div>
             </li>
           ))}
@@ -605,15 +673,437 @@ function BloqueTerapeutas({ slug, pacienteId, puedeGestionar }: { slug: string; 
   );
 }
 
+// ── Acceso del apoderado al portal (enlace mágico) ────────────────────────────
+function BloqueAcceso({ slug, pacienteId }: { slug: string; pacienteId: number }) {
+  const [acceso, setAcceso] = useState<AccesoApoderado | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [copiado, setCopiado] = useState(false);
+
+  useEffect(() => {
+    terapApi.getAcceso(slug, pacienteId).then(a => setAcceso(a ?? null)).catch(() => {}).finally(() => setLoading(false));
+  }, [slug, pacienteId]);
+
+  const url = acceso ? `${window.location.origin}${terapPath(slug, `/portal/${acceso.token}`)}` : '';
+  const generar = async () => { setBusy(true); try { setAcceso(await terapApi.crearAcceso(slug, pacienteId)); } finally { setBusy(false); } };
+  const regenerar = async () => {
+    if (!confirm('Se generará un enlace nuevo y el anterior dejará de funcionar. ¿Continuar?')) return;
+    setBusy(true); try { setAcceso(await terapApi.regenerarAcceso(slug, pacienteId)); } finally { setBusy(false); }
+  };
+  const revocar = async () => {
+    if (!confirm('El apoderado ya no podrá ver el portal. ¿Desactivar el enlace?')) return;
+    setBusy(true); try { await terapApi.revocarAcceso(slug, pacienteId); setAcceso(null); } finally { setBusy(false); }
+  };
+  const copiar = async () => { try { await navigator.clipboard.writeText(url); setCopiado(true); setTimeout(() => setCopiado(false), 1500); } catch { /* noop */ } };
+  const whatsapp = () => window.open(`https://wa.me/?text=${encodeURIComponent('Sigue el progreso del tratamiento: ' + url)}`, '_blank');
+
+  return (
+    <Section icon={Users} titulo="Acceso para el apoderado (portal)">
+      {loading ? (
+        <div className="py-4 flex justify-center"><Loader2 size={16} className="animate-spin" style={{ color: TEAL }} /></div>
+      ) : !acceso ? (
+        <div>
+          <p className="text-[12.5px] mb-3" style={{ color: '#6B7280' }}>
+            Genera un enlace para que la familia siga el <b>progreso</b> y las <b>próximas citas</b> del paciente (solo lectura, sin contraseña). Lo compartes por WhatsApp.
+          </p>
+          <button onClick={generar} disabled={busy} className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-white text-[13px] font-semibold" style={{ background: TEAL }}>
+            {busy ? <Loader2 size={14} className="animate-spin" /> : <Users size={14} />} Generar enlace del portal
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-2.5">
+          <div className="flex items-center gap-2">
+            <input readOnly value={url} onFocus={e => e.currentTarget.select()} className="vx-input flex-1 text-[12px]" style={{ background: '#F6FAF9' }} />
+            <button onClick={copiar} className="px-3 py-2 rounded-lg text-[12.5px] font-semibold shrink-0" style={{ background: copiado ? '#DCFCE7' : '#CCFBF1', color: copiado ? '#15803D' : TEAL }}>
+              {copiado ? '¡Copiado!' : 'Copiar'}
+            </button>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <button onClick={whatsapp} className="px-3 py-2 rounded-lg text-white text-[12.5px] font-semibold" style={{ background: '#25D366' }}>Compartir por WhatsApp</button>
+            <button onClick={regenerar} disabled={busy} className="px-3 py-2 rounded-lg text-[12.5px] font-semibold" style={{ background: '#F1F5F4', color: '#374151' }}>Regenerar</button>
+            <button onClick={revocar} disabled={busy} className="px-3 py-2 rounded-lg text-[12.5px] font-semibold" style={{ background: '#FEF2F2', color: '#B91C1C' }}>Desactivar</button>
+          </div>
+          <p className="text-[11px]" style={{ color: '#94A3B8' }}>Cualquiera con el enlace puede ver el progreso (sin datos sensibles). Si se filtra, usa «Regenerar».</p>
+        </div>
+      )}
+    </Section>
+  );
+}
+
+// ── Objetivos terapéuticos + progreso (⭐ diferenciador) ───────────────────────
+const EST_OBJ: Record<string, { bg: string; fg: string }> = {
+  LOGRADO:  { bg: '#DCFCE7', fg: '#15803D' },
+  EN_CURSO: { bg: '#CCFBF1', fg: '#0F766E' },
+  PAUSADO:  { bg: '#F1F5F4', fg: '#94A3B8' },
+};
+
+function BloqueObjetivos({ slug, historia, puedeClinico }: { slug: string; historia: Historia; puedeClinico: boolean }) {
+  const [objetivos, setObjetivos] = useState<Objetivo[]>([]);
+  const [avances, setAvances] = useState<Record<number, ObjetivoAvance[]>>({});
+  const [expandido, setExpandido] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [form, setForm] = useState(false);
+
+  useEffect(() => {
+    setLoading(true);
+    terapApi.listObjetivos(slug, historia.id).then(setObjetivos).catch(() => {}).finally(() => setLoading(false));
+  }, [slug, historia.id]);
+
+  const toggle = async (o: Objetivo) => {
+    if (expandido === o.id) { setExpandido(null); return; }
+    setExpandido(o.id);
+    if (!avances[o.id]) {
+      const a = await terapApi.listAvance(slug, o.id).catch(() => []);
+      setAvances(prev => ({ ...prev, [o.id]: a }));
+    }
+  };
+
+  const onAvance = (objetivo: Objetivo, lista: ObjetivoAvance[]) => {
+    setObjetivos(prev => prev.map(x => x.id === objetivo.id ? objetivo : x));
+    setAvances(prev => ({ ...prev, [objetivo.id]: lista }));
+  };
+
+  return (
+    <Section icon={TrendingUp} titulo="Objetivos y progreso" accion={puedeClinico ? (
+      <button onClick={() => setForm(f => !f)} className="flex items-center gap-1.5 text-[12.5px] font-semibold px-3 py-1.5 rounded-lg text-white" style={{ background: TEAL }}>
+        <Plus size={13} /> Nuevo objetivo
+      </button>
+    ) : undefined}>
+      {form && puedeClinico && (
+        <FormObjetivo slug={slug} historiaId={historia.id}
+          onCreated={o => { setObjetivos(prev => [o, ...prev]); setForm(false); }}
+          onCancel={() => setForm(false)} />
+      )}
+      {loading ? (
+        <div className="py-6 flex justify-center"><Loader2 size={18} className="animate-spin" style={{ color: TEAL }} /></div>
+      ) : objetivos.length === 0 ? (
+        <Vacio icon={<TrendingUp size={22} />} text="Sin objetivos. Define metas medibles (ej. «producir /r/ en palabras: 80 %») y registra el avance en cada sesión para ver la curva de progreso." />
+      ) : (
+        <div className="space-y-3">
+          {objetivos.map(o => (
+            <ObjetivoCard key={o.id} slug={slug} o={o} puedeClinico={puedeClinico}
+              expandido={expandido === o.id} avances={avances[o.id]}
+              onToggle={() => toggle(o)} onAvance={onAvance} />
+          ))}
+        </div>
+      )}
+    </Section>
+  );
+}
+
+function ObjetivoCard({ slug, o, puedeClinico, expandido, avances, onToggle, onAvance }: {
+  slug: string; o: Objetivo; puedeClinico: boolean; expandido: boolean;
+  avances?: ObjetivoAvance[]; onToggle: () => void; onAvance: (o: Objetivo, l: ObjetivoAvance[]) => void;
+}) {
+  const meta = Number(o.meta) || 0;
+  const actual = o.ultimo_valor != null ? Number(o.ultimo_valor) : null;
+  const pct = actual != null && meta > 0 ? Math.min(100, Math.round((actual / meta) * 100)) : 0;
+  const est = EST_OBJ[o.estado_codigo ?? 'EN_CURSO'] ?? EST_OBJ.EN_CURSO;
+
+  return (
+    <div className="rounded-xl" style={{ border: '1px solid #E5E9E7' }}>
+      <div className="p-3.5">
+        <div className="flex items-start justify-between gap-3 mb-2">
+          <p className="text-[13.5px] font-semibold" style={{ color: '#0E1A1A' }}>{o.descripcion}</p>
+          <span className="text-[10.5px] font-bold px-2 py-0.5 rounded-full shrink-0" style={{ background: est.bg, color: est.fg }}>
+            {o.estado_nombre ?? 'En curso'}
+          </span>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="flex-1 h-2.5 rounded-full overflow-hidden" style={{ background: '#EEF2F1' }}>
+            <div className="h-full rounded-full" style={{ width: `${pct}%`, background: 'linear-gradient(90deg,#0F766E,#10B981)' }} />
+          </div>
+          <span className="text-[12px] font-semibold shrink-0" style={{ color: '#0E1A1A' }}>
+            {actual != null ? `${actual}` : '—'}<span style={{ color: '#94A3B8' }}> / {meta} {o.unidad}</span>
+          </span>
+        </div>
+        <div className="flex items-center justify-between mt-2">
+          <span className="text-[11px]" style={{ color: '#94A3B8' }}>{o.avances} {o.avances === 1 ? 'medición' : 'mediciones'}</span>
+          <button onClick={onToggle} className="flex items-center gap-1 text-[12px] font-semibold" style={{ color: TEAL }}>
+            {expandido ? 'Ocultar progreso' : 'Ver progreso'}
+            <ChevronDown size={14} style={{ transform: expandido ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }} />
+          </button>
+        </div>
+      </div>
+      {expandido && (
+        <div className="px-3.5 pb-3.5 pt-1" style={{ borderTop: '1px solid #F1F5F4' }}>
+          {avances === undefined
+            ? <div className="py-4 flex justify-center"><Loader2 size={16} className="animate-spin" style={{ color: TEAL }} /></div>
+            : <ProgresoChart puntos={avances} meta={meta} unidad={o.unidad} />}
+          {puedeClinico && (
+            <FormAvance slug={slug} objetivoId={o.id} unidad={o.unidad}
+              onAdded={(obj, lista) => onAvance(obj, lista)} />
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Gráfica de línea REAL construida con las mediciones del objetivo. */
+function ProgresoChart({ puntos, meta, unidad }: { puntos: ObjetivoAvance[]; meta: number; unidad: string }) {
+  if (!puntos.length) {
+    return <p className="text-[12px] py-3 text-center" style={{ color: '#94A3B8' }}>Aún sin mediciones. Registra el primer avance para ver la curva.</p>;
+  }
+  const W = 340, H = 160, padL = 30, padR = 10, padT = 12, padB = 24;
+  const vals = puntos.map(p => Number(p.valor));
+  const maxY = Math.max(meta, ...vals) * 1.05 || 1;
+  const x = (i: number) => puntos.length === 1 ? (padL + (W - padR)) / 2 : padL + (i / (puntos.length - 1)) * (W - padL - padR);
+  const y = (v: number) => padT + (1 - v / maxY) * (H - padT - padB);
+  const linea = puntos.map((p, i) => `${x(i)},${y(Number(p.valor))}`).join(' ');
+  const metaY = y(meta);
+  const fmt = (f: string) => new Date(f).toLocaleDateString(undefined, { day: '2-digit', month: 'short' });
+
+  return (
+    <div className="mt-2">
+      <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H} style={{ maxWidth: 460 }}>
+        {/* ejes */}
+        <line x1={padL} y1={padT} x2={padL} y2={H - padB} stroke="#E5E9E7" />
+        <line x1={padL} y1={H - padB} x2={W - padR} y2={H - padB} stroke="#E5E9E7" />
+        {/* referencias Y */}
+        {[0, 0.5, 1].map(t => (
+          <text key={t} x={padL - 5} y={y(maxY * t) + 3} fontSize="8" fill="#94A3B8" textAnchor="end">{Math.round(maxY * t)}</text>
+        ))}
+        {/* línea meta */}
+        {meta <= maxY && (
+          <>
+            <line x1={padL} y1={metaY} x2={W - padR} y2={metaY} stroke="#10B981" strokeDasharray="5 4" opacity="0.7" />
+            <text x={W - padR} y={metaY - 4} fontSize="8" fill="#059669" textAnchor="end">meta {meta}{unidad}</text>
+          </>
+        )}
+        {/* curva */}
+        <polyline fill="none" stroke="#0F766E" strokeWidth="2.5" strokeLinejoin="round" points={linea} />
+        {puntos.map((p, i) => (
+          <circle key={p.id} cx={x(i)} cy={y(Number(p.valor))} r={i === puntos.length - 1 ? 4 : 3}
+            fill="#0F766E" stroke="#fff" strokeWidth={i === puntos.length - 1 ? 2 : 0} />
+        ))}
+        {/* fechas primera y última */}
+        <text x={x(0)} y={H - 8} fontSize="8" fill="#94A3B8" textAnchor="middle">{fmt(puntos[0].fecha)}</text>
+        {puntos.length > 1 && <text x={x(puntos.length - 1)} y={H - 8} fontSize="8" fill="#94A3B8" textAnchor="middle">{fmt(puntos[puntos.length - 1].fecha)}</text>}
+      </svg>
+    </div>
+  );
+}
+
+function FormObjetivo({ slug, historiaId, onCreated, onCancel }: {
+  slug: string; historiaId: number; onCreated: (o: Objetivo) => void; onCancel: () => void;
+}) {
+  const [desc, setDesc] = useState('');
+  const [meta, setMeta] = useState('80');
+  const [unidad, setUnidad] = useState('%');
+  const [saving, setSaving] = useState(false);
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!desc.trim()) return;
+    setSaving(true);
+    const o = await terapApi.createObjetivo(slug, historiaId, { descripcion: desc, meta: Number(meta) || 100, unidad });
+    onCreated(o); setSaving(false);
+  };
+
+  return (
+    <form onSubmit={submit} className="rounded-xl p-3.5 mb-3 space-y-2.5" style={{ background: '#F6FAF9', border: '1px solid #E5E9E7' }}>
+      <input className="vx-input" placeholder="Objetivo (ej. Producir /r/ en palabras)" value={desc} onChange={e => setDesc(e.target.value)} autoFocus />
+      <div className="flex items-center gap-2 flex-wrap">
+        <label className="text-[12px]" style={{ color: '#64748B' }}>Meta</label>
+        <input className="vx-input max-w-[90px]" type="number" value={meta} onChange={e => setMeta(e.target.value)} />
+        <input className="vx-input max-w-[110px]" list="unidades-obj" value={unidad} onChange={e => setUnidad(e.target.value)} placeholder="unidad" />
+        <datalist id="unidades-obj"><option value="%" /><option value="min" /><option value="palabras" /><option value="puntos" /></datalist>
+        <div className="ml-auto flex gap-2">
+          <button type="button" onClick={onCancel} className="px-3 py-2 rounded-lg text-[12.5px] font-semibold" style={{ background: '#F1F5F4', color: '#374151' }}>Cancelar</button>
+          <button type="submit" disabled={saving} className="px-3 py-2 rounded-lg text-white text-[12.5px] font-semibold flex items-center gap-1.5" style={{ background: TEAL }}>
+            {saving && <Loader2 size={13} className="animate-spin" />} Crear objetivo
+          </button>
+        </div>
+      </div>
+    </form>
+  );
+}
+
+function FormAvance({ slug, objetivoId, unidad, onAdded }: {
+  slug: string; objetivoId: number; unidad: string; onAdded: (o: Objetivo, l: ObjetivoAvance[]) => void;
+}) {
+  const [valor, setValor] = useState('');
+  const [fecha, setFecha] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (valor.trim() === '' || isNaN(Number(valor))) return;
+    setSaving(true);
+    const r = await terapApi.addAvance(slug, objetivoId, { valor: Number(valor), fecha: fecha || undefined });
+    onAdded(r.objetivo, r.avance);
+    setValor(''); setFecha(''); setSaving(false);
+  };
+
+  return (
+    <form onSubmit={submit} className="flex items-end gap-2 mt-3 pt-3 flex-wrap" style={{ borderTop: '1px solid #F1F5F4' }}>
+      <label className="block">
+        <span className="block text-[10.5px] font-semibold uppercase tracking-wider mb-1" style={{ color: '#64748B' }}>Valor medido ({unidad})</span>
+        <input className="vx-input max-w-[120px]" type="number" step="0.01" value={valor} onChange={e => setValor(e.target.value)} placeholder="ej. 70" />
+      </label>
+      <label className="block">
+        <span className="block text-[10.5px] font-semibold uppercase tracking-wider mb-1" style={{ color: '#64748B' }}>Fecha</span>
+        <input className="vx-input max-w-[150px]" type="date" value={fecha} onChange={e => setFecha(e.target.value)} />
+      </label>
+      <button type="submit" disabled={saving} className="px-3 py-2 rounded-lg text-white text-[12.5px] font-semibold flex items-center gap-1.5 disabled:opacity-50" style={{ background: TEAL }}>
+        {saving ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />} Registrar avance
+      </button>
+    </form>
+  );
+}
+
+// ── Tareas para casa (se sincroniza con el portal del apoderado) ──────────────
+const esAudio = (mime?: string | null) => (mime ?? '').startsWith('audio');
+const esImagen = (mime?: string | null) => (mime ?? '').startsWith('image');
+
+function BloqueTareas({ slug, historia, puedeClinico }: { slug: string; historia: Historia; puedeClinico: boolean }) {
+  const [tareas, setTareas] = useState<Tarea[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [form, setForm] = useState(false);
+  const [subiendoId, setSubiendoId] = useState<number | null>(null);
+
+  useEffect(() => {
+    setLoading(true);
+    terapApi.listTareas(slug, historia.id).then(setTareas).catch(() => {}).finally(() => setLoading(false));
+  }, [slug, historia.id]);
+
+  const toggle = async (t: Tarea) => {
+    const upd = await terapApi.updateTarea(slug, t.id, { cumplida: !t.cumplida });
+    setTareas(prev => prev.map(x => x.id === t.id ? upd : x));
+  };
+  const borrar = async (t: Tarea) => {
+    if (!confirm(`¿Eliminar la tarea «${t.descripcion}»?`)) return;
+    await terapApi.deleteTarea(slug, t.id);
+    setTareas(prev => prev.filter(x => x.id !== t.id));
+  };
+  const subirAudio = async (t: Tarea, file?: File) => {
+    if (!file) return;
+    setSubiendoId(t.id);
+    try {
+      const upd = await terapApi.uploadTareaAudio(slug, t.id, file);
+      setTareas(prev => prev.map(x => x.id === t.id ? upd : x));
+    } catch (e: any) { alert(e?.message ?? 'No se pudo subir el audio'); }
+    finally { setSubiendoId(null); }
+  };
+  const quitarAudio = async (t: Tarea) => {
+    const upd = await terapApi.deleteTareaAudio(slug, t.id);
+    setTareas(prev => prev.map(x => x.id === t.id ? upd : x));
+  };
+
+  const pend = tareas.filter(t => !t.cumplida).length;
+
+  return (
+    <Section icon={Home} titulo="Tareas para casa" accion={puedeClinico ? (
+      <button onClick={() => setForm(f => !f)} className="flex items-center gap-1.5 text-[12.5px] font-semibold px-3 py-1.5 rounded-lg text-white" style={{ background: TEAL }}>
+        <Plus size={13} /> Nueva tarea
+      </button>
+    ) : undefined}>
+      {form && puedeClinico && (
+        <FormTarea slug={slug} historiaId={historia.id}
+          onCreated={t => { setTareas(prev => [t, ...prev]); setForm(false); }}
+          onCancel={() => setForm(false)} />
+      )}
+      {loading ? (
+        <div className="py-6 flex justify-center"><Loader2 size={18} className="animate-spin" style={{ color: TEAL }} /></div>
+      ) : tareas.length === 0 ? (
+        <Vacio icon={<Home size={22} />} text="Sin tareas. Asigna ejercicios para casa; el apoderado las verá y las marcará como cumplidas desde su portal." />
+      ) : (
+        <>
+          <p className="text-[11.5px] mb-2" style={{ color: '#94A3B8' }}>{pend} pendiente{pend === 1 ? '' : 's'} de {tareas.length}</p>
+          <ul className="space-y-1.5">
+            {tareas.map(t => {
+              const hecha = !!t.cumplida;
+              return (
+                <li key={t.id} className="flex items-start gap-3 px-3 py-2.5 rounded-lg" style={{ background: '#F6FAF9', border: '1px solid #EEF2F1' }}>
+                  <button onClick={() => puedeClinico && toggle(t)} disabled={!puedeClinico} title={puedeClinico ? 'Marcar/desmarcar' : undefined} className="mt-0.5 shrink-0">
+                    {hecha
+                      ? <CheckCircle size={18} style={{ color: '#15803D' }} />
+                      : <span className="inline-block h-[18px] w-[18px] rounded-full" style={{ border: '2px solid #CBD5D1' }} />}
+                  </button>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[13.5px] font-semibold" style={{ color: hecha ? '#94A3B8' : '#0E1A1A', textDecoration: hecha ? 'line-through' : 'none' }}>{t.descripcion}</p>
+                    {t.detalle && <p className="text-[12px]" style={{ color: '#6B7280' }}>{t.detalle}</p>}
+                    <p className="text-[11px] mt-0.5" style={{ color: '#94A3B8' }}>
+                      {t.fecha_limite ? `Para el ${new Date(t.fecha_limite).toLocaleDateString()}` : 'Sin fecha límite'}
+                      {hecha && t.cumplida_at ? ` · ✔ cumplida el ${new Date(t.cumplida_at).toLocaleDateString()}` : ''}
+                    </p>
+                    {/* Audio / imagen de apoyo */}
+                    <div className="mt-2">
+                      {t.adjunto_ruta ? (
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {esAudio(t.adjunto_mime)
+                            ? <audio controls src={imgUrl(t.adjunto_ruta)} style={{ height: 34, maxWidth: 260 }} />
+                            : esImagen(t.adjunto_mime)
+                              ? <a href={imgUrl(t.adjunto_ruta)} target="_blank" rel="noopener noreferrer"><img src={imgUrl(t.adjunto_ruta)} alt="" className="h-14 rounded-lg" style={{ border: '1px solid #E5E9E7' }} /></a>
+                              : <a href={imgUrl(t.adjunto_ruta)} target="_blank" rel="noopener noreferrer" className="text-[12px] font-semibold" style={{ color: TEAL }}>📎 {t.adjunto_nombre}</a>}
+                          {puedeClinico && <button onClick={() => quitarAudio(t)} className="text-[11px]" style={{ color: '#DC2626' }}>Quitar</button>}
+                        </div>
+                      ) : puedeClinico ? (
+                        <label className="inline-flex items-center gap-1.5 text-[11.5px] font-semibold px-2.5 py-1 rounded-lg cursor-pointer" style={{ background: '#CCFBF1', color: TEAL }}>
+                          {subiendoId === t.id ? <Loader2 size={12} className="animate-spin" /> : '🔊'} Adjuntar audio
+                          <input type="file" className="hidden" accept="audio/*,image/*" disabled={subiendoId === t.id}
+                            onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; subirAudio(t, f); }} />
+                        </label>
+                      ) : null}
+                    </div>
+                  </div>
+                  {puedeClinico && <button onClick={() => borrar(t)} title="Eliminar" className="shrink-0"><Trash2 size={14} style={{ color: '#DC2626' }} /></button>}
+                </li>
+              );
+            })}
+          </ul>
+        </>
+      )}
+    </Section>
+  );
+}
+
+function FormTarea({ slug, historiaId, onCreated, onCancel }: {
+  slug: string; historiaId: number; onCreated: (t: Tarea) => void; onCancel: () => void;
+}) {
+  const [descripcion, setDescripcion] = useState('');
+  const [detalle, setDetalle] = useState('');
+  const [fecha, setFecha] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!descripcion.trim()) return;
+    setSaving(true);
+    const t = await terapApi.createTarea(slug, historiaId, { descripcion, detalle: detalle || null, fecha_limite: fecha || null });
+    onCreated(t); setSaving(false);
+  };
+
+  return (
+    <form onSubmit={submit} className="rounded-xl p-3.5 mb-3 space-y-2.5" style={{ background: '#F6FAF9', border: '1px solid #E5E9E7' }}>
+      <input className="vx-input" placeholder="Tarea (ej. Practicar tarjetas de /r/ 5 min)" value={descripcion} onChange={e => setDescripcion(e.target.value)} autoFocus />
+      <input className="vx-input" placeholder="Detalle / cómo hacerla (opcional)" value={detalle} onChange={e => setDetalle(e.target.value)} />
+      <div className="flex items-center gap-2 flex-wrap">
+        <label className="text-[12px]" style={{ color: '#64748B' }}>Fecha límite</label>
+        <input type="date" className="vx-input max-w-[160px]" value={fecha} onChange={e => setFecha(e.target.value)} />
+        <div className="ml-auto flex gap-2">
+          <button type="button" onClick={onCancel} className="px-3 py-2 rounded-lg text-[12.5px] font-semibold" style={{ background: '#F1F5F4', color: '#374151' }}>Cancelar</button>
+          <button type="submit" disabled={saving} className="px-3 py-2 rounded-lg text-white text-[12.5px] font-semibold flex items-center gap-1.5" style={{ background: TEAL }}>
+            {saving && <Loader2 size={13} className="animate-spin" />} Asignar tarea
+          </button>
+        </div>
+      </div>
+    </form>
+  );
+}
+
 // ── Primitivos ────────────────────────────────────────────────────────────────
 function Section({ icon: Icon, titulo, accion, children }: {
   icon: any; titulo: string; accion?: React.ReactNode; children: React.ReactNode;
 }) {
   return (
     <div className="rounded-2xl bg-white p-5 mb-5" style={{ border: '1px solid #E5E9E7' }}>
-      <div className="flex items-center justify-between mb-3.5">
-        <div className="flex items-center gap-2">
-          <Icon size={17} style={{ color: TEAL }} />
+      <div className="flex items-center justify-between mb-3.5 gap-3">
+        <div className="flex items-center gap-2.5">
+          <div className="h-8 w-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: '#CCFBF1' }}>
+            <Icon size={16} style={{ color: TEAL }} />
+          </div>
           <h2 className="text-[15px] font-bold" style={{ color: '#0E1A1A' }}>{titulo}</h2>
         </div>
         {accion}
@@ -637,6 +1127,27 @@ function SoapField({ label, value, onChange, placeholder }: { label: string; val
     <div>
       <label className="block text-[11px] font-semibold mb-1" style={{ color: TEAL }}>{label}</label>
       <textarea rows={2} className="vx-input" value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} />
+    </div>
+  );
+}
+
+/** Línea de una evolución SOAP: etiqueta de color + texto. No pinta nada si está vacía. */
+function SoapLine({ tag, color, text }: { tag: string; color: string; text?: string | null }) {
+  if (!text) return null;
+  return (
+    <p className="flex gap-2 text-[12.5px]" style={{ color: '#374151' }}>
+      <span className="inline-flex items-center justify-center h-5 w-5 rounded text-[11px] font-bold shrink-0 mt-0.5" style={{ background: `${color}1A`, color }}>{tag}</span>
+      <span>{text}</span>
+    </p>
+  );
+}
+
+/** Estado vacío compacto para las secciones. */
+function Vacio({ icon, text }: { icon: React.ReactNode; text: React.ReactNode }) {
+  return (
+    <div className="py-8 flex flex-col items-center text-center">
+      <div className="h-11 w-11 rounded-2xl flex items-center justify-center mb-2" style={{ background: '#F2F4F3', color: '#94A3B8' }}>{icon}</div>
+      <p className="text-[12.5px] max-w-xs" style={{ color: '#94A3B8' }}>{text}</p>
     </div>
   );
 }

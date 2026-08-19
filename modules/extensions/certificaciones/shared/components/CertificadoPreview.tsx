@@ -39,9 +39,10 @@ interface Props {
   onSelectField?: (key: string | null) => void;
 }
 
-/* Datos de ejemplo: así el usuario VE cómo queda con un alumno real. */
+/* Datos de ejemplo: así el usuario VE cómo queda con un alumno real.
+ * El grado (Mag.) va delante del nombre, como en el certificado real. */
 const EJEMPLO = {
-  participante: 'Ana María Torres López',
+  participante: 'Mag. Ana María Torres López',
   tipoDocumento: 'DNI',
   documento:    '12345678',
   fechaInicio:  '15 de agosto de 2026',

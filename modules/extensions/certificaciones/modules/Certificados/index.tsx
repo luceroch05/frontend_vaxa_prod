@@ -497,7 +497,8 @@ export default function CertificadosLote({ tenantId, tenant, loteId }: Certifica
                           <div className="flex items-center justify-between">
                             <div>
                               <p className="text-sm font-medium text-gray-900">
-                                {participante.nombre_actual || participante.nombre_completo}
+                                {participante.nombre_actual
+                                  || `${participante.termino ? `${participante.termino} ` : ''}${participante.nombre_completo}`}
                               </p>
                               <p className="text-xs text-gray-500 mt-0.5">
                                 DNI: {participante.numero_documento}

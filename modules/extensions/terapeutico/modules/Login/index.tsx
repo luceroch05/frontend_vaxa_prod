@@ -1,5 +1,5 @@
 import { useState, FormEvent } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Mail, Lock, Loader2, AlertCircle, Eye, EyeOff, Activity, ArrowRight } from '@/components/ui/icon';
 import { authStorage } from '@/lib/auth';
 import { terapPath } from '@/lib/paths';
@@ -10,7 +10,6 @@ import { useBranding } from '../../shared/TerapLayout';
 const TEAL = '#0F766E';
 
 export default function TerapLogin() {
-  const { empresa } = useParams<{ empresa: string }>();
   const navigate = useNavigate();
   const { slug, razonSocial, logoUrl, activo } = useBranding();
   const marca = razonSocial ?? slug;
@@ -26,9 +25,9 @@ export default function TerapLogin() {
     if (!activo) return;
     setLoading(true); setError(null);
     try {
-      const { token, usuario } = await terapAuthApi.login(empresa!, correo, contrasena);
-      authStorage.setSession(empresa!, token, usuario);
-      navigate(terapPath(empresa!, '/panel'));
+      const { token, usuario } = await terapAuthApi.login(slug, correo, contrasena);
+      authStorage.setSession(slug, token, usuario);
+      navigate(terapPath(slug, '/panel'));
     } catch (err) {
       setError(err instanceof ApiError ? (err.status === 401 ? 'Credenciales incorrectas' : err.message) : 'Error de conexión');
     } finally {

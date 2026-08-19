@@ -39,6 +39,11 @@ export default defineConfig({
   // corre en otro puerto, así que proxeamos /uploads al backend para que los <img
   // src="/uploads/..."> carguen. En prod el backend sirve el front (mismo origen) y no hace falta.
   server: {
+    // Escuchar también en IPv4 (127.0.0.1), no solo IPv6: así funciona probar con
+    // «<slug>.lvh.me» (resuelve a 127.0.0.1) para los dominios propios de cliente.
+    host: true,
+    // Permite hosts arbitrarios en desarrollo (ej. centro-demo.lvh.me).
+    allowedHosts: true,
     proxy: {
       '/uploads': process.env.VITE_API_URL || 'http://localhost:4000',
     },

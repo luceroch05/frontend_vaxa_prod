@@ -1,15 +1,15 @@
-import { Navigate, Outlet, useOutletContext, useParams } from 'react-router-dom';
+import { Navigate, Outlet, useOutletContext } from 'react-router-dom';
 import { authStorage } from '@/lib/auth';
 import { terapPath } from '@/lib/paths';
+import { useEmpresaSlug } from '@/lib/useEmpresa';
 import type { Branding } from './TerapLayout';
 
 const norm = (s?: string) => s?.toLowerCase().trim();
 
 /** Protege el panel: exige sesión válida para esta empresa. */
 export default function TerapGuard() {
-  const { empresa } = useParams<{ empresa: string }>();
   const branding = useOutletContext<Branding>();   // viene de TerapLayout
-  const slug = empresa!;
+  const slug = useEmpresaSlug()!;
 
   const user = authStorage.getUser(slug);
   const tieneSesion = authStorage.isAuthenticated(slug) && norm(user?.empresa) === norm(slug);

@@ -1,15 +1,14 @@
 import { useEffect, useState, FormEvent } from 'react';
-import { useParams } from 'react-router-dom';
 import { Loader2, Plus, Save, Pencil, Users, Activity } from '@/components/ui/icon';
 import { authStorage } from '@/lib/auth';
+import { useEmpresaSlug } from '@/lib/useEmpresa';
 import { terapApi, type Servicio, type Terapeuta } from '../../shared/api/terapeutico.api';
 
 const TEAL = '#0F766E';
 const gestiona = (rol?: string) => ['ADMINISTRADOR', 'ADMISION'].includes((rol ?? '').toUpperCase());
 
 export default function Servicios() {
-  const { empresa } = useParams<{ empresa: string }>();
-  const slug = empresa!;
+  const slug = useEmpresaSlug()!;
   const rol = authStorage.getUser(slug)?.rol;
   const puede = gestiona(rol);
 

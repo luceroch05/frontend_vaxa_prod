@@ -15,11 +15,19 @@ const VACIO = { nombres: '', apellidos: '', correo: '', contrasena: '', rol_id: 
 const USUARIO_EXTRA = { activacion: 50, mensual: 5 };
 const sol = (n: number) => `S/ ${n.toFixed(2)}`;
 
+/** Productos con panel propio: cada uno tiene SUS usuarios (no se comparten). */
+const PRODUCTOS = [
+  { slug: 'certificaciones', label: 'Certificados' },
+  { slug: 'historias-clinicas', label: 'Historias Clínicas' },
+] as const;
+
 export default function TabUsuarios({ empresa }: TabUsuariosProps) {
   const [usuarios, setUsuarios] = useState<UsuarioEmpresa[] | null>(null);
   const [roles, setRoles] = useState<Rol[]>([]);
   const [estado, setEstado] = useState<EstadoPlanEmpresa | null>(null);   // plan vigente (usuarios incluidos)
   const [error, setError] = useState<string | null>(null);
+  // Producto activo: cada panel (Certificados / Historias Clínicas) lista y crea SUS usuarios.
+  const [producto, setProducto] = useState<string>('certificaciones');
 
   // null = cerrado · 'nuevo' = crear · number = editar ese usuario
   const [modal, setModal] = useState<'nuevo' | number | null>(null);
@@ -31,16 +39,16 @@ export default function TabUsuarios({ empresa }: TabUsuariosProps) {
   const editando = typeof modal === 'number';
 
   const cargar = useCallback(async () => {
-    setError(null);
+    setError(null); setUsuarios(null);
     try {
       const [us, rs, est] = await Promise.all([
-        creditosAdminApi.listUsuarios(empresa.id, 'certificaciones'),
+        creditosAdminApi.listUsuarios(empresa.id, producto),
         creditosAdminApi.listRoles(),
         creditosAdminApi.getPlanEmpresa(empresa.id).catch(() => null),
       ]);
       setUsuarios(us); setRoles(rs); setEstado(est);
     } catch (e) { setError((e as Error).message); }
-  }, [empresa.id]);
+  }, [empresa.id, producto]);
 
   useEffect(() => { cargar(); }, [cargar]);
 
@@ -76,7 +84,7 @@ export default function TabUsuarios({ empresa }: TabUsuariosProps) {
       } else {
         const nuevo = await creditosAdminApi.crearUsuario(empresa.id, {
           nombres: form.nombres, apellidos: form.apellidos, correo: form.correo,
-          contrasena: form.contrasena, rol_id: Number(form.rol_id), producto: 'certificaciones',
+          contrasena: form.contrasena, rol_id: Number(form.rol_id), producto,
         });
         setUsuarios((prev) => [...(prev ?? []), nuevo]);
       }
@@ -107,7 +115,7 @@ export default function TabUsuarios({ empresa }: TabUsuariosProps) {
     if (!confirmDel) return;
     setDeleting(true); setError(null);
     try {
-      await creditosAdminApi.eliminarUsuario(empresa.id, confirmDel.id, 'certificaciones');
+      await creditosAdminApi.eliminarUsuario(empresa.id, confirmDel.id, producto);
       setUsuarios((prev) => (prev ?? []).filter((u) => u.id !== confirmDel.id));
       setConfirmDel(null);
     } catch (e) { setError((e as Error).message); }
@@ -121,22 +129,42 @@ export default function TabUsuarios({ empresa }: TabUsuariosProps) {
   const enUso = usuarios?.length ?? 0;
   const adicionales = (incluidos != null && !ilimitadoU) ? Math.max(enUso - incluidos, 0) : 0;
   // Crear uno más sería ADICIONAL (cobra S/50 + S/5/mes) si ya se llenó el cupo del plan.
-  const creandoSeraAdicional = incluidos != null && !ilimitadoU && enUso >= incluidos;
+  // Solo aplica a Certificados (su tarifario); Historias Clínicas no cobra por usuario aquí.
+  const esCert = producto === 'certificaciones';
+  const creandoSeraAdicional = esCert && incluidos != null && !ilimitadoU && enUso >= incluidos;
+  const productoLabel = PRODUCTOS.find((p) => p.slug === producto)?.label ?? producto;
 
   return (
     <div className="space-y-6">
+      {/* Selector de producto: cada panel tiene sus propios usuarios (no se comparten). */}
+      <div className="inline-flex rounded-xl p-1 gap-1" style={{ background: '#F1F0EC', border: '1px solid #EEECE6' }}>
+        {PRODUCTOS.map((p) => {
+          const activo = producto === p.slug;
+          return (
+            <button key={p.slug} type="button"
+              onClick={() => { if (!activo) { setError(null); setProducto(p.slug); } }}
+              className="px-4 py-1.5 rounded-lg text-[12.5px] font-semibold transition-colors"
+              style={activo
+                ? { background: '#fff', color: '#0D0E12', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }
+                : { color: '#8A8578' }}>
+              {p.label}
+            </button>
+          );
+        })}
+      </div>
+
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-[15px] font-bold" style={{ color: '#0D0E12' }}>Usuarios de la empresa</h3>
-          <p className="text-[12.5px] mt-0.5" style={{ color: '#9CA3AF' }}>Operadores que acceden al panel de certificados de <b style={{ color: '#64748B' }}>{empresa.razon_social}</b></p>
+          <h3 className="text-[15px] font-bold" style={{ color: '#0D0E12' }}>Usuarios de {productoLabel}</h3>
+          <p className="text-[12.5px] mt-0.5" style={{ color: '#9CA3AF' }}>Operadores que acceden al panel de {productoLabel} de <b style={{ color: '#64748B' }}>{empresa.razon_social}</b></p>
         </div>
         <button onClick={abrirNuevo} className="sv-btn sv-btn-primary flex-shrink-0">
           <Plus className="w-4 h-4" /> Agregar usuario
         </button>
       </div>
 
-      {/* Cupo de usuarios del plan + precio del usuario adicional */}
-      {plan && (
+      {/* Cupo de usuarios del plan + precio del usuario adicional (solo Certificados). */}
+      {esCert && plan && (
         <div className="rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4" style={{ background: '#fff', border: '1px solid #EEECE6' }}>
           <div className="flex items-center gap-5 flex-wrap">
             <div>
@@ -271,7 +299,7 @@ export default function TabUsuarios({ empresa }: TabUsuariosProps) {
             </div>
             <h3 className="text-[17px] font-bold" style={{ color: '#0D0E12' }}>Eliminar usuario</h3>
             <p className="text-[13px] mt-1.5" style={{ color: '#6B7280', lineHeight: 1.5 }}>
-              Se quitará el acceso de <b>{confirmDel.nombres} {confirmDel.apellidos}</b> al panel de certificados de esta empresa. Esta acción no se puede deshacer.
+              Se quitará el acceso de <b>{confirmDel.nombres} {confirmDel.apellidos}</b> al panel de {productoLabel} de esta empresa. Esta acción no se puede deshacer.
             </p>
             {error && <p className="text-[12.5px] mt-3" style={{ color: '#DC2626' }}>{error}</p>}
             <div className="flex items-center gap-2.5 mt-6">

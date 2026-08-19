@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, FormEvent } from 'react';
-import { useParams } from 'react-router-dom';
 import { Calendar, Plus, Loader2, X, ChevronLeft, ChevronRight } from '@/components/ui/icon';
+import { useEmpresaSlug } from '@/lib/useEmpresa';
 import { authStorage } from '@/lib/auth';
 import {
   terapApi, type Cita, type Paciente, type Terapeuta, type Servicio, type Catalogos, type CitaDto,
@@ -25,8 +25,7 @@ const toLocalInput = (dt?: string | null) => {
 };
 
 export default function Agenda() {
-  const { empresa } = useParams<{ empresa: string }>();
-  const slug = empresa!;
+  const slug = useEmpresaSlug()!;
   const rol = authStorage.getUser(slug)?.rol;
 
   const [cursor, setCursor] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });

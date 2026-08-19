@@ -12,18 +12,41 @@
  * Si mañana cambian los subdominios, se toca SOLO este archivo.
  */
 
-export type HostMode = 'legacy' | 'sistemas' | 'certificados';
+export type HostMode = 'legacy' | 'sistemas' | 'certificados' | 'terapeutico';
 
 export interface HostInfo {
   modo: HostMode;
-  /** Tenant fijo cuando el subdominio lo determina (sistemas → 'sistemas-vaxa'). */
+  /** Tenant fijo cuando el dominio lo determina (sistemas → 'sistemas-vaxa'; dominio propio → su slug). */
   tenant: string;
 }
+
+/**
+ * Dominios PROPIOS de clientes → su tenant de Historias Clínicas.
+ * Cada cliente que usa su dominio se agrega aquí (más adelante puede leerse de BD).
+ *   'mundokids.com.pe' → tenant 'mundokids'
+ */
+const DOMINIOS_TERAPEUTICO: Record<string, string> = {
+  // Dominio de PRUEBA (synap.pe, que ya tenemos) → tenant demo con usuarios listos.
+  'synap.pe': 'centro-demo',
+  'www.synap.pe': 'centro-demo',
+  // Cliente real (se activa cuando compren el dominio):
+  // 'mundokids.com.pe': 'mundokids',
+  // 'www.mundokids.com.pe': 'mundokids',
+};
 
 export function getHostMode(): HostInfo {
   if (typeof window === 'undefined') return { modo: 'legacy', tenant: '' };
   const h = window.location.hostname.toLowerCase();
   if (h.startsWith('sistemas.'))     return { modo: 'sistemas',     tenant: 'sistemas-vaxa' };
   if (h.startsWith('certificados.')) return { modo: 'certificados', tenant: '' };
+
+  // Dominio propio del cliente (Historias Clínicas): la URL queda limpia y el
+  // tenant lo fija el dominio, no el path.
+  if (DOMINIOS_TERAPEUTICO[h]) return { modo: 'terapeutico', tenant: DOMINIOS_TERAPEUTICO[h] };
+
+  // Prueba local SIN tocar el archivo hosts de Windows: cualquier «<slug>.lvh.me»
+  // resuelve a 127.0.0.1 automáticamente. Ej: mundokids.lvh.me → tenant 'mundokids'.
+  if (h.endsWith('.lvh.me')) return { modo: 'terapeutico', tenant: h.split('.')[0] };
+
   return { modo: 'legacy', tenant: '' };
 }

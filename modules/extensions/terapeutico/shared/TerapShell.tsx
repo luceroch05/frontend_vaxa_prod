@@ -1,17 +1,17 @@
-import { Outlet, useOutletContext, useNavigate, useParams, NavLink } from 'react-router-dom';
-import { Users, LogOut, Activity, Calendar, Layers } from '@/components/ui/icon';
+import { Outlet, useOutletContext, useNavigate, NavLink } from 'react-router-dom';
+import { Users, LogOut, Activity, Calendar, Layers, Globe } from '@/components/ui/icon';
 import { authStorage } from '@/lib/auth';
 import { terapPath } from '@/lib/paths';
+import { useEmpresaSlug } from '@/lib/useEmpresa';
 import type { Branding } from './TerapLayout';
 
 const TEAL = '#0F766E';
 
 /** Layout del panel: cabecera con logo del centro + nav lateral + logout. */
 export default function TerapShell() {
-  const { empresa } = useParams<{ empresa: string }>();
   const branding = useOutletContext<Branding>();
   const navigate = useNavigate();
-  const slug = empresa!;
+  const slug = useEmpresaSlug()!;
   const user = authStorage.getUser(slug);
   const marca = branding?.razonSocial ?? slug;
 
@@ -20,11 +20,14 @@ export default function TerapShell() {
     navigate(terapPath(slug, '/login'));
   };
 
-  const gestiona = ['ADMINISTRADOR', 'ADMISION'].includes((user?.rol ?? '').toUpperCase());
+  const rolUpper = (user?.rol ?? '').toUpperCase();
+  const gestiona = ['ADMINISTRADOR', 'ADMISION'].includes(rolUpper);
+  const esAdmin = rolUpper === 'ADMINISTRADOR';
   const nav = [
     { to: terapPath(slug, '/panel'), label: 'Pacientes', icon: Users, end: true },
     { to: terapPath(slug, '/panel/agenda'), label: 'Agenda', icon: Calendar, end: false },
     ...(gestiona ? [{ to: terapPath(slug, '/panel/servicios'), label: 'Servicios', icon: Layers, end: false }] : []),
+    ...(esAdmin ? [{ to: terapPath(slug, '/panel/web'), label: 'Mi Web', icon: Globe, end: false }] : []),
   ];
 
   return (

@@ -29,7 +29,12 @@ export function certPath(empresa: string, sub = ''): string {
  * cuando lo haya, se replica el patrón de certPath con su HostMode).
  */
 export function terapPath(empresa: string, sub = ''): string {
-  return `/${empresa}/terapeutico${sub}`;
+  // En el dominio propio del cliente el tenant lo fija el dominio, así que la
+  // ruta va sin el prefijo /:empresa/terapeutico (URL limpia: /login, /panel…).
+  const { modo } = getHostMode();
+  return modo === 'terapeutico'
+    ? (sub || '/')
+    : `/${empresa}/terapeutico${sub}`;
 }
 
 /**

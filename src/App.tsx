@@ -36,6 +36,8 @@ import TerapPacientes    from '../modules/extensions/terapeutico/modules/Pacient
 import TerapPacienteDetalle from '../modules/extensions/terapeutico/modules/PacienteDetalle';
 import TerapAgenda       from '../modules/extensions/terapeutico/modules/Agenda';
 import TerapServicios    from '../modules/extensions/terapeutico/modules/Servicios';
+import TerapMiWeb        from '../modules/extensions/terapeutico/modules/MiWeb';
+import TerapLanding      from '../modules/extensions/terapeutico/modules/Landing';
 import PortalPadres      from '../modules/extensions/terapeutico/modules/PortalPadres';
 
 /** Compatibilidad: la ruta vieja /admin/login redirige al nuevo login. */
@@ -100,6 +102,7 @@ function terapeuticoChildren() {
           <Route index element={<TerapPacientes />} />
           <Route path="agenda" element={<TerapAgenda />} />
           <Route path="servicios" element={<TerapServicios />} />
+          <Route path="web" element={<TerapMiWeb />} />
           <Route path="pacientes/:id" element={<TerapPacienteDetalle />} />
         </Route>
       </Route>
@@ -146,6 +149,33 @@ export default function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/:empresa" element={<CertificadosLayout />}>
           {certificadosChildren()}
+        </Route>
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    );
+  }
+
+  // ── Dominio propio del cliente (mundokids.com.pe) → Historias Clínicas en la raíz.
+  //    El tenant lo fija el dominio (ver lib/host.ts); la URL queda limpia
+  //    (mundokids.com.pe/login, /panel…). ─────────────────────────────────────
+  if (modo === 'terapeutico') {
+    return (
+      <Routes>
+        {/* Web pública del cliente en la raíz (su diseño + contenido del tenant). */}
+        <Route path="/" element={<TerapLanding />} />
+        {/* Sistema (login + panel de historias) bajo el mismo dominio, URL limpia. */}
+        <Route element={<TerapLayout />}>
+          <Route path="login" element={<TerapLogin />} />
+          <Route path="portal/:token" element={<PortalPadres />} />
+          <Route path="panel" element={<TerapGuard />}>
+            <Route element={<TerapShell />}>
+              <Route index element={<TerapPacientes />} />
+              <Route path="agenda" element={<TerapAgenda />} />
+              <Route path="servicios" element={<TerapServicios />} />
+              <Route path="web" element={<TerapMiWeb />} />
+              <Route path="pacientes/:id" element={<TerapPacienteDetalle />} />
+            </Route>
+          </Route>
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

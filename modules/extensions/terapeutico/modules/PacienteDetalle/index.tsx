@@ -1,5 +1,6 @@
 import { useEffect, useState, FormEvent } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useEmpresaSlug } from '@/lib/useEmpresa';
 import { ArrowLeft, Loader2, FileText, Activity, ClipboardList, Plus, Save, User, Users, X,
   FolderOpen, Upload, Download, Trash2, PrinterIcon, TrendingUp, ChevronDown, CheckCircle, Home, Calendar as CalendarIcon } from '@/components/ui/icon';
 import { authStorage } from '@/lib/auth';
@@ -47,8 +48,8 @@ const TABS: { id: TabId; label: string; icon: any }[] = [
 ];
 
 export default function PacienteDetalle() {
-  const { empresa, id } = useParams<{ empresa: string; id: string }>();
-  const slug = empresa!;
+  const { id } = useParams<{ id: string }>();
+  const slug = useEmpresaSlug()!;
   const pacienteId = Number(id);
   const navigate = useNavigate();
   const rol = authStorage.getUser(slug)?.rol;

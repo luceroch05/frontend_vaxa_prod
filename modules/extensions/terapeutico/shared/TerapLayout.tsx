@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Outlet, useOutletContext, useParams } from 'react-router-dom';
+import { Outlet, useOutletContext } from 'react-router-dom';
 import { Loader2 } from '@/components/ui/icon';
 import { imgUrl } from '@/lib/api/client';
+import { useEmpresaSlug } from '@/lib/useEmpresa';
 import { terapAuthApi } from './api/terapeutico.api';
 
 type Estado = 'verificando' | 'existe' | 'no-existe';
@@ -20,8 +21,7 @@ export const useBranding = () => useOutletContext<Branding>();
  * renderizar login/panel y provee el branding (logo) a las páginas hijas.
  */
 export default function TerapLayout() {
-  const { empresa } = useParams<{ empresa: string }>();
-  const slug = empresa!;
+  const slug = useEmpresaSlug()!;
   const [estado, setEstado] = useState<Estado>('verificando');
   const [branding, setBranding] = useState<Branding>({ slug, razonSocial: null, logoUrl: null, activo: true });
 

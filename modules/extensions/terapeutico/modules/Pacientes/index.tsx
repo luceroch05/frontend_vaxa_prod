@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, FormEvent } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Users, UserPlus, Search, Loader2, X, ChevronRight, FileText, Sparkles } from '@/components/ui/icon';
+import { useEmpresaSlug } from '@/lib/useEmpresa';
 import { authStorage } from '@/lib/auth';
 import { terapPath } from '@/lib/paths';
 import { terapApi, type Paciente, type Catalogos, type PacienteDto } from '../../shared/api/terapeutico.api';
@@ -38,8 +39,7 @@ const AV = [
 const avatar = (id: number) => AV[id % AV.length];
 
 export default function Pacientes() {
-  const { empresa } = useParams<{ empresa: string }>();
-  const slug = empresa!;
+  const slug = useEmpresaSlug()!;
   const navigate = useNavigate();
   const rol = authStorage.getUser(slug)?.rol;
 

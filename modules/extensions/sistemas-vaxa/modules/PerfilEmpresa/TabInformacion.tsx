@@ -23,7 +23,8 @@ export default function TabInformacion({ empresa, onChange }: TabInformacionProp
   const [tipoDoc, setTipoDoc] = useState(empresa.tipo_doc ?? '6');
   const [activo, setActivo] = useState(empresa.activo === 1);
   const [permiteDiseno, setPermiteDiseno] = useState(!!empresa.permite_diseno);
-  const [logo, setLogo] = useState<string | null>(empresa.logo_url);  // base64/data URL
+  const [logo, setLogo] = useState<string | null>(empresa.logo_url);  // base64/data URL — logo de registro
+  const [logoCert, setLogoCert] = useState<string | null>(empresa.logo_cert_url ?? null); // logo obligatorio del certificado
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -33,23 +34,27 @@ export default function TabInformacion({ empresa, onChange }: TabInformacionProp
     dominio !== (empresa.dominio ?? '') || ruc !== (empresa.ruc ?? '') ||
     tipoDoc !== (empresa.tipo_doc ?? '6') ||
     activo !== (empresa.activo === 1) || permiteDiseno !== !!empresa.permite_diseno ||
-    (logo ?? '') !== (empresa.logo_url ?? '');
+    (logo ?? '') !== (empresa.logo_url ?? '') ||
+    (logoCert ?? '') !== (empresa.logo_cert_url ?? '');
   const puedeGuardar = razon.trim() !== '' && slug.trim() !== '' && huboCambios;
 
   const reset = () => {
     setRazon(empresa.razon_social); setSlug(empresa.tenant_slug);
     setDominio(empresa.dominio ?? ''); setRuc(empresa.ruc ?? ''); setTipoDoc(empresa.tipo_doc ?? '6');
     setActivo(empresa.activo === 1); setPermiteDiseno(!!empresa.permite_diseno); setLogo(empresa.logo_url);
+    setLogoCert(empresa.logo_cert_url ?? null);
     setError(null); setEditing(false);
   };
 
-  const onLogoFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const leerArchivo = (e: React.ChangeEvent<HTMLInputElement>, set: (v: string) => void) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onloadend = () => setLogo(reader.result as string);
+    reader.onloadend = () => set(reader.result as string);
     reader.readAsDataURL(file);
   };
+  const onLogoFile = (e: React.ChangeEvent<HTMLInputElement>) => leerArchivo(e, setLogo);
+  const onLogoCertFile = (e: React.ChangeEvent<HTMLInputElement>) => leerArchivo(e, setLogoCert);
 
   const guardar = async () => {
     setSaving(true); setError(null);
@@ -62,7 +67,8 @@ export default function TabInformacion({ empresa, onChange }: TabInformacionProp
         tipo_doc: tipoDoc,
         activo,
         permite_diseno: permiteDiseno,
-        logo: logo ?? '',          // '' borra el logo
+        logo: logo ?? '',          // '' borra el logo de registro
+        logo_cert: logoCert ?? '', // '' quita el logo del certificado → cae al de registro
       });
       onChange?.();
       setEditing(false);
@@ -82,23 +88,49 @@ export default function TabInformacion({ empresa, onChange }: TabInformacionProp
           </div>
         )}
 
-        {/* Logo */}
-        <div className="flex items-center gap-5">
-          {logo ? (
-            <img src={imgUrl(logo)} alt="logo" className="w-20 h-20 rounded-xl object-contain border-2 border-gray-200" />
-          ) : (
-            <div className="w-20 h-20 rounded-xl border-2 border-dashed border-gray-300 flex items-center justify-center bg-gray-50">
-              <Building2 className="w-9 h-9 text-gray-400" />
+        {/* Logo de registro de la empresa */}
+        <Field label="Logo de la empresa (registro)">
+          <div className="flex items-center gap-5">
+            {logo ? (
+              <img src={imgUrl(logo)} alt="logo" className="w-20 h-20 rounded-xl object-contain border-2 border-gray-200" />
+            ) : (
+              <div className="w-20 h-20 rounded-xl border-2 border-dashed border-gray-300 flex items-center justify-center bg-gray-50">
+                <Building2 className="w-9 h-9 text-gray-400" />
+              </div>
+            )}
+            <div className="flex gap-2">
+              <label className="px-4 py-2 border-2 border-dashed border-gray-300 rounded-xl hover:border-emerald-400 cursor-pointer text-sm font-semibold text-gray-700 flex items-center gap-2">
+                <Upload className="w-4 h-4" /> Subir logo
+                <input type="file" accept="image/*" onChange={onLogoFile} className="hidden" />
+              </label>
+              {logo && <button onClick={() => setLogo(null)} className="px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-xl font-semibold">Quitar</button>}
             </div>
-          )}
-          <div className="flex gap-2">
-            <label className="px-4 py-2 border-2 border-dashed border-gray-300 rounded-xl hover:border-emerald-400 cursor-pointer text-sm font-semibold text-gray-700 flex items-center gap-2">
-              <Upload className="w-4 h-4" /> Subir logo
-              <input type="file" accept="image/*" onChange={onLogoFile} className="hidden" />
-            </label>
-            {logo && <button onClick={() => setLogo(null)} className="px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-xl font-semibold">Quitar</button>}
           </div>
-        </div>
+        </Field>
+
+        {/* Logo OBLIGATORIO dedicado al certificado (imagen aparte que asigna Vaxa) */}
+        <Field label="Logo obligatorio del certificado">
+          <div className="flex items-center gap-5">
+            {logoCert ? (
+              <img src={imgUrl(logoCert)} alt="logo certificado" className="w-20 h-20 rounded-xl object-contain border-2 border-emerald-200 bg-white" />
+            ) : (
+              <div className="w-20 h-20 rounded-xl border-2 border-dashed border-emerald-300 flex items-center justify-center bg-emerald-50/40">
+                <FileText className="w-9 h-9 text-emerald-400" />
+              </div>
+            )}
+            <div className="flex gap-2">
+              <label className="px-4 py-2 border-2 border-dashed border-gray-300 rounded-xl hover:border-emerald-400 cursor-pointer text-sm font-semibold text-gray-700 flex items-center gap-2">
+                <Upload className="w-4 h-4" /> {logoCert ? 'Cambiar' : 'Asignar imagen'}
+                <input type="file" accept="image/*" onChange={onLogoCertFile} className="hidden" />
+              </label>
+              {logoCert && <button onClick={() => setLogoCert(null)} className="px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-xl font-semibold">Quitar</button>}
+            </div>
+          </div>
+          <p className="text-xs text-gray-500 mt-1.5">
+            Imagen aparte que sale <b>obligatoriamente</b> en todos los certificados de este cliente (todos los planes).
+            Si no asignas una, se usa el logo de registro.
+          </p>
+        </Field>
 
         {/* Tipo de cliente: Empresa (RUC) vs Persona natural (DNI/CE/pasaporte) */}
         <Field label="Tipo de cliente">

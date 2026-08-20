@@ -173,14 +173,31 @@ export default function LienzoCampos({ layout, vars, codigo, qrDataUrl, logos = 
           fontFamily: fontFamilyCss(c.font),
         };
         const boldWeight = Math.max(weight, 700);
+        // Línea DEBAJO del texto (opción "underline"): del ancho del texto, alineada
+        // como él y separada por underlineOffset. Reusa la medición del subrayado adaptado.
+        let subrayado: CSSProperties | null = null;
+        if (c.underline) {
+          const fit = lineaSigueTexto(c, vars);
+          if (fit) {
+            const lineCount = measureTxt.split('\n').length || 1;
+            const top = (c.y ?? 0) + lineCount * fontSize * 1.2 + (c.underlineOffset ?? 6);
+            subrayado = {
+              position: 'absolute', left: fit.x, top, width: fit.w,
+              borderTop: `${c.underlineThickness ?? 1.5}px solid ${c.underlineColor ?? c.color ?? '#0f172a'}`,
+            };
+          }
+        }
         return (
-          <p key={key} style={style}>
-            {segmentosBold(txt).map((s, i) =>
-              s.bold
-                ? <strong key={i} style={{ fontWeight: boldWeight }}>{s.text}</strong>
-                : <span key={i}>{s.text}</span>,
-            )}
-          </p>
+          <div key={key}>
+            <p style={style}>
+              {segmentosBold(txt).map((s, i) =>
+                s.bold
+                  ? <strong key={i} style={{ fontWeight: boldWeight }}>{s.text}</strong>
+                  : <span key={i}>{s.text}</span>,
+              )}
+            </p>
+            {subrayado && <div style={subrayado} />}
+          </div>
         );
       })}
     </>

@@ -17,6 +17,7 @@ export interface EmpresaCreditos {
   ruc: string | null;
   tipo_doc?: string;        // cat.06: '6' RUC · '1' DNI · '4' CE · '7' pasaporte
   logo_url: string | null;
+  logo_cert_url?: string | null; // logo OBLIGATORIO dedicado al certificado (lo asigna Vaxa); si es null cae al logo_url
   activo: number;
   creditos_disponibles: number;
   creditos_asignados_total: number;
@@ -177,6 +178,8 @@ export interface CrearEmpresaDto {
   ruc?: string;
   tipo_doc?: string;    // cat.06: '6' RUC (default) · '1' DNI · '4' CE · '7' pasaporte
   logo?: string;
+  /** Logo OBLIGATORIO dedicado al certificado (imagen separada del logo de registro). Si no se asigna, el certificado usa el logo de registro. */
+  logo_cert?: string;
   plan_id?: number;     // plan con el que arranca (default: Básico)
   ciclo_id?: number;    // ciclo de facturación (default: mensual)
   /** Solo modo "Pago por certificado": S/ por cada certificado emitido (default 20). */
@@ -194,6 +197,8 @@ export interface EditarEmpresaDto {
   ruc?: string;
   tipo_doc?: string;    // cat.06: '6' RUC · '1' DNI · '4' CE · '7' pasaporte
   logo?: string;
+  /** Logo OBLIGATORIO dedicado al certificado (imagen separada del logo de registro). '' lo quita → cae al logo de registro. */
+  logo_cert?: string;
   activo?: boolean;
   /** Servicio a medida que activa/desactiva Vaxa: editor de "Diseño personalizado (Lienzo)".
    *  Requiere la columna empresas.permite_diseno en el backend para persistir/enforzar. */

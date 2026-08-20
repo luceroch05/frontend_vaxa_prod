@@ -14,6 +14,7 @@ import {
   Save,
   Upload,
   X,
+  FileText,
 } from '@/components/ui/icon';
 import HeaderSistemasVaxa from '../../shared/components/HeaderSistemasVaxa';
 import { VAXA_CONFIG } from '../../shared/constants';
@@ -76,6 +77,7 @@ export default function RegistrarEmpresaCertificaciones({
   const [error, setError] = useState<string | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoCertPreview, setLogoCertPreview] = useState<string | null>(null); // logo obligatorio del certificado
   const [planes, setPlanes] = useState<PlanCatalogo[]>([]);
   const [planId, setPlanId] = useState<number>(0);
   const [cicloId, setCicloId] = useState<number>(1);
@@ -166,6 +168,16 @@ export default function RegistrarEmpresaCertificaciones({
     setLogoPreview(null);
   };
 
+  const handleLogoCertChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => setLogoCertPreview(reader.result as string);
+      reader.readAsDataURL(file);
+    }
+  };
+  const removeLogoCert = () => setLogoCertPreview(null);
+
   // Plan seleccionado y si es el modo "Pago por certificado" (sin ciclo/mantenimiento).
   const planSel = planes.find((p) => p.id === planId);
   const esPagoCert = planSel?.slug === 'pago_certificado';
@@ -185,7 +197,8 @@ export default function RegistrarEmpresaCertificaciones({
         dominio: formData.dominio || undefined,
         ruc: formData.ruc || undefined,
         tipo_doc: formData.tipoDoc,
-        logo: logoPreview || undefined,            // data URL base64 del logo subido
+        logo: logoPreview || undefined,            // data URL base64 del logo de registro
+        logo_cert: logoCertPreview || undefined,   // logo obligatorio dedicado al certificado
         plan_id: planId || undefined,
         ciclo_id: cicloId,
         precio_certificado: esPagoCert ? (Number(precioCert) > 0 ? Number(precioCert) : 20) : undefined,
@@ -296,6 +309,58 @@ export default function RegistrarEmpresaCertificaciones({
                     className="hidden"
                   />
                 </label>
+              </div>
+            </div>
+
+            {/* Logo OBLIGATORIO del certificado: imagen aparte del logo de registro. */}
+            <div className="mt-8 pt-6 border-t border-gray-100">
+              <h3 className="text-[13.5px] font-bold text-gray-900 mb-1">Logo obligatorio del certificado</h3>
+              <p className="text-sm text-gray-500 mb-4">
+                Imagen aparte que saldrá <b>obligatoriamente</b> en todos los certificados de este cliente.
+                Si no la asignas, el certificado usará el logo de la empresa de arriba.
+              </p>
+              <div className="flex items-start gap-6">
+                <div className="flex-shrink-0">
+                  {logoCertPreview ? (
+                    <div className="relative">
+                      <img
+                        src={logoCertPreview}
+                        alt="Logo certificado preview"
+                        className="w-32 h-32 rounded-xl object-contain border-2 border-emerald-200 bg-white"
+                      />
+                      <button
+                        type="button"
+                        onClick={removeLogoCert}
+                        className="absolute -top-2 -right-2 w-8 h-8 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition-colors shadow-lg"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="w-32 h-32 rounded-xl border-2 border-dashed border-emerald-300 flex items-center justify-center bg-emerald-50/40">
+                      <FileText className="w-12 h-12 text-emerald-400" />
+                    </div>
+                  )}
+                </div>
+                <div className="flex-1">
+                  <label className="block">
+                    <div className="px-6 py-4 border-2 border-dashed border-gray-300 rounded-xl hover:border-emerald-400 hover:bg-emerald-50 transition-all cursor-pointer">
+                      <div className="flex items-center gap-3">
+                        <Upload className="w-5 h-5 text-gray-600" />
+                        <div>
+                          <p className="font-semibold text-gray-900">Asignar imagen del certificado</p>
+                          <p className="text-sm text-gray-500">PNG, JPG hasta 5MB</p>
+                        </div>
+                      </div>
+                    </div>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleLogoCertChange}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
               </div>
             </div>
           </div>

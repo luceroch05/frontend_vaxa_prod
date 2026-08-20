@@ -34,6 +34,12 @@ export interface CampoTexto {
   tracking?:  number;
   /** Si true, el tamaño se ENCOGE solo para que el texto entre en una línea dentro de `w`. */
   autoFit?:   boolean;
+  /** Dibuja una línea DEBAJO del texto (tipo "línea del nombre"), separada del texto
+   *  (no pegada como un subrayado normal). El ancho se adapta al del texto. */
+  underline?:          boolean;
+  underlineColor?:     string;  // #hex (default: el color del texto)
+  underlineOffset?:    number;  // px de separación entre el texto y la línea (default 6)
+  underlineThickness?: number;  // px de grosor (default 1.5)
 }
 
 /** Familia CSS para la vista previa según el `font` del campo.

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -81,6 +81,19 @@ function TabBtn({
   );
 }
 
+/** Tamaño de tanda para la emisión masiva. Se emite por tandas (no una sola
+ *  petición gigante) para no reventar el timeout del servidor con cientos de PDFs. */
+const CHUNK_EMISION = 25;
+
+/** Limpia un texto para usarlo como nombre de archivo (quita \ / : * ? " < > | y
+ *  espacios de más). Se usa para descargar el certificado con el nombre del alumno. */
+function nombreArchivoSeguro(nombre: string): string {
+  return (nombre || 'certificado')
+    .replace(/[\\/:*?"<>|]+/g, ' ')   // caracteres inválidos en nombres de archivo
+    .replace(/\s+/g, ' ')
+    .trim() || 'certificado';
+}
+
 /* ── Pagina ─────────────────────────────────────────────────── */
 export default function AdminCertificados() {
   const { empresa } = useParams<{ empresa: string }>();
@@ -116,6 +129,37 @@ export default function AdminCertificados() {
   const [batchRunning, setBatchRunning] = useState(false);
   const [batchLabel, setBatchLabel] = useState('Emitiendo certificados...');
   const [batchProgress, setBatchProgress] = useState({ done: 0, total: 0, errors: 0 });
+  // Progreso "suavizado" para la barra: en vez de saltar de tanda en tanda (cada 25),
+  // avanza de a poquito y mientras la tanda está en vuelo hace un "trickle" lento para
+  // que no se vea congelada. El conteo numérico sí muestra el valor real (honesto).
+  const [displayDone, setDisplayDone] = useState(0);
+  const displayRef = useRef(0);
+  useEffect(() => { displayRef.current = displayDone; }, [displayDone]);
+  useEffect(() => {
+    // En reposo la barra está oculta: dejamos el progreso en 0 para que el próximo
+    // lote arranque desde cero (si no, heredaría el 100% del anterior y no animaría).
+    if (!batchRunning) { displayRef.current = 0; setDisplayDone(0); return; }
+    let raf = 0;
+    const tick = () => {
+      const { done, total } = batchProgress;
+      const prev = displayRef.current;
+      const enVuelo = done < total;
+      // Meta: si aún no alcanzamos el 'done' real (acaba de cerrar una tanda) corremos
+      // rápido hasta él; si ya lo alcanzamos y falta, trickle lento hacia el fin de la
+      // tanda en curso (sin pasarlo) para simular avance. Al terminar, 100%.
+      const meta = enVuelo ? Math.min(total, done + CHUNK_EMISION * 0.92) : total;
+      const diff = meta - prev;
+      if (diff > 0.05) {
+        const speed = prev < done ? 0.22 : 0.012;   // salto de tanda: rápido · trickle: lento
+        const next = prev + diff * speed;
+        displayRef.current = next;
+        setDisplayDone(next);
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [batchRunning, batchProgress]);
 
   const [generando, setGenerando] = useState<number | null>(null);
   const [anulando,  setAnulando]  = useState<number | null>(null);
@@ -162,6 +206,39 @@ export default function AdminCertificados() {
       setErrorMsg('No se pudo descargar el ZIP: ' + (e as Error).message);
     } finally {
       setDescargandoZip(false);
+    }
+  };
+
+  /** Descarga el PDF de UN certificado y lo guarda con el NOMBRE DEL PARTICIPANTE.
+   *  Antes era un <a download> que, al ser el PDF de otro origen, el navegador ignoraba
+   *  el nombre (o lo abría en vez de bajarlo). Ahora bajamos el archivo como blob y lo
+   *  guardamos nosotros con el nombre correcto. Si el cert aún no tiene PDF, se regenera. */
+  const [descargandoId, setDescargandoId] = useState<number | null>(null);
+  const handleDescargarUno = async (cert: Certificado) => {
+    if (descargandoId) return;
+    setDescargandoId(cert.id);
+    setErrorMsg(null);
+    try {
+      let ruta = cert.url;
+      if (!ruta) {
+        const r = await certificadosApi.regenerarPDF(empresa!, cert.id);
+        ruta = r.url;
+      }
+      const res = await fetch(`${apiBase}${ruta}`);
+      if (!res.ok) throw new Error('No se pudo obtener el PDF');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${nombreArchivoSeguro(cert.participante_nombre)}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e: unknown) {
+      setErrorMsg('No se pudo descargar el certificado: ' + (e as Error).message);
+    } finally {
+      setDescargandoId(null);
     }
   };
 
@@ -354,11 +431,10 @@ export default function AdminCertificados() {
   };
 
   /** Paso 2: emisión real de la tanda, ya confirmada desde la vista previa.
-   *  Se emite POR TANDAS (chunks) en vez de una sola petición gigante:
-   *   - la barra de progreso avanza de verdad entre tanda y tanda, y
-   *   - evita el timeout del servidor al generar cientos de PDFs en una sola llamada.
-   *  Cada tanda registra su propio movimiento de crédito (−N por tanda). */
-  const CHUNK_EMISION = 25;
+   *  Se emite POR TANDAS (CHUNK_EMISION) en vez de una sola petición gigante para
+   *  evitar el timeout del servidor. La barra se suaviza aparte (displayDone) para
+   *  que no se vea el salto de tanda en tanda. Cada tanda registra su propio
+   *  movimiento de crédito (−N por tanda). */
   const ejecutarEmision = async (ids: number[]) => {
     if (ids.length === 0) return;
     setBatchLabel('Emitiendo certificados...');
@@ -519,9 +595,11 @@ export default function AdminCertificados() {
           </div>
           <div className="h-2 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.08)' }}>
             <div
-              className="h-full rounded-full transition-all duration-200"
+              className="h-full rounded-full"
               style={{
-                width: `${(batchProgress.done / batchProgress.total) * 100}%`,
+                // El rAF (displayDone) ya anima el ancho suavemente; sin transición CSS
+                // para que no se "peleen" y quede fluido en vez de saltar cada tanda.
+                width: `${batchProgress.total ? Math.min(100, (displayDone / batchProgress.total) * 100) : 0}%`,
                 background: '#D97706',
               }}
             />
@@ -614,7 +692,8 @@ export default function AdminCertificados() {
           items={emitidosFiltrados}
           anulando={anulando}
           generandoPdf={generandoPdf}
-          apiBase={apiBase}
+          descargandoId={descargandoId}
+          onDescargar={handleDescargarUno}
           onVerPDF={handleVerPDF}
           onAnular={handleAnular}
           esAdmin={true}
@@ -1030,7 +1109,8 @@ function TablaEmitidos({
   items,
   anulando,
   generandoPdf,
-  apiBase,
+  descargandoId,
+  onDescargar,
   onVerPDF,
   onAnular,
   esAdmin,
@@ -1044,7 +1124,8 @@ function TablaEmitidos({
   items: Certificado[];
   anulando: number | null;
   generandoPdf: number | null;
-  apiBase: string;
+  descargandoId: number | null;
+  onDescargar: (c: Certificado) => void;
   onVerPDF: (c: Certificado) => void;
   onAnular: (id: number) => void;
   esAdmin: boolean;
@@ -1164,18 +1245,19 @@ function TablaEmitidos({
                 Ver
               </button>
 
-              {/* Descargar — link directo si ya hay URL */}
-              {c.url && (
-                <a
-                  href={`${apiBase}${c.url}`}
-                  download={`certificado-${c.codigo_unico}.pdf`}
-                  className="flex items-center justify-center w-8 h-8 rounded-xl transition-all"
-                  style={{ background: '#F0FDF4', color: '#15803D', border: '1px solid #BBF7D0' }}
-                  title="Descargar PDF"
-                >
-                  <Download size={12} />
-                </a>
-              )}
+              {/* Descargar — baja el PDF como blob y lo guarda con el nombre del participante */}
+              <button
+                onClick={() => onDescargar(c)}
+                disabled={descargandoId === c.id}
+                className="flex items-center justify-center w-8 h-8 rounded-xl transition-all"
+                style={{
+                  background: '#F0FDF4', color: '#15803D', border: '1px solid #BBF7D0',
+                  opacity: descargandoId === c.id ? 0.6 : 1,
+                }}
+                title={`Descargar PDF de ${c.participante_nombre}`}
+              >
+                {descargandoId === c.id ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}
+              </button>
 
               {/* Anular — solo ADMINISTRADOR */}
               {esAdmin && (

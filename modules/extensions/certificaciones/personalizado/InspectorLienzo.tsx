@@ -356,7 +356,22 @@ export default function InspectorLienzo({ layout, selectedKey, onChange, onSelec
                     <input type="checkbox" checked={!!c.autoFit} onChange={e => setCampo(sel, { autoFit: e.target.checked })} />
                     <span className="text-[11px]" style={{ color: '#475569' }}>Auto-ajustar</span>
                   </label>
+                  <label style={{ display: 'inline-flex', alignItems: 'center', gap: 5, cursor: 'pointer' }} title="Dibuja una línea debajo del texto (tipo línea del nombre), separada del texto y del ancho del texto">
+                    <input type="checkbox" checked={!!c.underline} onChange={e => setCampo(sel, { underline: e.target.checked })} />
+                    <span className="text-[11px]" style={{ color: '#475569' }}>Línea debajo</span>
+                  </label>
                 </div>
+                {/* Opciones de la línea debajo (solo si está activada). Se adapta al ancho del texto. */}
+                {c.underline && (
+                  <div className="flex flex-wrap items-end gap-2 rounded-lg p-2" style={{ background: '#FAFAF8', border: '1px solid #EEECE6' }}>
+                    <ColorBox label="Color línea" value={c.underlineColor} fallback={c.color ?? '#0f172a'} onChange={v => setCampo(sel, { underlineColor: v })} />
+                    <NumBox label="Grosor" value={c.underlineThickness} min={1} max={12} onChange={n => setCampo(sel, { underlineThickness: n })} />
+                    <NumBox label="Espacio" value={c.underlineOffset} min={0} max={80} onChange={n => setCampo(sel, { underlineOffset: n })} />
+                    <p className="text-[10.5px] w-full" style={{ color: '#9CA3AF' }}>
+                      La línea toma el <b>ancho del texto</b> y su alineación. Sube el <b>Espacio</b> para separarla más del texto.
+                    </p>
+                  </div>
+                )}
               </>
             )}
 

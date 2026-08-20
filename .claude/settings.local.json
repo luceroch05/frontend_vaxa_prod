@@ -241,7 +241,14 @@
       "Bash(ls \"C:\\\\Users\\\\Lucero\\\\Downloads\\\\Plantilla participantes — Grupo A.xlsx\")",
       "Bash(grep -viE \"^\\\\s*//|comentario\")",
       "Bash(grep -nE \"export \\(const|{\\).*\\\\bW\\\\b|export const W|export const H|^export .*\\\\bW,|\\\\bW =|\\\\bH =\" modules/extensions/certificaciones/shared/components/CertificadoPDF.tsx)",
-      "Bash(echo \"=== FRONT BUILD EXIT: $? ===\")"
+      "Bash(echo \"=== FRONT BUILD EXIT: $? ===\")",
+      "Bash(git stash *)",
+      "Bash(git checkout *)",
+      "PowerShell(Set-Location C:\\\\Users\\\\Lucero\\\\Desktop\\\\frontend_vaxa_prod; npx tsc --noEmit; \"exit=$LASTEXITCODE\")",
+      "Bash(git commit -m '@ *)",
+      "Bash(git commit *)",
+      "PowerShell(Set-Location C:\\\\Users\\\\Lucero\\\\Desktop\\\\backend-vaxa-prod; npx tsc --noEmit; \"back=$LASTEXITCODE\"; Set-Location C:\\\\Users\\\\Lucero\\\\Desktop\\\\frontend_vaxa_prod; npx tsc --noEmit; \"front=$LASTEXITCODE\")",
+      "PowerShell(Set-Location C:\\\\Users\\\\Lucero\\\\Desktop\\\\frontend_vaxa_prod; npx tsc --noEmit; \"front=$LASTEXITCODE\")"
     ],
     "deny": [],
     "ask": []

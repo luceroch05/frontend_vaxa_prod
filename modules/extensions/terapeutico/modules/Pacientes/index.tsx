@@ -4,10 +4,23 @@ import { Users, UserPlus, Search, Loader2, X, ChevronRight, FileText, Sparkles }
 import { useEmpresaSlug } from '@/lib/useEmpresa';
 import { authStorage } from '@/lib/auth';
 import { terapPath } from '@/lib/paths';
-import { terapApi, type Paciente, type Catalogos, type PacienteDto } from '../../shared/api/terapeutico.api';
+import { terapApi, type Paciente, type Catalogos, type PacienteDto, type Apoderado } from '../../shared/api/terapeutico.api';
 
 const TEAL = '#0F766E';
 const puedeGestionar = (rol?: string) => ['ADMINISTRADOR', 'ADMISION'].includes((rol ?? '').toUpperCase());
+const MAX_APODERADOS = 2;
+
+/** Edad en años a partir de la fecha de nacimiento (o null si no hay fecha válida). */
+function edadDe(fechaNac?: string | null): number | null {
+  if (!fechaNac) return null;
+  const d = new Date(fechaNac);
+  if (isNaN(d.getTime())) return null;
+  const hoy = new Date();
+  let e = hoy.getFullYear() - d.getFullYear();
+  const m = hoy.getMonth() - d.getMonth();
+  if (m < 0 || (m === 0 && hoy.getDate() < d.getDate())) e--;
+  return e;
+}
 
 /* ── Utilidades de presentación ─────────────────────────────────── */
 const DOC = { '1': 'DNI', '4': 'C.E.', '7': 'Pas.', '0': 'S/D' } as Record<string, string>;
@@ -184,6 +197,7 @@ export default function Pacientes() {
 
       {modal && catalogos && (
         <ModalNuevoPaciente
+          slug={slug}
           catalogos={catalogos}
           onClose={() => setModal(false)}
           onCreate={async (dto) => {
@@ -239,21 +253,54 @@ function EmptyState({ icon, title, text, action }: { icon: React.ReactNode; titl
 }
 
 /* ── Modal: nuevo paciente (por secciones) ──────────────────────── */
-function ModalNuevoPaciente({ catalogos, onClose, onCreate }: {
+function ModalNuevoPaciente({ slug, catalogos, onClose, onCreate }: {
+  slug: string;
   catalogos: Catalogos;
   onClose: () => void;
   onCreate: (dto: PacienteDto) => Promise<void>;
 }) {
   const [f, setF] = useState<PacienteDto>({ nombres: '', apellidos: '', tipo_doc: '1', num_doc: '' });
+  const [apoderados, setApoderados] = useState<Apoderado[]>([]);
+  const [docMsg, setDocMsg] = useState<string | null>(null);   // aviso: documento ya registrado
+  const [chkDoc, setChkDoc] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const set = (k: keyof PacienteDto, v: any) => setF(prev => ({ ...prev, [k]: v }));
 
+  const edad = edadDe(f.fecha_nacimiento);
+  const esMenor = edad !== null && edad < 18;
+  const sinDoc = (f.tipo_doc ?? '1') === '0';
+
+  // Verifica el documento contra el sistema al salir del input (todos se identifican por doc).
+  const verificarDoc = async () => {
+    const num = (f.num_doc ?? '').trim();
+    setDocMsg(null);
+    if (!num || sinDoc) return;
+    setChkDoc(true);
+    try {
+      const r = await terapApi.existePaciente(slug, f.tipo_doc ?? '1', num);
+      if (r.existe) setDocMsg(`Ya hay un paciente registrado con este documento: ${r.paciente?.nombre}.`);
+    } catch { /* si falla la verificación no bloqueamos, se valida igual al guardar */ }
+    finally { setChkDoc(false); }
+  };
+
+  // Apoderados dinámicos (hasta MAX_APODERADOS). Es una LISTA (escalable), no campos fijos.
+  const setApo = (i: number, k: keyof Apoderado, v: string) => setApoderados(prev => prev.map((a, j) => j === i ? { ...a, [k]: v } : a));
+  const addApo = () => setApoderados(prev => prev.length >= MAX_APODERADOS ? prev : [...prev, { nombre: '', relacion: '', telefono: '' }]);
+  const delApo = (i: number) => setApoderados(prev => prev.filter((_, j) => j !== i));
+
+  // Al detectar que es menor, arranca con un apoderado listo para llenar.
+  useEffect(() => { if (esMenor && apoderados.length === 0) setApoderados([{ nombre: '', relacion: '', telefono: '' }]); }, [esMenor]);
+
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!f.nombres.trim() || !f.apellidos.trim()) { setError('Nombres y apellidos son obligatorios'); return; }
+    if (!f.nombres.trim() || !f.apellidos.trim()) { setError('Nombres y apellidos son obligatorios.'); return; }
+    if (!sinDoc && !(f.num_doc ?? '').trim()) { setError('El número de documento es obligatorio (identifica al paciente).'); return; }
+    if (docMsg) { setError('Ese documento ya está registrado. Busca al paciente existente en la lista.'); return; }
+    const apoValidos = apoderados.filter(a => a.nombre.trim());
+    if (esMenor && apoValidos.length === 0) { setError('El paciente es menor de edad: registra al menos un apoderado.'); return; }
     setSaving(true); setError(null);
-    try { await onCreate(f); }
+    try { await onCreate({ ...f, apoderados: apoValidos }); }
     catch (err: any) { setError(err?.message ?? 'No se pudo guardar'); setSaving(false); }
   };
 
@@ -281,10 +328,19 @@ function ModalNuevoPaciente({ catalogos, onClose, onCreate }: {
                 <option value="7">Pasaporte</option><option value="0">Sin documento</option>
               </select>
             </Field>
-            <Field label="N° documento"><input className="vx-input" value={f.num_doc ?? ''} onChange={e => set('num_doc', e.target.value)} /></Field>
+            <Field label={sinDoc ? 'N° documento' : 'N° documento *'}>
+              <input className="vx-input" value={f.num_doc ?? ''} disabled={sinDoc}
+                onChange={e => { set('num_doc', e.target.value); if (docMsg) setDocMsg(null); }}
+                onBlur={verificarDoc}
+                style={docMsg ? { borderColor: '#DC2626' } : undefined} />
+              {chkDoc && <p className="text-[11px] mt-1" style={{ color: '#94A3B8' }}>Verificando…</p>}
+              {docMsg && <p className="text-[11.5px] mt-1 font-semibold" style={{ color: '#B91C1C' }}>{docMsg}</p>}
+            </Field>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Fecha nac."><input type="date" className="vx-input" value={f.fecha_nacimiento ?? ''} onChange={e => set('fecha_nacimiento', e.target.value)} /></Field>
+            <Field label={`Fecha nac.${edad !== null ? `  ·  ${edad} años${esMenor ? ' (menor)' : ''}` : ''}`}>
+              <input type="date" className="vx-input" value={f.fecha_nacimiento ?? ''} onChange={e => set('fecha_nacimiento', e.target.value)} />
+            </Field>
             <Field label="Sexo">
               <select className="vx-input" value={f.sexo_id ?? ''} onChange={e => set('sexo_id', e.target.value ? Number(e.target.value) : null)}>
                 <option value="">—</option>
@@ -298,15 +354,39 @@ function ModalNuevoPaciente({ catalogos, onClose, onCreate }: {
           </div>
           <Field label="Dirección"><input className="vx-input" value={f.direccion ?? ''} onChange={e => set('direccion', e.target.value)} /></Field>
 
-          <SectionLabel>Apoderado / contacto <span className="normal-case font-normal" style={{ color: '#94A3B8' }}>(para menores)</span></SectionLabel>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Nombre"><input className="vx-input" value={f.apoderado_nombre ?? ''} onChange={e => set('apoderado_nombre', e.target.value)} /></Field>
-            <Field label="Relación">
-              <input className="vx-input" list="rel-apod" value={f.apoderado_relacion ?? ''} onChange={e => set('apoderado_relacion', e.target.value)} placeholder="Madre, Padre…" />
+          {(esMenor || apoderados.length > 0) && (
+            <>
+              <div className="flex items-center justify-between pt-1">
+                <SectionLabel>
+                  Apoderado(s){esMenor && <span style={{ color: '#DC2626' }}> *</span>}
+                  <span className="normal-case font-normal" style={{ color: '#94A3B8' }}> (máx. {MAX_APODERADOS})</span>
+                </SectionLabel>
+                {apoderados.length < MAX_APODERADOS && (
+                  <button type="button" onClick={addApo} className="text-[12px] font-semibold" style={{ color: TEAL }}>+ Agregar apoderado</button>
+                )}
+              </div>
+              {esMenor && <p className="text-[11.5px]" style={{ color: '#B45309' }}>El paciente es menor de edad: registra a su apoderado (mín. 1).</p>}
+              {apoderados.map((a, i) => (
+                <div key={i} className="rounded-xl p-3 space-y-2" style={{ background: '#F6FAF9', border: '1px solid #E5E9E7' }}>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: '#64748B' }}>Apoderado {i + 1}</span>
+                    <button type="button" onClick={() => delApo(i)} className="text-[11px] font-semibold" style={{ color: '#DC2626' }}>Quitar</button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Field label="Nombre *"><input className="vx-input" value={a.nombre} onChange={e => setApo(i, 'nombre', e.target.value)} /></Field>
+                    <Field label="Relación">
+                      <input className="vx-input" list="rel-apod" value={a.relacion ?? ''} onChange={e => setApo(i, 'relacion', e.target.value)} placeholder="Madre, Padre…" />
+                    </Field>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Field label="Teléfono"><input className="vx-input" value={a.telefono ?? ''} onChange={e => setApo(i, 'telefono', e.target.value)} /></Field>
+                    <Field label="N° documento"><input className="vx-input" value={a.num_doc ?? ''} onChange={e => setApo(i, 'num_doc', e.target.value)} /></Field>
+                  </div>
+                </div>
+              ))}
               <datalist id="rel-apod"><option value="Madre" /><option value="Padre" /><option value="Tutor(a)" /><option value="Abuelo(a)" /></datalist>
-            </Field>
-          </div>
-          <Field label="Teléfono del apoderado"><input className="vx-input" value={f.apoderado_telefono ?? ''} onChange={e => set('apoderado_telefono', e.target.value)} /></Field>
+            </>
+          )}
 
           {error && <p className="text-[12.5px] px-3 py-2 rounded-lg" style={{ background: '#FEF2F2', color: '#B91C1C' }}>{error}</p>}
           <div className="flex justify-end gap-2 pt-1">

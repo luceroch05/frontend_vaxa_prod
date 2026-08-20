@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { Loader2, TrendingUp, Calendar, Activity, Home, CheckCircle } from '@/components/ui/icon';
 import { imgUrl } from '@/lib/api/client';
 import { terapApi, type PortalData, type PortalObjetivo, type PortalTarea } from '../../shared/api/terapeutico.api';
+import { esVideoMime, youtubeEmbedUrl } from '../../shared/video';
 
 const TEAL = '#0F766E';
 
@@ -93,6 +94,8 @@ export default function PortalPadres() {
                 const hecha = !!t.cumplida;
                 const audio = (t.adjunto_mime ?? '').startsWith('audio');
                 const imagen = (t.adjunto_mime ?? '').startsWith('image');
+                const video = esVideoMime(t.adjunto_mime);
+                const yt = youtubeEmbedUrl(t.video_url);
                 return (
                   <div key={t.id} className="flex items-start gap-3 p-3" style={{ borderTop: i === 0 ? 'none' : '1px solid #F1F5F4' }}>
                     <button onClick={() => marcarTarea(t)} className="shrink-0 mt-0.5" title="Marcar/desmarcar">
@@ -110,9 +113,17 @@ export default function PortalPadres() {
                         <div className="mt-2">
                           {audio
                             ? <audio controls src={imgUrl(t.adjunto_ruta)} style={{ height: 36, width: '100%', maxWidth: 280 }} />
-                            : imagen
-                              ? <a href={imgUrl(t.adjunto_ruta)} target="_blank" rel="noopener noreferrer"><img src={imgUrl(t.adjunto_ruta)} alt="" className="rounded-lg max-h-40" style={{ border: '1px solid #E5E9E7' }} /></a>
-                              : <a href={imgUrl(t.adjunto_ruta)} target="_blank" rel="noopener noreferrer" className="text-[12.5px] font-semibold" style={{ color: TEAL }}>📎 {t.adjunto_nombre}</a>}
+                            : video
+                              ? <video controls playsInline src={imgUrl(t.adjunto_ruta)} className="rounded-lg w-full" style={{ maxWidth: 360, maxHeight: 240, border: '1px solid #E5E9E7', background: '#000' }} />
+                              : imagen
+                                ? <a href={imgUrl(t.adjunto_ruta)} target="_blank" rel="noopener noreferrer"><img src={imgUrl(t.adjunto_ruta)} alt="" className="rounded-lg max-h-40" style={{ border: '1px solid #E5E9E7' }} /></a>
+                                : <a href={imgUrl(t.adjunto_ruta)} target="_blank" rel="noopener noreferrer" className="text-[12.5px] font-semibold" style={{ color: TEAL }}>📎 {t.adjunto_nombre}</a>}
+                        </div>
+                      )}
+                      {yt && (
+                        <div className="mt-2 rounded-lg overflow-hidden" style={{ width: '100%', maxWidth: 360, aspectRatio: '16 / 9', border: '1px solid #E5E9E7', background: '#000' }}>
+                          <iframe src={yt} title="Video de YouTube" style={{ width: '100%', height: '100%', border: 0 }}
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen" allowFullScreen />
                         </div>
                       )}
                     </div>

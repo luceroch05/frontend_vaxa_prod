@@ -12,6 +12,7 @@ export interface Catalogos {
   tipos_diagnostico: Catalogo[];
   estados_cita: Catalogo[];
   estados_objetivo?: Catalogo[];
+  estados_tratamiento?: Catalogo[];
 }
 
 export interface Paciente {
@@ -33,9 +34,19 @@ export interface Paciente {
   activo: number;
   historia_id?: number | null;
   historia_numero?: string | null;
+  apoderados?: Apoderado[];        // tabla intermedia hc_apoderados (hasta 2)
 }
-export type PacienteDto = Partial<Omit<Paciente, 'id' | 'sexo_nombre' | 'activo' | 'historia_id' | 'historia_numero'>> & {
+export interface Apoderado {
+  id?: number;
+  nombre: string;
+  relacion?: string | null;
+  telefono?: string | null;
+  tipo_doc?: string | null;
+  num_doc?: string | null;
+}
+export type PacienteDto = Partial<Omit<Paciente, 'id' | 'sexo_nombre' | 'activo' | 'historia_id' | 'historia_numero' | 'apoderados'>> & {
   nombres: string; apellidos: string;
+  apoderados?: Apoderado[];
 };
 
 export interface Historia {
@@ -98,6 +109,34 @@ export interface Terapeuta { id: number; nombre: string; }
 
 export interface Servicio { id: number; nombre: string; descripcion: string | null; activo: number; }
 export interface ServicioDto { nombre: string; descripcion?: string | null; activo?: boolean; }
+
+// ── Tratamientos (etapas de atención; varios servicios a la vez) ──────────────
+export interface TratamientoServicio {
+  servicio_id: number;
+  servicio_nombre: string;
+  terapeuta_id: number | null;
+  terapeuta_nombre: string | null;
+}
+export interface Tratamiento {
+  id: number;
+  historia_id: number;
+  motivo: string | null;
+  fecha_inicio: string;
+  fecha_fin: string | null;
+  estado_id: number;
+  estado_codigo: string | null;
+  estado_nombre: string | null;
+  nota_cierre: string | null;
+  servicios: TratamientoServicio[];
+}
+export interface TratamientoDto {
+  motivo?: string | null;
+  fecha_inicio?: string | null;
+  fecha_fin?: string | null;
+  estado_id?: number;
+  nota_cierre?: string | null;
+  servicios?: { servicio_id: number; terapeuta_id?: number | null }[];
+}
 
 export interface Asignacion {
   id: number; paciente_id: number; terapeuta_id: number; terapeuta_nombre: string;
@@ -191,6 +230,7 @@ export interface Tarea {
   adjunto_ruta: string | null;
   adjunto_nombre: string | null;
   adjunto_mime: string | null;
+  video_url: string | null;      // enlace de YouTube (el video propio va como adjunto)
   fecha_limite: string | null;
   cumplida: number;
   cumplida_at: string | null;
@@ -203,6 +243,7 @@ export interface TareaDto {
   fecha_limite?: string | null;
   cumplida?: boolean;
   activo?: boolean;
+  video_url?: string | null;
 }
 
 export interface AccesoApoderado { id: number; paciente_id: number; token: string; activo: number; }
@@ -231,6 +272,7 @@ export interface PortalTarea {
   adjunto_ruta: string | null;
   adjunto_nombre: string | null;
   adjunto_mime: string | null;
+  video_url: string | null;      // enlace de YouTube de apoyo
   fecha_limite: string | null;
   cumplida: number;
   cumplida_at: string | null;
@@ -274,6 +316,12 @@ export const terapApi = {
     api.get<Paciente[]>(`${B}/pacientes${incluirInactivos ? '?todos=1' : ''}`, opts(empresa)),
   getPaciente: (empresa: string, id: number) =>
     api.get<Paciente>(`${B}/pacientes/${id}`, opts(empresa)),
+  /** ¿Ya hay un paciente con ese documento? (para avisar al llenar el input). */
+  existePaciente: (empresa: string, tipoDoc: string, numDoc: string, excluirId?: number) =>
+    api.get<{ existe: boolean; paciente: { id: number; nombre: string } | null }>(
+      `${B}/pacientes/existe?tipo_doc=${encodeURIComponent(tipoDoc)}&num_doc=${encodeURIComponent(numDoc)}${excluirId ? `&excluir_id=${excluirId}` : ''}`,
+      opts(empresa),
+    ),
   createPaciente: (empresa: string, data: PacienteDto) =>
     api.post<Paciente>(`${B}/pacientes`, data, opts(empresa)),
   updatePaciente: (empresa: string, id: number, data: Partial<PacienteDto>) =>
@@ -302,6 +350,16 @@ export const terapApi = {
     api.post<Sesion>(`${B}/historias/${historiaId}/sesiones`, data, opts(empresa)),
   updateSesion: (empresa: string, sesionId: number, data: SesionDto) =>
     api.patch<Sesion>(`${B}/sesiones/${sesionId}`, data, opts(empresa)),
+
+  // Tratamientos (etapas de atención por historia)
+  listTratamientos: (empresa: string, historiaId: number) =>
+    api.get<Tratamiento[]>(`${B}/historias/${historiaId}/tratamientos`, opts(empresa)),
+  createTratamiento: (empresa: string, historiaId: number, data: TratamientoDto) =>
+    api.post<Tratamiento>(`${B}/historias/${historiaId}/tratamientos`, data, opts(empresa)),
+  updateTratamiento: (empresa: string, id: number, data: TratamientoDto) =>
+    api.patch<Tratamiento>(`${B}/tratamientos/${id}`, data, opts(empresa)),
+  deleteTratamiento: (empresa: string, id: number) =>
+    api.delete<{ ok: boolean }>(`${B}/tratamientos/${id}`, opts(empresa)),
 
   // Servicios del centro
   listServicios: (empresa: string, todos = false) =>

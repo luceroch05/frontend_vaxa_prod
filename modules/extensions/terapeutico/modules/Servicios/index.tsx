@@ -77,7 +77,7 @@ function CatalogoServicios({ slug, servicios, onChange }: {
     <div className="rounded-2xl bg-white p-5" style={{ border: '1px solid #E5E9E7' }}>
       <form onSubmit={crear} className="flex items-end gap-2 mb-4 flex-wrap">
         <label className="flex-1 min-w-[160px]">
-          <span className="block text-[11px] font-semibold uppercase tracking-wider mb-1" style={{ color: '#64748B' }}>Nuevo servicio</span>
+          <span className="block text-[11px] font-semibold uppercase tracking-wider mb-1" style={{ color: '#64748B' }}>Nuevo servicio <span style={{ color: '#DC2626' }}>*</span></span>
           <input className="vx-input" value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Ej. Terapia de lenguaje" />
         </label>
         <label className="flex-1 min-w-[160px]">

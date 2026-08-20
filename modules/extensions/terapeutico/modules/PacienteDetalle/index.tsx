@@ -9,9 +9,10 @@ import { imgUrl } from '@/lib/api/client';
 import {
   terapApi, terapAuthApi, type Paciente, type Historia, type Sesion, type Diagnostico, type Catalogos,
   type Terapeuta, type Asignacion, type Servicio, type Adjunto, type Cita, type Objetivo, type ObjetivoAvance,
-  type AccesoApoderado, type Tarea,
+  type AccesoApoderado, type Tarea, type Tratamiento,
 } from '../../shared/api/terapeutico.api';
 import { imprimirHistoria } from './imprimir';
+import { esVideoMime, youtubeEmbedUrl } from '../../shared/video';
 
 const TEAL = '#0F766E';
 const escribeClinico = (rol?: string) => ['ADMINISTRADOR', 'TERAPEUTA'].includes((rol ?? '').toUpperCase());
@@ -36,11 +37,12 @@ function edad(fecha?: string | null): string | null {
   return a > 0 ? `${a} años` : 'menor de 1 año';
 }
 
-type TabId = 'datos' | 'historia' | 'objetivos' | 'sesiones' | 'tareas' | 'citas' | 'documentos';
+type TabId = 'datos' | 'historia' | 'tratamientos' | 'objetivos' | 'sesiones' | 'tareas' | 'citas' | 'documentos';
 const TABS: { id: TabId; label: string; icon: any }[] = [
-  { id: 'datos',      label: 'Datos',       icon: User },
-  { id: 'historia',   label: 'Historia',    icon: FileText },
-  { id: 'objetivos',  label: 'Objetivos',   icon: TrendingUp },
+  { id: 'datos',        label: 'Datos',        icon: User },
+  { id: 'historia',     label: 'Historia',     icon: FileText },
+  { id: 'tratamientos', label: 'Tratamientos', icon: ClipboardList },
+  { id: 'objetivos',    label: 'Objetivos',    icon: TrendingUp },
   { id: 'sesiones',   label: 'Sesiones',    icon: Activity },
   { id: 'tareas',     label: 'Tareas',      icon: Home },
   { id: 'citas',      label: 'Citas',       icon: CalendarIcon },
@@ -190,6 +192,12 @@ export default function PacienteDetalle() {
       {tab === 'objetivos' && (
         !historia ? <AbreHistoriaPrimero /> : (
           <BloqueObjetivos slug={slug} historia={historia} puedeClinico={puedeClinico} />
+        )
+      )}
+
+      {tab === 'tratamientos' && (
+        !historia ? <AbreHistoriaPrimero /> : (
+          <BloqueTratamientos slug={slug} historia={historia} puedeClinico={puedeClinico} />
         )
       )}
 
@@ -466,10 +474,13 @@ function BloqueDiagnosticos({ slug, historia, diagnosticos, catalogos, puedeClin
   const [cie, setCie] = useState('');
   const [tipoId, setTipoId] = useState(1);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const guardar = async (e: FormEvent) => {
     e.preventDefault();
-    if (!desc.trim()) return;
+    // Obligatorio: la descripción. El CIE-10 y el tipo son opcionales.
+    if (!desc.trim()) { setError('La descripción del diagnóstico es obligatoria.'); return; }
+    setError(null);
     setSaving(true);
     const d = await terapApi.addDiagnostico(slug, historia.id, { descripcion: desc, codigo_cie10: cie || null, tipo_id: tipoId });
     onAdd(d); setDesc(''); setCie(''); setAbrir(false); setSaving(false);
@@ -483,9 +494,14 @@ function BloqueDiagnosticos({ slug, historia, diagnosticos, catalogos, puedeClin
     ) : undefined}>
       {abrir && catalogos && (
         <form onSubmit={guardar} className="rounded-xl p-3 mb-3 space-y-2.5" style={{ background: '#F6FAF9', border: '1px solid #E5E9E7' }}>
+          {error && (
+            <p className="text-[12px] font-semibold px-2.5 py-1.5 rounded-lg" style={{ background: '#FEF2F2', color: '#B91C1C', border: '1px solid #FECACA' }}>{error}</p>
+          )}
           <div className="grid grid-cols-3 gap-2">
-            <input className="vx-input col-span-2" placeholder="Descripción del diagnóstico" value={desc} onChange={e => setDesc(e.target.value)} />
-            <input className="vx-input" placeholder="CIE-10" value={cie} onChange={e => setCie(e.target.value)} />
+            <input className="vx-input col-span-2" placeholder="Descripción del diagnóstico *" value={desc}
+              onChange={e => { setDesc(e.target.value); if (error) setError(null); }}
+              style={error && !desc.trim() ? { borderColor: '#DC2626' } : undefined} />
+            <input className="vx-input" placeholder="CIE-10 (opcional)" value={cie} onChange={e => setCie(e.target.value)} />
           </div>
           <div className="flex items-center gap-2">
             <select className="vx-input max-w-[180px]" value={tipoId} onChange={e => setTipoId(Number(e.target.value))}>
@@ -522,6 +538,232 @@ function BloqueDiagnosticos({ slug, historia, diagnosticos, catalogos, puedeClin
   );
 }
 
+// ── Tratamientos (etapas de atención; varios servicios a la vez) ──────────────
+const ESTADOS_TRAT: { id: number; label: string; bg: string; color: string }[] = [
+  { id: 1, label: 'En curso', bg: '#CCFBF1', color: '#0F766E' },
+  { id: 2, label: 'En pausa', bg: '#FEF3C7', color: '#B45309' },
+  { id: 3, label: 'Alta',     bg: '#DCFCE7', color: '#15803D' },
+];
+const estadoTrat = (id: number) => ESTADOS_TRAT.find(e => e.id === id) ?? ESTADOS_TRAT[0];
+const fmtFecha = (d?: string | null) => d ? new Date(d).toLocaleDateString() : '—';
+
+interface ServItem { servicio_id: number; servicio_nombre: string; terapeuta_id: number | null; terapeuta_nombre: string | null; }
+
+/** Selector de servicios (varios) con su terapeuta. Reusado al crear y al editar un tratamiento. */
+function ServiciosPicker({ slug, servicios, value, onChange }: {
+  slug: string; servicios: Servicio[]; value: ServItem[]; onChange: (v: ServItem[]) => void;
+}) {
+  const [servSel, setServSel] = useState('');
+  const [terSel, setTerSel] = useState('');
+  const [teras, setTeras] = useState<Terapeuta[]>([]);
+  useEffect(() => {
+    setTerSel('');
+    if (servSel) terapApi.listTerapeutas(slug, Number(servSel)).then(setTeras).catch(() => setTeras([]));
+    else setTeras([]);
+  }, [slug, servSel]);
+  const agregar = () => {
+    if (!servSel) return;
+    const sid = Number(servSel);
+    if (value.some(v => v.servicio_id === sid)) { setServSel(''); return; }  // ya está
+    const sNom = servicios.find(s => s.id === sid)?.nombre ?? '';
+    const tid = terSel ? Number(terSel) : null;
+    const tNom = tid ? (teras.find(t => t.id === tid)?.nombre ?? null) : null;
+    onChange([...value, { servicio_id: sid, servicio_nombre: sNom, terapeuta_id: tid, terapeuta_nombre: tNom }]);
+    setServSel(''); setTerSel('');
+  };
+  return (
+    <div className="space-y-2">
+      {value.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {value.map(v => (
+            <span key={v.servicio_id} className="inline-flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 rounded-full text-[12px]" style={{ background: '#CCFBF1', color: TEAL }}>
+              <b>{v.servicio_nombre}</b>{v.terapeuta_nombre ? ` · ${v.terapeuta_nombre}` : ''}
+              <button type="button" onClick={() => onChange(value.filter(x => x.servicio_id !== v.servicio_id))}><X size={12} /></button>
+            </span>
+          ))}
+        </div>
+      )}
+      {servicios.length === 0 ? (
+        <p className="text-[11.5px]" style={{ color: '#94A3B8' }}>Aún no hay servicios. Créalos en la sección «Servicios».</p>
+      ) : (
+        <div className="flex items-center gap-2 flex-wrap">
+          <select className="vx-input max-w-[190px]" value={servSel} onChange={e => setServSel(e.target.value)}>
+            <option value="">Servicio…</option>
+            {servicios.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
+          </select>
+          <select className="vx-input max-w-[190px]" value={terSel} onChange={e => setTerSel(e.target.value)} disabled={!servSel}>
+            <option value="">{servSel ? 'Terapeuta (opcional)…' : 'Elige servicio'}</option>
+            {teras.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
+          </select>
+          <button type="button" onClick={agregar} disabled={!servSel} className="px-2.5 py-2 rounded-lg text-[12px] font-semibold disabled:opacity-40 flex items-center gap-1" style={{ background: '#CCFBF1', color: TEAL }}>
+            <Plus size={13} /> Agregar
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BloqueTratamientos({ slug, historia, puedeClinico }: { slug: string; historia: Historia; puedeClinico: boolean }) {
+  const [items, setItems] = useState<Tratamiento[]>([]);
+  const [servicios, setServicios] = useState<Servicio[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [form, setForm] = useState(false);
+
+  useEffect(() => {
+    setLoading(true);
+    terapApi.listTratamientos(slug, historia.id).then(setItems).catch(() => {}).finally(() => setLoading(false));
+    terapApi.listServicios(slug).then(setServicios).catch(() => {});
+  }, [slug, historia.id]);
+
+  const cambiarEstado = async (t: Tratamiento, estado_id: number) => {
+    const upd = await terapApi.updateTratamiento(slug, t.id, { estado_id });
+    setItems(prev => prev.map(x => x.id === t.id ? upd : x));
+  };
+  const guardarServicios = async (t: Tratamiento, servs: ServItem[]) => {
+    const upd = await terapApi.updateTratamiento(slug, t.id, { servicios: servs.map(s => ({ servicio_id: s.servicio_id, terapeuta_id: s.terapeuta_id })) });
+    setItems(prev => prev.map(x => x.id === t.id ? upd : x));
+  };
+  const borrar = async (t: Tratamiento) => {
+    if (!confirm('¿Eliminar este tratamiento? Se borra su registro (las sesiones y tareas no se tocan).')) return;
+    await terapApi.deleteTratamiento(slug, t.id);
+    setItems(prev => prev.filter(x => x.id !== t.id));
+  };
+
+  return (
+    <Section icon={ClipboardList} titulo="Tratamientos" accion={puedeClinico ? (
+      <button onClick={() => setForm(f => !f)} className="flex items-center gap-1.5 text-[12.5px] font-semibold px-3 py-1.5 rounded-lg text-white" style={{ background: TEAL }}>
+        <Plus size={13} /> Nuevo tratamiento
+      </button>
+    ) : undefined}>
+      {form && puedeClinico && (
+        <FormTratamiento slug={slug} historiaId={historia.id} servicios={servicios}
+          onCreated={t => { setItems(prev => [t, ...prev]); setForm(false); }}
+          onCancel={() => setForm(false)} />
+      )}
+      {loading ? (
+        <div className="py-6 flex justify-center"><Loader2 size={18} className="animate-spin" style={{ color: TEAL }} /></div>
+      ) : items.length === 0 ? (
+        <Vacio icon={<ClipboardList size={22} />} text="Sin tratamientos. Abre uno cuando el paciente empiece sus terapias; puede incluir varios servicios a la vez." />
+      ) : (
+        <ul className="space-y-3">
+          {items.map(t => <TratamientoCard key={t.id} slug={slug} t={t} servicios={servicios} puedeClinico={puedeClinico}
+            onEstado={cambiarEstado} onServicios={guardarServicios} onBorrar={borrar} />)}
+        </ul>
+      )}
+    </Section>
+  );
+}
+
+function TratamientoCard({ slug, t, servicios, puedeClinico, onEstado, onServicios, onBorrar }: {
+  slug: string; t: Tratamiento; servicios: Servicio[]; puedeClinico: boolean;
+  onEstado: (t: Tratamiento, id: number) => void;
+  onServicios: (t: Tratamiento, s: ServItem[]) => void;
+  onBorrar: (t: Tratamiento) => void;
+}) {
+  const est = estadoTrat(t.estado_id);
+  const [editServ, setEditServ] = useState(false);
+  const aItems = (): ServItem[] => t.servicios.map(s => ({ servicio_id: s.servicio_id, servicio_nombre: s.servicio_nombre, terapeuta_id: s.terapeuta_id, terapeuta_nombre: s.terapeuta_nombre }));
+  const [servs, setServs] = useState<ServItem[]>(aItems());
+
+  return (
+    <li className="rounded-xl p-4" style={{ background: '#fff', border: '1px solid #E5E9E7' }}>
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: est.bg, color: est.color }}>{t.estado_nombre ?? est.label}</span>
+          <span className="text-[12px]" style={{ color: '#6B7280' }}>
+            Inicio {fmtFecha(t.fecha_inicio)}{t.estado_id === 3 && t.fecha_fin ? ` · Alta ${fmtFecha(t.fecha_fin)}` : ''}
+          </span>
+        </div>
+        {puedeClinico && (
+          <div className="flex items-center gap-1.5">
+            {ESTADOS_TRAT.map(e => (
+              <button key={e.id} onClick={() => onEstado(t, e.id)} disabled={e.id === t.estado_id}
+                className="text-[11px] font-semibold px-2 py-1 rounded-lg"
+                style={e.id === t.estado_id ? { background: e.bg, color: e.color } : { background: '#F1F5F4', color: '#64748B' }}>
+                {e.label}
+              </button>
+            ))}
+            <button onClick={() => onBorrar(t)} title="Eliminar" className="p-1"><Trash2 size={14} style={{ color: '#DC2626' }} /></button>
+          </div>
+        )}
+      </div>
+      {t.motivo && <p className="text-[13px] mt-2" style={{ color: '#0E1A1A' }}>{t.motivo}</p>}
+
+      <div className="mt-2.5">
+        <p className="text-[11px] font-semibold uppercase tracking-wider mb-1" style={{ color: '#94A3B8' }}>Servicios</p>
+        {t.servicios.length === 0 ? (
+          <p className="text-[12px]" style={{ color: '#94A3B8' }}>Sin servicios asignados.</p>
+        ) : (
+          <div className="flex flex-wrap gap-1.5">
+            {t.servicios.map(s => (
+              <span key={s.servicio_id} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[12px]" style={{ background: '#F0FDFA', color: TEAL, border: '1px solid #CCFBF1' }}>
+                <b>{s.servicio_nombre}</b>{s.terapeuta_nombre ? ` · ${s.terapeuta_nombre}` : ''}
+              </span>
+            ))}
+          </div>
+        )}
+        {puedeClinico && (
+          editServ ? (
+            <div className="mt-2 rounded-lg p-2.5" style={{ background: '#F6FAF9', border: '1px solid #E5E9E7' }}>
+              <ServiciosPicker slug={slug} servicios={servicios} value={servs} onChange={setServs} />
+              <div className="flex gap-2 mt-2">
+                <button onClick={() => { onServicios(t, servs); setEditServ(false); }} className="px-3 py-1.5 rounded-lg text-white text-[12px] font-semibold" style={{ background: TEAL }}>Guardar servicios</button>
+                <button onClick={() => { setServs(aItems()); setEditServ(false); }} className="px-3 py-1.5 rounded-lg text-[12px] font-semibold" style={{ background: '#F1F5F4', color: '#374151' }}>Cancelar</button>
+              </div>
+            </div>
+          ) : (
+            <button onClick={() => { setServs(aItems()); setEditServ(true); }} className="text-[11.5px] font-semibold mt-1.5" style={{ color: TEAL }}>Editar servicios</button>
+          )
+        )}
+      </div>
+      {t.nota_cierre && <p className="text-[12px] mt-2 italic" style={{ color: '#6B7280' }}>Nota: {t.nota_cierre}</p>}
+    </li>
+  );
+}
+
+function FormTratamiento({ slug, historiaId, servicios, onCreated, onCancel }: {
+  slug: string; historiaId: number; servicios: Servicio[]; onCreated: (t: Tratamiento) => void; onCancel: () => void;
+}) {
+  const [motivo, setMotivo] = useState('');
+  const [servs, setServs] = useState<ServItem[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    // Obligatorio: al menos un servicio (el tratamiento se define por sus servicios). El motivo es opcional.
+    if (servs.length === 0) { setError('Agrega al menos un servicio al tratamiento.'); return; }
+    setError(null); setSaving(true);
+    try {
+      const t = await terapApi.createTratamiento(slug, historiaId, {
+        motivo: motivo || null,
+        servicios: servs.map(s => ({ servicio_id: s.servicio_id, terapeuta_id: s.terapeuta_id })),
+      });
+      onCreated(t);
+    } finally { setSaving(false); }
+  };
+
+  return (
+    <form onSubmit={submit} className="rounded-xl p-3.5 mb-3 space-y-2.5" style={{ background: '#F6FAF9', border: '1px solid #E5E9E7' }}>
+      {error && <p className="text-[12px] font-semibold px-2.5 py-1.5 rounded-lg" style={{ background: '#FEF2F2', color: '#B91C1C', border: '1px solid #FECACA' }}>{error}</p>}
+      <input className="vx-input" placeholder="Motivo del tratamiento (opcional)" value={motivo} onChange={e => setMotivo(e.target.value)} autoFocus />
+      <div>
+        <p className="text-[11px] font-semibold uppercase tracking-wider mb-1" style={{ color: '#64748B' }}>
+          Servicios <span style={{ color: '#DC2626' }}>*</span> <span className="normal-case font-normal" style={{ color: '#94A3B8' }}>(puedes agregar varios)</span>
+        </p>
+        <ServiciosPicker slug={slug} servicios={servicios} value={servs} onChange={v => { setServs(v); if (error) setError(null); }} />
+      </div>
+      <div className="flex justify-end gap-2">
+        <button type="button" onClick={onCancel} className="px-3 py-2 rounded-lg text-[12.5px] font-semibold" style={{ background: '#F1F5F4', color: '#374151' }}>Cancelar</button>
+        <button type="submit" disabled={saving} className="px-3 py-2 rounded-lg text-white text-[12.5px] font-semibold flex items-center gap-1.5" style={{ background: TEAL }}>
+          {saving && <Loader2 size={13} className="animate-spin" />} Abrir tratamiento
+        </button>
+      </div>
+    </form>
+  );
+}
+
 // ── Evoluciones (SOAP) ────────────────────────────────────────────────────────
 function BloqueEvoluciones({ slug, historia, sesiones, puedeClinico, onAdd }: {
   slug: string; historia: Historia; sesiones: Sesion[]; puedeClinico: boolean;
@@ -531,11 +773,16 @@ function BloqueEvoluciones({ slug, historia, sesiones, puedeClinico, onAdd }: {
   const [f, setF] = useState({ subjetivo: '', objetivo: '', analisis: '', plan: '' });
   const [firmada, setFirmada] = useState(false);
   const [saving, setSaving] = useState(false);
-  const set = (k: keyof typeof f, v: string) => setF(prev => ({ ...prev, [k]: v }));
+  const [error, setError] = useState<string | null>(null);
+  const set = (k: keyof typeof f, v: string) => { setF(prev => ({ ...prev, [k]: v })); if (error) setError(null); };
 
   const guardar = async (e: FormEvent) => {
     e.preventDefault();
-    if (!f.subjetivo && !f.objetivo && !f.analisis && !f.plan) return;
+    // Debe llevar al menos uno de los campos SOAP; no se guarda una evolución vacía.
+    if (!f.subjetivo.trim() && !f.objetivo.trim() && !f.analisis.trim() && !f.plan.trim()) {
+      setError('Escribe al menos un campo (S / O / A / P) para guardar la evolución.'); return;
+    }
+    setError(null);
     setSaving(true);
     const s = await terapApi.createSesion(slug, historia.id, { ...f, firmada });
     onAdd(s);
@@ -550,6 +797,9 @@ function BloqueEvoluciones({ slug, historia, sesiones, puedeClinico, onAdd }: {
     ) : undefined}>
       {abrir && (
         <form onSubmit={guardar} className="rounded-xl p-3.5 mb-4 space-y-2.5" style={{ background: '#F6FAF9', border: '1px solid #E5E9E7' }}>
+          {error && (
+            <p className="text-[12px] font-semibold px-2.5 py-1.5 rounded-lg" style={{ background: '#FEF2F2', color: '#B91C1C', border: '1px solid #FECACA' }}>{error}</p>
+          )}
           <SoapField label="S · Subjetivo" value={f.subjetivo} onChange={v => set('subjetivo', v)} placeholder="Lo que refiere el paciente…" />
           <SoapField label="O · Objetivo" value={f.objetivo} onChange={v => set('objetivo', v)} placeholder="Observación del terapeuta…" />
           <SoapField label="A · Análisis" value={f.analisis} onChange={v => set('analisis', v)} placeholder="Interpretación / avance…" />
@@ -893,10 +1143,13 @@ function FormObjetivo({ slug, historiaId, onCreated, onCancel }: {
   const [meta, setMeta] = useState('80');
   const [unidad, setUnidad] = useState('%');
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!desc.trim()) return;
+    // Obligatorio: la descripción del objetivo. La meta/unidad tienen valor por defecto.
+    if (!desc.trim()) { setError('La descripción del objetivo es obligatoria.'); return; }
+    setError(null);
     setSaving(true);
     const o = await terapApi.createObjetivo(slug, historiaId, { descripcion: desc, meta: Number(meta) || 100, unidad });
     onCreated(o); setSaving(false);
@@ -904,7 +1157,12 @@ function FormObjetivo({ slug, historiaId, onCreated, onCancel }: {
 
   return (
     <form onSubmit={submit} className="rounded-xl p-3.5 mb-3 space-y-2.5" style={{ background: '#F6FAF9', border: '1px solid #E5E9E7' }}>
-      <input className="vx-input" placeholder="Objetivo (ej. Producir /r/ en palabras)" value={desc} onChange={e => setDesc(e.target.value)} autoFocus />
+      {error && (
+        <p className="text-[12px] font-semibold px-2.5 py-1.5 rounded-lg" style={{ background: '#FEF2F2', color: '#B91C1C', border: '1px solid #FECACA' }}>{error}</p>
+      )}
+      <input className="vx-input" placeholder="Objetivo (ej. Producir /r/ en palabras) *" value={desc}
+        onChange={e => { setDesc(e.target.value); if (error) setError(null); }} autoFocus
+        style={error && !desc.trim() ? { borderColor: '#DC2626' } : undefined} />
       <div className="flex items-center gap-2 flex-wrap">
         <label className="text-[12px]" style={{ color: '#64748B' }}>Meta</label>
         <input className="vx-input max-w-[90px]" type="number" value={meta} onChange={e => setMeta(e.target.value)} />
@@ -927,10 +1185,13 @@ function FormAvance({ slug, objetivoId, unidad, onAdded }: {
   const [valor, setValor] = useState('');
   const [fecha, setFecha] = useState('');
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    if (valor.trim() === '' || isNaN(Number(valor))) return;
+    // Obligatorio: el valor medido (numérico). La fecha es opcional (default hoy).
+    if (valor.trim() === '' || isNaN(Number(valor))) { setError('Escribe el valor medido (un número) para registrar el avance.'); return; }
+    setError(null);
     setSaving(true);
     const r = await terapApi.addAvance(slug, objetivoId, { valor: Number(valor), fecha: fecha || undefined });
     onAdded(r.objetivo, r.avance);
@@ -939,9 +1200,14 @@ function FormAvance({ slug, objetivoId, unidad, onAdded }: {
 
   return (
     <form onSubmit={submit} className="flex items-end gap-2 mt-3 pt-3 flex-wrap" style={{ borderTop: '1px solid #F1F5F4' }}>
+      {error && (
+        <p className="w-full text-[12px] font-semibold px-2.5 py-1.5 rounded-lg" style={{ background: '#FEF2F2', color: '#B91C1C', border: '1px solid #FECACA' }}>{error}</p>
+      )}
       <label className="block">
-        <span className="block text-[10.5px] font-semibold uppercase tracking-wider mb-1" style={{ color: '#64748B' }}>Valor medido ({unidad})</span>
-        <input className="vx-input max-w-[120px]" type="number" step="0.01" value={valor} onChange={e => setValor(e.target.value)} placeholder="ej. 70" />
+        <span className="block text-[10.5px] font-semibold uppercase tracking-wider mb-1" style={{ color: '#64748B' }}>Valor medido ({unidad}) <span style={{ color: '#DC2626' }}>*</span></span>
+        <input className="vx-input max-w-[120px]" type="number" step="0.01" value={valor}
+          onChange={e => { setValor(e.target.value); if (error) setError(null); }} placeholder="ej. 70"
+          style={error ? { borderColor: '#DC2626' } : undefined} />
       </label>
       <label className="block">
         <span className="block text-[10.5px] font-semibold uppercase tracking-wider mb-1" style={{ color: '#64748B' }}>Fecha</span>
@@ -984,11 +1250,24 @@ function BloqueTareas({ slug, historia, puedeClinico }: { slug: string; historia
     try {
       const upd = await terapApi.uploadTareaAudio(slug, t.id, file);
       setTareas(prev => prev.map(x => x.id === t.id ? upd : x));
-    } catch (e: any) { alert(e?.message ?? 'No se pudo subir el audio'); }
+    } catch (e: any) { alert(e?.message ?? 'No se pudo subir el archivo'); }
     finally { setSubiendoId(null); }
   };
   const quitarAudio = async (t: Tarea) => {
     const upd = await terapApi.deleteTareaAudio(slug, t.id);
+    setTareas(prev => prev.map(x => x.id === t.id ? upd : x));
+  };
+  // Enlace de YouTube de la tarea (se guarda solo la URL; el video lo sirve YouTube).
+  const guardarVideoUrl = async (t: Tarea) => {
+    const url = window.prompt('Pega el enlace de YouTube del video:', t.video_url ?? '');
+    if (url === null) return;                         // canceló
+    const limpio = url.trim();
+    if (limpio && !youtubeEmbedUrl(limpio)) { alert('Ese enlace no parece de YouTube. Copia el link del video (youtube.com/watch?v=… o youtu.be/…).'); return; }
+    const upd = await terapApi.updateTarea(slug, t.id, { video_url: limpio || null });
+    setTareas(prev => prev.map(x => x.id === t.id ? upd : x));
+  };
+  const quitarVideoUrl = async (t: Tarea) => {
+    const upd = await terapApi.updateTarea(slug, t.id, { video_url: null });
     setTareas(prev => prev.map(x => x.id === t.id ? upd : x));
   };
 
@@ -1029,23 +1308,47 @@ function BloqueTareas({ slug, historia, puedeClinico }: { slug: string; historia
                       {t.fecha_limite ? `Para el ${new Date(t.fecha_limite).toLocaleDateString()}` : 'Sin fecha límite'}
                       {hecha && t.cumplida_at ? ` · ✔ cumplida el ${new Date(t.cumplida_at).toLocaleDateString()}` : ''}
                     </p>
-                    {/* Audio / imagen de apoyo */}
+                    {/* Audio / imagen / video propio de apoyo */}
                     <div className="mt-2">
                       {t.adjunto_ruta ? (
                         <div className="flex items-center gap-2 flex-wrap">
                           {esAudio(t.adjunto_mime)
                             ? <audio controls src={imgUrl(t.adjunto_ruta)} style={{ height: 34, maxWidth: 260 }} />
-                            : esImagen(t.adjunto_mime)
-                              ? <a href={imgUrl(t.adjunto_ruta)} target="_blank" rel="noopener noreferrer"><img src={imgUrl(t.adjunto_ruta)} alt="" className="h-14 rounded-lg" style={{ border: '1px solid #E5E9E7' }} /></a>
-                              : <a href={imgUrl(t.adjunto_ruta)} target="_blank" rel="noopener noreferrer" className="text-[12px] font-semibold" style={{ color: TEAL }}>📎 {t.adjunto_nombre}</a>}
+                            : esVideoMime(t.adjunto_mime)
+                              ? <video controls playsInline src={imgUrl(t.adjunto_ruta)} className="rounded-lg" style={{ maxWidth: 320, maxHeight: 200, border: '1px solid #E5E9E7', background: '#000' }} />
+                              : esImagen(t.adjunto_mime)
+                                ? <a href={imgUrl(t.adjunto_ruta)} target="_blank" rel="noopener noreferrer"><img src={imgUrl(t.adjunto_ruta)} alt="" className="h-14 rounded-lg" style={{ border: '1px solid #E5E9E7' }} /></a>
+                                : <a href={imgUrl(t.adjunto_ruta)} target="_blank" rel="noopener noreferrer" className="text-[12px] font-semibold" style={{ color: TEAL }}>📎 {t.adjunto_nombre}</a>}
                           {puedeClinico && <button onClick={() => quitarAudio(t)} className="text-[11px]" style={{ color: '#DC2626' }}>Quitar</button>}
                         </div>
                       ) : puedeClinico ? (
                         <label className="inline-flex items-center gap-1.5 text-[11.5px] font-semibold px-2.5 py-1 rounded-lg cursor-pointer" style={{ background: '#CCFBF1', color: TEAL }}>
-                          {subiendoId === t.id ? <Loader2 size={12} className="animate-spin" /> : '🔊'} Adjuntar audio
-                          <input type="file" className="hidden" accept="audio/*,image/*" disabled={subiendoId === t.id}
+                          {subiendoId === t.id ? <Loader2 size={12} className="animate-spin" /> : '🔊'} Adjuntar audio/video
+                          <input type="file" className="hidden" accept="audio/*,image/*,video/*" disabled={subiendoId === t.id}
                             onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; subirAudio(t, f); }} />
                         </label>
+                      ) : null}
+                    </div>
+
+                    {/* Video de YouTube (enlace): se ve embebido, con pantalla completa */}
+                    <div className="mt-2">
+                      {youtubeEmbedUrl(t.video_url) ? (
+                        <div className="flex flex-col gap-1">
+                          <div className="rounded-lg overflow-hidden" style={{ width: '100%', maxWidth: 360, aspectRatio: '16 / 9', border: '1px solid #E5E9E7', background: '#000' }}>
+                            <iframe src={youtubeEmbedUrl(t.video_url)!} title="Video de YouTube" style={{ width: '100%', height: '100%', border: 0 }}
+                              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen" allowFullScreen />
+                          </div>
+                          {puedeClinico && (
+                            <div className="flex gap-3">
+                              <button onClick={() => guardarVideoUrl(t)} className="text-[11px] font-semibold" style={{ color: TEAL }}>Cambiar enlace</button>
+                              <button onClick={() => quitarVideoUrl(t)} className="text-[11px]" style={{ color: '#DC2626' }}>Quitar video</button>
+                            </div>
+                          )}
+                        </div>
+                      ) : puedeClinico ? (
+                        <button onClick={() => guardarVideoUrl(t)} className="inline-flex items-center gap-1.5 text-[11.5px] font-semibold px-2.5 py-1 rounded-lg" style={{ background: '#FEE2E2', color: '#B91C1C' }}>
+                          ▶ Agregar video de YouTube
+                        </button>
                       ) : null}
                     </div>
                   </div>
@@ -1066,20 +1369,62 @@ function FormTarea({ slug, historiaId, onCreated, onCancel }: {
   const [descripcion, setDescripcion] = useState('');
   const [detalle, setDetalle] = useState('');
   const [fecha, setFecha] = useState('');
+  const [audio, setAudio] = useState<File | null>(null);   // audio/imagen/video propio (opcional)
+  const [videoUrl, setVideoUrl] = useState('');            // enlace de YouTube (opcional)
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!descripcion.trim()) return;
+    // Solo el NOMBRE de la tarea es obligatorio; detalle, fecha, adjunto y video son opcionales.
+    if (!descripcion.trim()) { setError('El nombre de la tarea es obligatorio.'); return; }
+    const yt = videoUrl.trim();
+    if (yt && !youtubeEmbedUrl(yt)) { setError('El enlace de YouTube no es válido. Copia el link del video (youtube.com/watch?v=… o youtu.be/…) o déjalo vacío.'); return; }
+    setError(null);
     setSaving(true);
-    const t = await terapApi.createTarea(slug, historiaId, { descripcion, detalle: detalle || null, fecha_limite: fecha || null });
-    onCreated(t); setSaving(false);
+    try {
+      // 1) Crea la tarea (con enlace de YouTube si lo pusieron). 2) Si adjuntaron
+      //    audio/imagen/video propio, lo sube a esa tarea recién creada.
+      let t = await terapApi.createTarea(slug, historiaId, { descripcion, detalle: detalle || null, fecha_limite: fecha || null, video_url: yt || null });
+      if (audio) {
+        try { t = await terapApi.uploadTareaAudio(slug, t.id, audio); }
+        catch (err: any) { alert('La tarea se creó, pero no se pudo subir el archivo: ' + (err?.message ?? 'error')); }
+      }
+      onCreated(t);
+    } finally { setSaving(false); }
   };
 
   return (
     <form onSubmit={submit} className="rounded-xl p-3.5 mb-3 space-y-2.5" style={{ background: '#F6FAF9', border: '1px solid #E5E9E7' }}>
-      <input className="vx-input" placeholder="Tarea (ej. Practicar tarjetas de /r/ 5 min)" value={descripcion} onChange={e => setDescripcion(e.target.value)} autoFocus />
+      {error && (
+        <p className="text-[12px] font-semibold px-2.5 py-1.5 rounded-lg" style={{ background: '#FEF2F2', color: '#B91C1C', border: '1px solid #FECACA' }}>{error}</p>
+      )}
+      <label className="block">
+        <span className="text-[11.5px] font-semibold" style={{ color: '#374151' }}>Nombre de la tarea <span style={{ color: '#DC2626' }}>*</span></span>
+        <input className="vx-input mt-1" placeholder="Tarea (ej. Practicar tarjetas de /r/ 5 min)" value={descripcion}
+          onChange={e => { setDescripcion(e.target.value); if (error) setError(null); }} autoFocus
+          style={error && !descripcion.trim() ? { borderColor: '#DC2626' } : undefined} />
+      </label>
       <input className="vx-input" placeholder="Detalle / cómo hacerla (opcional)" value={detalle} onChange={e => setDetalle(e.target.value)} />
+      {/* Audio / imagen / video propio de apoyo: opcional, se sube junto con la tarea
+          (también se puede adjuntar después). El apoderado lo verá en su portal. */}
+      <div className="flex items-center gap-2 flex-wrap">
+        {audio ? (
+          <div className="inline-flex items-center gap-2 text-[12px] font-semibold px-2.5 py-1 rounded-lg" style={{ background: '#CCFBF1', color: TEAL }}>
+            🔊 {audio.name}
+            <button type="button" onClick={() => setAudio(null)} className="text-[11px]" style={{ color: '#DC2626' }}>Quitar</button>
+          </div>
+        ) : (
+          <label className="inline-flex items-center gap-1.5 text-[12px] font-semibold px-2.5 py-1 rounded-lg cursor-pointer" style={{ background: '#CCFBF1', color: TEAL }}>
+            🔊 Adjuntar audio/video (opcional)
+            <input type="file" className="hidden" accept="audio/*,image/*,video/*"
+              onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; if (f) setAudio(f); }} />
+          </label>
+        )}
+        <span className="text-[11px]" style={{ color: '#94A3B8' }}>Video propio máx. 40 MB. Para videos largos usa YouTube ↓</span>
+      </div>
+      {/* Enlace de YouTube (opcional): no pesa en el servidor, lo sirve YouTube. */}
+      <input className="vx-input" placeholder="Enlace de YouTube (opcional) — ej. https://youtu.be/…" value={videoUrl} onChange={e => setVideoUrl(e.target.value)} />
       <div className="flex items-center gap-2 flex-wrap">
         <label className="text-[12px]" style={{ color: '#64748B' }}>Fecha límite</label>
         <input type="date" className="vx-input max-w-[160px]" value={fecha} onChange={e => setFecha(e.target.value)} />

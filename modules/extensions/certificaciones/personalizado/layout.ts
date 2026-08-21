@@ -377,19 +377,18 @@ export function firmaTextoKey(firmaKey: string): string {
 
 /**
  * Separa el nombre/cargo de una firma en un elemento PROPIO (para ubicarlo aparte).
- * Marca la firma como `soloImagen` y crea el texto justo debajo de la imagen,
- * heredando ancho y tamaño de texto. Idempotente. Devuelve los campos y la clave del texto.
+ * Marca la firma como `soloImagen` y crea el texto EN EL MISMO lugar de la firma (aunque
+ * quede superpuesto), sin correrlo hacia abajo; de ahí el usuario lo mueve. Idempotente.
  */
 export function separarTextoFirma(
   campos: Record<string, any>, firmaKey: string,
 ): { campos: Record<string, any>; textoKey: string } {
   const f = campos[firmaKey] ?? {};
   const textoKey = firmaTextoKey(firmaKey);
-  const h = f.h ?? 58;
   const next = { ...campos, [firmaKey]: { ...f, soloImagen: true } };
   next[textoKey] = next[textoKey]
     ? { ...next[textoKey], on: true }
-    : { on: true, x: f.x ?? 0, y: (f.y ?? 0) + h + 8, w: f.w ?? 260, textSize: f.textSize ?? 12, align: 'center' };
+    : { on: true, x: f.x ?? 0, y: f.y ?? 0, w: f.w ?? 260, textSize: f.textSize ?? 12, align: 'center' };
   return { campos: next, textoKey };
 }
 

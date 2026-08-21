@@ -1,12 +1,22 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   FileBadge, Shield, Zap, QrCode, ArrowRight, ArrowUpRight,
   Users, FileText, Clock, Layers, Menu, X, Award, Check, MessageCircle, Sparkles,
+  Facebook, Instagram, Youtube, Linkedin, Music2, Mail, Phone,
 } from '@/components/ui/icon';
 import { libroReclamacionesUrl } from '@/lib/paths';
+import { api } from '@/lib/api/client';
 
-/** Contacto de Vaxa para la landing. */
-const WA_LINK = `https://wa.me/51924600490?text=${encodeURIComponent('Hola Vaxa 👋, quiero información sobre el sistema de certificados.')}`;
+/** Redes/contacto de la landing (editables desde sistemas-vaxa). */
+interface Redes {
+  facebook?: string | null; instagram?: string | null; tiktok?: string | null;
+  youtube?: string | null; linkedin?: string | null;
+  whatsapp?: string | null; email?: string | null; telefono?: string | null;
+}
+const WA_DEFAULT = '51924600490';
+const EMAIL_DEFAULT = 'info@vaxa.com.pe';
+const waLink = (num?: string | null) =>
+  `https://wa.me/${(num || WA_DEFAULT).replace(/\D/g, '')}?text=${encodeURIComponent('Hola Vaxa 👋, quiero información sobre el sistema de certificados.')}`;
 
 /* ── Sistema visual (tech / dark) ────────────────────────────── */
 const BG = '#070B0A';            // casi negro verdoso
@@ -29,6 +39,22 @@ const NAV = [
 
 export default function HomePage() {
   const [open, setOpen] = useState(false);
+  const [redes, setRedes] = useState<Redes>({});
+  useEffect(() => { api.get<Redes>('/public/vaxa-landing').then(setRedes).catch(() => {}); }, []);
+  const WA_LINK = waLink(redes.whatsapp);
+  const EMAIL = redes.email || EMAIL_DEFAULT;
+
+  // Redes con enlace (para el footer). WhatsApp/teléfono/correo se arman como enlaces especiales.
+  const socials: { key: string; href: string; Icon: typeof Facebook; label: string }[] = [
+    redes.facebook  && { key: 'fb', href: redes.facebook,  Icon: Facebook,  label: 'Facebook' },
+    redes.instagram && { key: 'ig', href: redes.instagram, Icon: Instagram, label: 'Instagram' },
+    redes.tiktok    && { key: 'tk', href: redes.tiktok,    Icon: Music2,    label: 'TikTok' },
+    redes.youtube   && { key: 'yt', href: redes.youtube,   Icon: Youtube,   label: 'YouTube' },
+    redes.linkedin  && { key: 'in', href: redes.linkedin,  Icon: Linkedin,  label: 'LinkedIn' },
+    redes.whatsapp  && { key: 'wa', href: WA_LINK,         Icon: MessageCircle, label: 'WhatsApp' },
+    redes.telefono  && { key: 'tel', href: `tel:${redes.telefono.replace(/\s/g, '')}`, Icon: Phone, label: 'Teléfono' },
+    { key: 'mail', href: `mailto:${EMAIL}`, Icon: Mail, label: 'Correo' },
+  ].filter(Boolean) as { key: string; href: string; Icon: typeof Facebook; label: string }[];
 
   return (
     <div style={{ background: BG, color: TEXT, fontFamily: SANS }} className="min-h-screen overflow-x-hidden">
@@ -281,10 +307,10 @@ export default function HomePage() {
                 style={{ fontFamily: MONO, background: '#25D366', color: '#04110C', boxShadow: '0 16px 50px -12px rgba(37,211,102,0.6)' }}>
                 <MessageCircle size={18} /> WhatsApp · +51 924 600 490
               </a>
-              <a href="mailto:info@vaxa.com.pe?subject=Quiero%20una%20demo%20de%20Vaxa"
+              <a href={`mailto:${EMAIL}?subject=Quiero%20una%20demo%20de%20Vaxa`}
                 className="group inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-[15px] font-semibold transition-transform hover:-translate-y-0.5"
                 style={{ fontFamily: MONO, background: SURFACE, color: TEXT, border: `1px solid ${BORDER}` }}>
-                info@vaxa.com.pe <ArrowUpRight size={16} className="transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                {EMAIL} <ArrowUpRight size={16} className="transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
               </a>
             </div>
           </div>
@@ -299,6 +325,18 @@ export default function HomePage() {
 
           </div>
           <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
+            {/* Redes sociales (editables desde sistemas-vaxa) */}
+            {socials.length > 0 && (
+              <div className="flex items-center gap-2.5">
+                {socials.map(({ key, href, Icon, label }) => (
+                  <a key={key} href={href} target="_blank" rel="noreferrer" title={label} aria-label={label}
+                    className="w-9 h-9 rounded-lg flex items-center justify-center transition-all hover:-translate-y-0.5"
+                    style={{ background: SURFACE, border: `1px solid ${BORDER}`, color: TEXT }}>
+                    <Icon size={16} />
+                  </a>
+                ))}
+              </div>
+            )}
             <a href={libroReclamacionesUrl()} title="Libro de Reclamaciones"
               className="inline-flex items-center rounded-lg overflow-hidden transition-transform hover:-translate-y-0.5"
               style={{ background: '#fff', padding: '6px 10px' }}>

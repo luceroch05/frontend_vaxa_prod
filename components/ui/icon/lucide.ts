@@ -102,6 +102,11 @@ import {
   Copy,
   Link2,
   MousePointerClick,
+  Facebook,
+  Instagram,
+  Youtube,
+  Linkedin,
+  Music2,
 
   type LucideIcon,
 } from 'lucide-react';
@@ -156,5 +161,6 @@ export {
   GraduationCap, BookOpen, ClipboardList, UserCheck, UserPlus, FileBadge,
   QrCode, Layers, Menu, Home, ChevronLeft, MoreVertical, AlertTriangle,
   BadgeCheck, Pencil, Ban, PrinterIcon, Copy, Link2, MessageCircle, MousePointerClick,
+  Facebook, Instagram, Youtube, Linkedin, Music2,
 };
 export type { LucideIcon };

@@ -37,6 +37,7 @@ import TerapPacienteDetalle from '../modules/extensions/terapeutico/modules/Paci
 import TerapAgenda       from '../modules/extensions/terapeutico/modules/Agenda';
 import TerapServicios    from '../modules/extensions/terapeutico/modules/Servicios';
 import TerapMiWeb        from '../modules/extensions/terapeutico/modules/MiWeb';
+import TerapAuditoria    from '../modules/extensions/terapeutico/modules/Auditoria';
 import TerapLanding      from '../modules/extensions/terapeutico/modules/Landing';
 import PortalPadres      from '../modules/extensions/terapeutico/modules/PortalPadres';
 
@@ -103,6 +104,7 @@ function terapeuticoChildren() {
           <Route path="agenda" element={<TerapAgenda />} />
           <Route path="servicios" element={<TerapServicios />} />
           <Route path="web" element={<TerapMiWeb />} />
+          <Route path="auditoria" element={<TerapAuditoria />} />
           <Route path="pacientes/:id" element={<TerapPacienteDetalle />} />
         </Route>
       </Route>
@@ -126,6 +128,7 @@ function tenantChildren() {
       <Route path="validar"     element={<LazyRoute module="Validacion" />} />
       <Route path="sistemas"    element={<LazyRoute module="Sistemas" />} />
       <Route path="usuarios"    element={<LazyRoute module="UsuariosSistemasVaxa" />} />
+      <Route path="landing"     element={<LazyRoute module="LandingVaxa" />} />
       <Route path="certificaciones"                       element={<LazyRoute module="DashboardCertificaciones" />} />
       <Route path="certificaciones/empresas"              element={<LazyRoute module="EmpresasCertificaciones" />} />
       <Route path="certificaciones/cobranza"              element={<LazyRoute module="CobranzaCertificaciones" />} />
@@ -173,6 +176,7 @@ export default function App() {
               <Route path="agenda" element={<TerapAgenda />} />
               <Route path="servicios" element={<TerapServicios />} />
               <Route path="web" element={<TerapMiWeb />} />
+              <Route path="auditoria" element={<TerapAuditoria />} />
               <Route path="pacientes/:id" element={<TerapPacienteDetalle />} />
             </Route>
           </Route>

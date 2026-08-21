@@ -13,5 +13,6 @@ export {
   GraduationCap, BookOpen, ClipboardList, UserCheck, UserPlus, FileBadge,
   QrCode, Layers, Menu, Home, ChevronLeft, MoreVertical, AlertTriangle,
   BadgeCheck, Pencil, Ban, PrinterIcon, Copy, Link2, MessageCircle, MousePointerClick,
+  Facebook, Instagram, Youtube, Linkedin, Music2,
 } from './lucide';
 export type { LucideIcon } from './lucide';

@@ -191,7 +191,7 @@ export default function PacienteDetalle() {
 
       {tab === 'objetivos' && (
         !historia ? <AbreHistoriaPrimero /> : (
-          <BloqueObjetivos slug={slug} historia={historia} puedeClinico={puedeClinico} />
+          <BloqueObjetivos slug={slug} historia={historia} catalogos={catalogos} puedeClinico={puedeClinico} />
         )
       )}
 
@@ -769,11 +769,14 @@ function BloqueEvoluciones({ slug, historia, sesiones, puedeClinico, onAdd }: {
   slug: string; historia: Historia; sesiones: Sesion[]; puedeClinico: boolean;
   onAdd: (s: Sesion) => void;
 }) {
+  const servicios = useServiciosPaciente(slug, historia.paciente_id);
   const [abrir, setAbrir] = useState(false);
   const [f, setF] = useState({ subjetivo: '', objetivo: '', analisis: '', plan: '' });
+  const [servicioId, setServicioId] = useState<number | ''>('');
   const [firmada, setFirmada] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [filtroServ, setFiltroServ] = useState<number | null>(null);
   const set = (k: keyof typeof f, v: string) => { setF(prev => ({ ...prev, [k]: v })); if (error) setError(null); };
 
   const guardar = async (e: FormEvent) => {
@@ -784,10 +787,13 @@ function BloqueEvoluciones({ slug, historia, sesiones, puedeClinico, onAdd }: {
     }
     setError(null);
     setSaving(true);
-    const s = await terapApi.createSesion(slug, historia.id, { ...f, firmada });
+    const s = await terapApi.createSesion(slug, historia.id, { ...f, firmada, servicio_id: servicioId === '' ? null : servicioId });
     onAdd(s);
     setF({ subjetivo: '', objetivo: '', analisis: '', plan: '' }); setFirmada(false); setAbrir(false); setSaving(false);
   };
+
+  const extraServ: Serv[] = sesiones.filter(s => s.servicio_id).map(s => ({ id: s.servicio_id!, nombre: s.servicio_nombre ?? `Servicio ${s.servicio_id}` }));
+  const visibles = filtroServ == null ? sesiones : sesiones.filter(s => s.servicio_id === filtroServ);
 
   return (
     <Section icon={Activity} titulo="Evoluciones" accion={puedeClinico ? (
@@ -799,6 +805,15 @@ function BloqueEvoluciones({ slug, historia, sesiones, puedeClinico, onAdd }: {
         <form onSubmit={guardar} className="rounded-xl p-3.5 mb-4 space-y-2.5" style={{ background: '#F6FAF9', border: '1px solid #E5E9E7' }}>
           {error && (
             <p className="text-[12px] font-semibold px-2.5 py-1.5 rounded-lg" style={{ background: '#FEF2F2', color: '#B91C1C', border: '1px solid #FECACA' }}>{error}</p>
+          )}
+          {servicios.length > 0 && (
+            <div className="flex items-center gap-2 flex-wrap">
+              <label className="text-[12px]" style={{ color: '#64748B' }}>Servicio</label>
+              <select className="vx-input max-w-[240px]" value={servicioId} onChange={e => setServicioId(e.target.value === '' ? '' : Number(e.target.value))}>
+                <option value="">General (sin servicio)</option>
+                {servicios.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
+              </select>
+            </div>
           )}
           <SoapField label="S · Subjetivo" value={f.subjetivo} onChange={v => set('subjetivo', v)} placeholder="Lo que refiere el paciente…" />
           <SoapField label="O · Objetivo" value={f.objetivo} onChange={v => set('objetivo', v)} placeholder="Observación del terapeuta…" />
@@ -819,8 +834,13 @@ function BloqueEvoluciones({ slug, historia, sesiones, puedeClinico, onAdd }: {
       {sesiones.length === 0 ? (
         <Vacio icon={<Activity size={22} />} text="Aún no hay evoluciones registradas." />
       ) : (
+        <>
+        <FiltroServicio servicios={servicios} extra={extraServ} value={filtroServ} onChange={setFiltroServ} />
+        {visibles.length === 0 ? (
+          <p className="text-[13px] py-4 text-center" style={{ color: '#94A3B8' }}>Sin evoluciones para este servicio.</p>
+        ) : (
         <ol className="space-y-3">
-          {sesiones.map(s => (
+          {visibles.map(s => (
             <li key={s.id} className="rounded-xl p-4" style={{ background: '#fff', border: '1px solid #E5E9E7' }}>
               <div className="flex items-center justify-between mb-2.5 pb-2.5" style={{ borderBottom: '1px solid #F1F5F4' }}>
                 <span className="inline-flex items-center gap-2 text-[13px] font-bold" style={{ color: '#0E1A1A' }}>
@@ -830,6 +850,7 @@ function BloqueEvoluciones({ slug, historia, sesiones, puedeClinico, onAdd }: {
                   {new Date(s.fecha).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })}
                 </span>
                 <div className="flex items-center gap-2">
+                  {s.servicio_nombre && <span className="text-[11px] font-semibold" style={{ color: '#0F766E' }}>{s.servicio_nombre}</span>}
                   <span className="text-[11px]" style={{ color: '#6B7280' }}>{s.terapeuta_nombre}</span>
                   {s.firmada
                     ? <span className="text-[10.5px] font-bold px-2 py-0.5 rounded-full" style={{ background: '#DCFCE7', color: '#15803D' }}>✔ Firmada</span>
@@ -846,6 +867,8 @@ function BloqueEvoluciones({ slug, historia, sesiones, puedeClinico, onAdd }: {
             </li>
           ))}
         </ol>
+        )}
+        </>
       )}
     </Section>
   );
@@ -982,18 +1005,95 @@ function BloqueAcceso({ slug, pacienteId }: { slug: string; pacienteId: number }
 }
 
 // ── Objetivos terapéuticos + progreso (⭐ diferenciador) ───────────────────────
+// Progreso en PALABRAS, no en números sueltos. Cada evaluación es un NIVEL de logro.
+// La escala vive en BD (maestro hc_nivel_logro, expuesto por /catalogos); esto es solo
+// el fallback si el catálogo aún no llegó. El "valor" del avance guarda el nivel (=id).
+type Nivel = { n: number; label: string };
+const NIVELES_DEFAULT: Nivel[] = [
+  { n: 1, label: 'No lo hace' },
+  { n: 2, label: 'Con ayuda' },
+  { n: 3, label: 'Lo hace solo a veces' },
+  { n: 4, label: 'Lo hace solo' },
+  { n: 5, label: 'Lo aplica en su vida diaria' },
+];
+const nivelDe = (niveles: Nivel[], v: number | null | undefined) =>
+  niveles.find(x => x.n === Math.round(Number(v))) ?? null;
+const nivelMax = (niveles: Nivel[]) => niveles.reduce((m, x) => Math.max(m, x.n), 0) || 5;
+
 const EST_OBJ: Record<string, { bg: string; fg: string }> = {
   LOGRADO:  { bg: '#DCFCE7', fg: '#15803D' },
   EN_CURSO: { bg: '#CCFBF1', fg: '#0F766E' },
   PAUSADO:  { bg: '#F1F5F4', fg: '#94A3B8' },
 };
 
-function BloqueObjetivos({ slug, historia, puedeClinico }: { slug: string; historia: Historia; puedeClinico: boolean }) {
+/** Puntitos del nivel: `max` en total, llenos hasta `n`. */
+function NivelDots({ n, max, size = 9 }: { n: number; max: number; size?: number }) {
+  return (
+    <span className="inline-flex items-center gap-1">
+      {Array.from({ length: max }).map((_, i) => (
+        <span key={i} className="inline-block rounded-full"
+          style={{ width: size, height: size, background: i < n ? TEAL : '#D9E2E0' }} />
+      ))}
+    </span>
+  );
+}
+
+/** Tendencia comparando el nivel de HOY con el de la evaluación anterior. */
+const tendencia = (act: number, prev: number) => act > prev
+  ? { txt: '↑ subió', color: '#15803D' }
+  : act < prev
+  ? { txt: '↓ bajó', color: '#B91C1C' }
+  : { txt: '= igual', color: '#94A3B8' };
+
+// Servicios que lleva el paciente (de sus asignaciones). Para filtrar/etiquetar por servicio.
+type Serv = { id: number; nombre: string };
+function useServiciosPaciente(slug: string, pacienteId: number): Serv[] {
+  const [servicios, setServicios] = useState<Serv[]>([]);
+  useEffect(() => {
+    terapApi.listAsignaciones(slug, pacienteId).then(asigs => {
+      const map = new Map<number, string>();
+      for (const a of asigs) if (a.servicio_id) map.set(a.servicio_id, a.servicio_nombre ?? `Servicio ${a.servicio_id}`);
+      setServicios([...map].map(([id, nombre]) => ({ id, nombre })));
+    }).catch(() => {});
+  }, [slug, pacienteId]);
+  return servicios;
+}
+
+/** Selector "Servicio: [Todos ▾]". Solo aparece si hay 2+ servicios. `extra` = servicios
+ *  que ya aparecen en la lista (para no ocultar los de un servicio pasado). */
+function FiltroServicio({ servicios, extra, value, onChange }: {
+  servicios: Serv[]; extra?: Serv[]; value: number | null; onChange: (v: number | null) => void;
+}) {
+  const map = new Map<number, string>();
+  for (const s of servicios) map.set(s.id, s.nombre);
+  for (const s of (extra ?? [])) if (!map.has(s.id)) map.set(s.id, s.nombre);
+  const ops = [...map].map(([id, nombre]) => ({ id, nombre }));
+  if (ops.length < 2) return null;
+  return (
+    <div className="flex items-center gap-2 mb-3">
+      <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: '#94A3B8' }}>Servicio</span>
+      <select value={value ?? ''} onChange={e => onChange(e.target.value === '' ? null : Number(e.target.value))}
+        className="text-[12.5px] rounded-lg px-2.5 py-1.5" style={{ background: '#fff', border: '1px solid #E2E8F0', color: '#334155' }}>
+        <option value="">Todos</option>
+        {ops.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
+      </select>
+    </div>
+  );
+}
+
+function BloqueObjetivos({ slug, historia, catalogos, puedeClinico }: { slug: string; historia: Historia; catalogos: Catalogos | null; puedeClinico: boolean }) {
+  // La escala de niveles viene del catálogo (maestro hc_nivel_logro); fallback al constante.
+  const niveles: Nivel[] = (catalogos?.niveles_logro && catalogos.niveles_logro.length)
+    ? [...catalogos.niveles_logro].sort((a, b) => a.orden - b.orden).map(r => ({ n: r.id, label: r.nombre }))
+    : NIVELES_DEFAULT;
+  const servicios = useServiciosPaciente(slug, historia.paciente_id);
+
   const [objetivos, setObjetivos] = useState<Objetivo[]>([]);
   const [avances, setAvances] = useState<Record<number, ObjetivoAvance[]>>({});
   const [expandido, setExpandido] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState(false);
+  const [filtroServ, setFiltroServ] = useState<number | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -1014,6 +1114,9 @@ function BloqueObjetivos({ slug, historia, puedeClinico }: { slug: string; histo
     setAvances(prev => ({ ...prev, [objetivo.id]: lista }));
   };
 
+  const extraServ: Serv[] = objetivos.filter(o => o.servicio_id).map(o => ({ id: o.servicio_id!, nombre: o.servicio_nombre ?? `Servicio ${o.servicio_id}` }));
+  const visibles = filtroServ == null ? objetivos : objetivos.filter(o => o.servicio_id === filtroServ);
+
   return (
     <Section icon={TrendingUp} titulo="Objetivos y progreso" accion={puedeClinico ? (
       <button onClick={() => setForm(f => !f)} className="flex items-center gap-1.5 text-[12.5px] font-semibold px-3 py-1.5 rounded-lg text-white" style={{ background: TEAL }}>
@@ -1021,57 +1124,82 @@ function BloqueObjetivos({ slug, historia, puedeClinico }: { slug: string; histo
       </button>
     ) : undefined}>
       {form && puedeClinico && (
-        <FormObjetivo slug={slug} historiaId={historia.id}
+        <FormObjetivo slug={slug} historiaId={historia.id} niveles={niveles} servicios={servicios}
           onCreated={o => { setObjetivos(prev => [o, ...prev]); setForm(false); }}
           onCancel={() => setForm(false)} />
       )}
       {loading ? (
         <div className="py-6 flex justify-center"><Loader2 size={18} className="animate-spin" style={{ color: TEAL }} /></div>
       ) : objetivos.length === 0 ? (
-        <Vacio icon={<TrendingUp size={22} />} text="Sin objetivos. Define metas medibles (ej. «producir /r/ en palabras: 80 %») y registra el avance en cada sesión para ver la curva de progreso." />
+        <Vacio icon={<TrendingUp size={22} />} text="Sin objetivos. Define qué se busca lograr (ej. «producir el sonido /r/ en palabras») y en cada sesión marca cómo lo hizo (Con ayuda → Lo hace solo). Así ves la evolución en palabras." />
       ) : (
-        <div className="space-y-3">
-          {objetivos.map(o => (
-            <ObjetivoCard key={o.id} slug={slug} o={o} puedeClinico={puedeClinico}
-              expandido={expandido === o.id} avances={avances[o.id]}
-              onToggle={() => toggle(o)} onAvance={onAvance} />
-          ))}
-        </div>
+        <>
+          <FiltroServicio servicios={servicios} extra={extraServ} value={filtroServ} onChange={setFiltroServ} />
+          {visibles.length === 0 ? (
+            <p className="text-[13px] py-4 text-center" style={{ color: '#94A3B8' }}>Sin objetivos para este servicio.</p>
+          ) : (
+            <div className="space-y-3">
+              {visibles.map(o => (
+                <ObjetivoCard key={o.id} slug={slug} o={o} niveles={niveles} puedeClinico={puedeClinico}
+                  expandido={expandido === o.id} avances={avances[o.id]}
+                  onToggle={() => toggle(o)} onAvance={onAvance} />
+              ))}
+            </div>
+          )}
+        </>
       )}
     </Section>
   );
 }
 
-function ObjetivoCard({ slug, o, puedeClinico, expandido, avances, onToggle, onAvance }: {
-  slug: string; o: Objetivo; puedeClinico: boolean; expandido: boolean;
+function ObjetivoCard({ slug, o, niveles, puedeClinico, expandido, avances, onToggle, onAvance }: {
+  slug: string; o: Objetivo; niveles: Nivel[]; puedeClinico: boolean; expandido: boolean;
   avances?: ObjetivoAvance[]; onToggle: () => void; onAvance: (o: Objetivo, l: ObjetivoAvance[]) => void;
 }) {
-  const meta = Number(o.meta) || 0;
   const actual = o.ultimo_valor != null ? Number(o.ultimo_valor) : null;
-  const pct = actual != null && meta > 0 ? Math.min(100, Math.round((actual / meta) * 100)) : 0;
+  const info = actual != null ? nivelDe(niveles, actual) : null;
   const est = EST_OBJ[o.estado_codigo ?? 'EN_CURSO'] ?? EST_OBJ.EN_CURSO;
+  const max = nivelMax(niveles);
+  const metaLabel = nivelDe(niveles, o.meta)?.label ?? 'la meta';
 
   return (
     <div className="rounded-xl" style={{ border: '1px solid #E5E9E7' }}>
       <div className="p-3.5">
-        <div className="flex items-start justify-between gap-3 mb-2">
-          <p className="text-[13.5px] font-semibold" style={{ color: '#0E1A1A' }}>{o.descripcion}</p>
+        <div className="flex items-start justify-between gap-3 mb-2.5">
+          <div className="min-w-0">
+            <p className="text-[13.5px] font-semibold" style={{ color: '#0E1A1A' }}>{o.descripcion}</p>
+            {o.servicio_nombre && (
+              <p className="text-[11px] mt-0.5" style={{ color: '#0F766E' }}>{o.servicio_nombre}</p>
+            )}
+          </div>
           <span className="text-[10.5px] font-bold px-2 py-0.5 rounded-full shrink-0" style={{ background: est.bg, color: est.fg }}>
             {o.estado_nombre ?? 'En curso'}
           </span>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="flex-1 h-2.5 rounded-full overflow-hidden" style={{ background: '#EEF2F1' }}>
-            <div className="h-full rounded-full" style={{ width: `${pct}%`, background: 'linear-gradient(90deg,#0F766E,#10B981)' }} />
-          </div>
-          <span className="text-[12px] font-semibold shrink-0" style={{ color: '#0E1A1A' }}>
-            {actual != null ? `${actual}` : '—'}<span style={{ color: '#94A3B8' }}> / {meta} {o.unidad}</span>
+        {/* Nivel actual, EN PALABRAS */}
+        <div className="flex items-center gap-2.5">
+          <NivelDots n={actual ?? 0} max={max} />
+          <span className="text-[13px] font-semibold" style={{ color: info ? '#0E1A1A' : '#94A3B8' }}>
+            {info ? info.label : 'Sin evaluar aún'}
           </span>
         </div>
+        {/* Condición de logro, en una frase */}
+        {o.estado_codigo === 'LOGRADO' ? (
+          <p className="text-[12px] mt-2.5 font-semibold" style={{ color: '#15803D' }}>
+            ✓ Meta cumplida: llegó a «{metaLabel}»{o.fecha_logro ? ` · ${new Date(o.fecha_logro).toLocaleDateString(undefined, { day: '2-digit', month: 'short' })}` : ''}
+          </p>
+        ) : o.estado_codigo === 'PAUSADO' ? (
+          <p className="text-[12px] mt-2.5" style={{ color: '#94A3B8' }}>Pausado · la meta es «{metaLabel}»</p>
+        ) : (
+          <p className="text-[12px] mt-2.5" style={{ color: '#64748B' }}>
+            {actual != null ? <>Va en «{info?.label}». </> : <>Sin evaluar aún. </>}
+            Contará como <b style={{ color: '#15803D' }}>Logrado</b> cuando llegue a «{metaLabel}».
+          </p>
+        )}
         <div className="flex items-center justify-between mt-2">
-          <span className="text-[11px]" style={{ color: '#94A3B8' }}>{o.avances} {o.avances === 1 ? 'medición' : 'mediciones'}</span>
+          <span className="text-[11px]" style={{ color: '#94A3B8' }}>{o.avances} {o.avances === 1 ? 'evaluación' : 'evaluaciones'}</span>
           <button onClick={onToggle} className="flex items-center gap-1 text-[12px] font-semibold" style={{ color: TEAL }}>
-            {expandido ? 'Ocultar progreso' : 'Ver progreso'}
+            {expandido ? 'Ocultar' : 'Ver evolución'}
             <ChevronDown size={14} style={{ transform: expandido ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }} />
           </button>
         </div>
@@ -1080,10 +1208,14 @@ function ObjetivoCard({ slug, o, puedeClinico, expandido, avances, onToggle, onA
         <div className="px-3.5 pb-3.5 pt-1" style={{ borderTop: '1px solid #F1F5F4' }}>
           {avances === undefined
             ? <div className="py-4 flex justify-center"><Loader2 size={16} className="animate-spin" style={{ color: TEAL }} /></div>
-            : <ProgresoChart puntos={avances} meta={meta} unidad={o.unidad} />}
+            : <ProgresoNiveles puntos={avances} meta={Number(o.meta) || 4} niveles={niveles} />}
           {puedeClinico && (
-            <FormAvance slug={slug} objetivoId={o.id} unidad={o.unidad}
-              onAdded={(obj, lista) => onAvance(obj, lista)} />
+            o.estado_codigo === 'LOGRADO'
+              ? <ObjetivoLogrado slug={slug} o={o} avances={avances ?? []} onChange={onAvance} />
+              : <>
+                  <FormAvance slug={slug} objetivoId={o.id} meta={Number(o.meta) || 4} niveles={niveles} onAdded={(obj, lista) => onAvance(obj, lista)} />
+                  <ObjetivoCerrar slug={slug} o={o} avances={avances ?? []} onChange={onAvance} />
+                </>
           )}
         </div>
       )}
@@ -1091,67 +1223,70 @@ function ObjetivoCard({ slug, o, puedeClinico, expandido, avances, onToggle, onA
   );
 }
 
-/** Gráfica de línea REAL construida con las mediciones del objetivo. */
-function ProgresoChart({ puntos, meta, unidad }: { puntos: ObjetivoAvance[]; meta: number; unidad: string }) {
+/** Evolución del objetivo en PALABRAS: una línea por evaluación (fecha → nivel), con
+ *  la flecha de tendencia respecto de la anterior. Nada de números que interpretar. */
+function ProgresoNiveles({ puntos, meta, niveles }: { puntos: ObjetivoAvance[]; meta: number; niveles: Nivel[] }) {
   if (!puntos.length) {
-    return <p className="text-[12px] py-3 text-center" style={{ color: '#94A3B8' }}>Aún sin mediciones. Registra el primer avance para ver la curva.</p>;
+    return <p className="text-[12px] py-3 text-center" style={{ color: '#94A3B8' }}>Aún sin evaluaciones. Registra cómo lo hizo hoy para empezar a ver la evolución.</p>;
   }
-  const W = 340, H = 160, padL = 30, padR = 10, padT = 12, padB = 24;
-  const vals = puntos.map(p => Number(p.valor));
-  const maxY = Math.max(meta, ...vals) * 1.05 || 1;
-  const x = (i: number) => puntos.length === 1 ? (padL + (W - padR)) / 2 : padL + (i / (puntos.length - 1)) * (W - padL - padR);
-  const y = (v: number) => padT + (1 - v / maxY) * (H - padT - padB);
-  const linea = puntos.map((p, i) => `${x(i)},${y(Number(p.valor))}`).join(' ');
-  const metaY = y(meta);
+  const max = nivelMax(niveles);
   const fmt = (f: string) => new Date(f).toLocaleDateString(undefined, { day: '2-digit', month: 'short' });
+  const primero = nivelDe(niveles, puntos[0].valor);
+  const ultimo  = nivelDe(niveles, puntos[puntos.length - 1].valor);
+  // ¿Estancado? últimas 3 evaluaciones iguales y todavía por debajo de la meta.
+  const ult3 = puntos.slice(-3).map(p => Math.round(Number(p.valor)));
+  const estancado = ult3.length >= 3 && ult3.every(v => v === ult3[0]) && ult3[0] < meta;
 
   return (
-    <div className="mt-2">
-      <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H} style={{ maxWidth: 460 }}>
-        {/* ejes */}
-        <line x1={padL} y1={padT} x2={padL} y2={H - padB} stroke="#E5E9E7" />
-        <line x1={padL} y1={H - padB} x2={W - padR} y2={H - padB} stroke="#E5E9E7" />
-        {/* referencias Y */}
-        {[0, 0.5, 1].map(t => (
-          <text key={t} x={padL - 5} y={y(maxY * t) + 3} fontSize="8" fill="#94A3B8" textAnchor="end">{Math.round(maxY * t)}</text>
-        ))}
-        {/* línea meta */}
-        {meta <= maxY && (
-          <>
-            <line x1={padL} y1={metaY} x2={W - padR} y2={metaY} stroke="#10B981" strokeDasharray="5 4" opacity="0.7" />
-            <text x={W - padR} y={metaY - 4} fontSize="8" fill="#059669" textAnchor="end">meta {meta}{unidad}</text>
-          </>
-        )}
-        {/* curva */}
-        <polyline fill="none" stroke="#0F766E" strokeWidth="2.5" strokeLinejoin="round" points={linea} />
-        {puntos.map((p, i) => (
-          <circle key={p.id} cx={x(i)} cy={y(Number(p.valor))} r={i === puntos.length - 1 ? 4 : 3}
-            fill="#0F766E" stroke="#fff" strokeWidth={i === puntos.length - 1 ? 2 : 0} />
-        ))}
-        {/* fechas primera y última */}
-        <text x={x(0)} y={H - 8} fontSize="8" fill="#94A3B8" textAnchor="middle">{fmt(puntos[0].fecha)}</text>
-        {puntos.length > 1 && <text x={x(puntos.length - 1)} y={H - 8} fontSize="8" fill="#94A3B8" textAnchor="middle">{fmt(puntos[puntos.length - 1].fecha)}</text>}
-      </svg>
+    <div className="mt-2 space-y-2.5">
+      {/* Resumen en una frase */}
+      {puntos.length > 1 && primero && ultimo && (
+        <p className="text-[12.5px]" style={{ color: '#334155' }}>
+          Pasó de <b>«{primero.label}»</b> a <b style={{ color: TEAL }}>«{ultimo.label}»</b>
+          {estancado && <span className="ml-1" style={{ color: '#B45309' }}> · sin cambios en las últimas 3 (conviene revisar)</span>}
+        </p>
+      )}
+      {/* Timeline: más reciente arriba */}
+      <div className="space-y-1.5">
+        {[...puntos].reverse().map((p, idx, arr) => {
+          const v = Math.round(Number(p.valor));
+          const prev = arr[idx + 1];   // la evaluación anterior en el tiempo
+          const inf = nivelDe(niveles, v);
+          return (
+            <div key={p.id} className="flex items-center gap-2.5 text-[12.5px]">
+              <span className="tabular-nums shrink-0" style={{ color: '#94A3B8', width: 52 }}>{fmt(p.fecha)}</span>
+              <NivelDots n={v} max={max} size={7} />
+              <span className="font-medium" style={{ color: '#0E1A1A' }}>{inf?.label ?? '—'}</span>
+              {prev && (() => {
+                const t = tendencia(v, Math.round(Number(prev.valor)));
+                return <span className="font-bold text-[11.5px] shrink-0" style={{ color: t.color }}>{t.txt}</span>;
+              })()}
+              {!prev && <span className="text-[11px] shrink-0" style={{ color: '#94A3B8' }}>1ª evaluación</span>}
+              {p.nota && <span className="truncate" style={{ color: '#94A3B8' }}>· {p.nota}</span>}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
 
-function FormObjetivo({ slug, historiaId, onCreated, onCancel }: {
-  slug: string; historiaId: number; onCreated: (o: Objetivo) => void; onCancel: () => void;
+function FormObjetivo({ slug, historiaId, niveles, servicios, onCreated, onCancel }: {
+  slug: string; historiaId: number; niveles: Nivel[]; servicios: Serv[]; onCreated: (o: Objetivo) => void; onCancel: () => void;
 }) {
   const [desc, setDesc] = useState('');
-  const [meta, setMeta] = useState('80');
-  const [unidad, setUnidad] = useState('%');
+  const [meta, setMeta] = useState(4);   // nivel a alcanzar (default: "Lo hace solo")
+  const [servicioId, setServicioId] = useState<number | ''>(servicios.length === 1 ? servicios[0].id : '');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    // Obligatorio: la descripción del objetivo. La meta/unidad tienen valor por defecto.
-    if (!desc.trim()) { setError('La descripción del objetivo es obligatoria.'); return; }
+    if (!desc.trim()) { setError('Escribe qué se busca lograr.'); return; }
     setError(null);
     setSaving(true);
-    const o = await terapApi.createObjetivo(slug, historiaId, { descripcion: desc, meta: Number(meta) || 100, unidad });
+    // El nivel a alcanzar se guarda como "meta"; unidad 'nivel' marca que es escala de logro.
+    const o = await terapApi.createObjetivo(slug, historiaId, { descripcion: desc, meta, unidad: 'nivel', servicio_id: servicioId === '' ? null : servicioId });
     onCreated(o); setSaving(false);
   };
 
@@ -1160,14 +1295,23 @@ function FormObjetivo({ slug, historiaId, onCreated, onCancel }: {
       {error && (
         <p className="text-[12px] font-semibold px-2.5 py-1.5 rounded-lg" style={{ background: '#FEF2F2', color: '#B91C1C', border: '1px solid #FECACA' }}>{error}</p>
       )}
-      <input className="vx-input" placeholder="Objetivo (ej. Producir /r/ en palabras) *" value={desc}
+      <input className="vx-input" placeholder="¿Qué se busca lograr? (ej. Producir el sonido /r/ en palabras) *" value={desc}
         onChange={e => { setDesc(e.target.value); if (error) setError(null); }} autoFocus
         style={error && !desc.trim() ? { borderColor: '#DC2626' } : undefined} />
+      {servicios.length > 0 && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <label className="text-[12px]" style={{ color: '#64748B' }}>Servicio</label>
+          <select className="vx-input max-w-[220px]" value={servicioId} onChange={e => setServicioId(e.target.value === '' ? '' : Number(e.target.value))}>
+            <option value="">General (sin servicio)</option>
+            {servicios.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
+          </select>
+        </div>
+      )}
       <div className="flex items-center gap-2 flex-wrap">
-        <label className="text-[12px]" style={{ color: '#64748B' }}>Meta</label>
-        <input className="vx-input max-w-[90px]" type="number" value={meta} onChange={e => setMeta(e.target.value)} />
-        <input className="vx-input max-w-[110px]" list="unidades-obj" value={unidad} onChange={e => setUnidad(e.target.value)} placeholder="unidad" />
-        <datalist id="unidades-obj"><option value="%" /><option value="min" /><option value="palabras" /><option value="puntos" /></datalist>
+        <label className="text-[12px]" style={{ color: '#64748B' }}>Meta (a dónde llegar)</label>
+        <select className="vx-input max-w-[220px]" value={meta} onChange={e => setMeta(Number(e.target.value))}>
+          {niveles.filter(x => x.n >= 3).map(x => <option key={x.n} value={x.n}>{x.label}</option>)}
+        </select>
         <div className="ml-auto flex gap-2">
           <button type="button" onClick={onCancel} className="px-3 py-2 rounded-lg text-[12.5px] font-semibold" style={{ background: '#F1F5F4', color: '#374151' }}>Cancelar</button>
           <button type="submit" disabled={saving} className="px-3 py-2 rounded-lg text-white text-[12.5px] font-semibold flex items-center gap-1.5" style={{ background: TEAL }}>
@@ -1179,43 +1323,106 @@ function FormObjetivo({ slug, historiaId, onCreated, onCancel }: {
   );
 }
 
-function FormAvance({ slug, objetivoId, unidad, onAdded }: {
-  slug: string; objetivoId: number; unidad: string; onAdded: (o: Objetivo, l: ObjetivoAvance[]) => void;
+/** Objetivo ya logrado: NO se registran más evaluaciones. Solo se puede reabrir. */
+function ObjetivoLogrado({ slug, o, avances, onChange }: {
+  slug: string; o: Objetivo; avances: ObjetivoAvance[]; onChange: (o: Objetivo, l: ObjetivoAvance[]) => void;
 }) {
-  const [valor, setValor] = useState('');
+  const [saving, setSaving] = useState(false);
+  const reabrir = async () => {
+    setSaving(true);
+    try { await terapApi.updateObjetivo(slug, o.id, { estado_id: 1 }); } finally { setSaving(false); }
+    // Actualiza local sin perder el último nivel/nº de evaluaciones (no confiamos en la forma de la respuesta).
+    onChange({ ...o, estado_id: 1, estado_codigo: 'EN_CURSO', estado_nombre: 'En curso', fecha_logro: null }, avances);
+  };
+  return (
+    <div className="mt-3 pt-3 flex items-center justify-between gap-2 flex-wrap" style={{ borderTop: '1px solid #F1F5F4' }}>
+      <span className="text-[12px] font-semibold" style={{ color: '#15803D' }}>✓ Objetivo logrado — no se registran más evaluaciones.</span>
+      <button onClick={reabrir} disabled={saving}
+        className="text-[12px] font-semibold px-3 py-1.5 rounded-lg border flex items-center gap-1.5 transition-colors disabled:opacity-50 hover:brightness-95"
+        style={{ background: '#F1F5F4', color: '#374151', borderColor: '#E5E9E7' }}>
+        {saving && <Loader2 size={13} className="animate-spin" />} Reabrir para seguir evaluando
+      </button>
+    </div>
+  );
+}
+
+/** Cerrar el objetivo A MANO (marcarlo logrado) sin tener que registrar un avance. */
+function ObjetivoCerrar({ slug, o, avances, onChange }: {
+  slug: string; o: Objetivo; avances: ObjetivoAvance[]; onChange: (o: Objetivo, l: ObjetivoAvance[]) => void;
+}) {
+  const [saving, setSaving] = useState(false);
+  const cerrar = async () => {
+    setSaving(true);
+    try { await terapApi.updateObjetivo(slug, o.id, { estado_id: 2 }); } finally { setSaving(false); }
+    onChange({ ...o, estado_id: 2, estado_codigo: 'LOGRADO', estado_nombre: 'Logrado', fecha_logro: new Date().toISOString().slice(0, 10) }, avances);
+  };
+  return (
+    <div className="mt-2.5 flex justify-end">
+      <button onClick={cerrar} disabled={saving}
+        className="text-[12px] font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-colors disabled:opacity-50 hover:brightness-95"
+        style={{ background: '#ECFDF5', color: '#15803D', borderColor: '#A7F3D0' }}>
+        {saving ? <Loader2 size={13} className="animate-spin" /> : <CheckCircle size={13} />} Marcar como logrado
+      </button>
+    </div>
+  );
+}
+
+function FormAvance({ slug, objetivoId, meta, niveles, onAdded }: {
+  slug: string; objetivoId: number; meta: number; niveles: Nivel[]; onAdded: (o: Objetivo, l: ObjetivoAvance[]) => void;
+}) {
+  const [nivel, setNivel] = useState<number | null>(null);
+  const [nota, setNota] = useState('');
   const [fecha, setFecha] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    // Obligatorio: el valor medido (numérico). La fecha es opcional (default hoy).
-    if (valor.trim() === '' || isNaN(Number(valor))) { setError('Escribe el valor medido (un número) para registrar el avance.'); return; }
+    if (nivel == null) { setError('Elige cómo lo hizo hoy.'); return; }
     setError(null);
     setSaving(true);
-    const r = await terapApi.addAvance(slug, objetivoId, { valor: Number(valor), fecha: fecha || undefined });
+    // El nivel elegido se guarda como "valor" del avance.
+    const r = await terapApi.addAvance(slug, objetivoId, { valor: nivel, fecha: fecha || undefined, nota: nota || undefined });
     onAdded(r.objetivo, r.avance);
-    setValor(''); setFecha(''); setSaving(false);
+    setNivel(null); setNota(''); setFecha(''); setSaving(false);
   };
 
   return (
-    <form onSubmit={submit} className="flex items-end gap-2 mt-3 pt-3 flex-wrap" style={{ borderTop: '1px solid #F1F5F4' }}>
+    <form onSubmit={submit} className="mt-3 pt-3 space-y-2" style={{ borderTop: '1px solid #F1F5F4' }}>
       {error && (
-        <p className="w-full text-[12px] font-semibold px-2.5 py-1.5 rounded-lg" style={{ background: '#FEF2F2', color: '#B91C1C', border: '1px solid #FECACA' }}>{error}</p>
+        <p className="text-[12px] font-semibold px-2.5 py-1.5 rounded-lg" style={{ background: '#FEF2F2', color: '#B91C1C', border: '1px solid #FECACA' }}>{error}</p>
       )}
-      <label className="block">
-        <span className="block text-[10.5px] font-semibold uppercase tracking-wider mb-1" style={{ color: '#64748B' }}>Valor medido ({unidad}) <span style={{ color: '#DC2626' }}>*</span></span>
-        <input className="vx-input max-w-[120px]" type="number" step="0.01" value={valor}
-          onChange={e => { setValor(e.target.value); if (error) setError(null); }} placeholder="ej. 70"
-          style={error ? { borderColor: '#DC2626' } : undefined} />
-      </label>
-      <label className="block">
-        <span className="block text-[10.5px] font-semibold uppercase tracking-wider mb-1" style={{ color: '#64748B' }}>Fecha</span>
-        <input className="vx-input max-w-[150px]" type="date" value={fecha} onChange={e => setFecha(e.target.value)} />
-      </label>
-      <button type="submit" disabled={saving} className="px-3 py-2 rounded-lg text-white text-[12.5px] font-semibold flex items-center gap-1.5 disabled:opacity-50" style={{ background: TEAL }}>
-        {saving ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />} Registrar avance
-      </button>
+      <span className="block text-[10.5px] font-semibold uppercase tracking-wider" style={{ color: '#64748B' }}>¿Cómo lo hizo hoy?</span>
+      <div className="flex flex-wrap gap-1.5">
+        {niveles.map(x => {
+          const sel = nivel === x.n;
+          const cumpleMeta = x.n >= meta;   // este nivel deja el objetivo en Logrado
+          return (
+            <button key={x.n} type="button" onClick={() => { setNivel(x.n); if (error) setError(null); }}
+              title={cumpleMeta ? 'Con este nivel el objetivo queda LOGRADO' : undefined}
+              className="px-2.5 py-1.5 rounded-lg text-[12px] font-semibold transition-colors inline-flex items-center gap-1"
+              style={sel ? { background: TEAL, color: '#fff' } : { background: '#F1F5F4', color: '#374151' }}>
+              {x.label}{cumpleMeta && <span style={{ color: sel ? '#BBF7D0' : '#15803D' }}>✓</span>}
+            </button>
+          );
+        })}
+      </div>
+      <p className="text-[11px]" style={{ color: '#94A3B8' }}>
+        Los niveles con ✓ cumplen la meta «{nivelDe(niveles, meta)?.label ?? ''}»: al elegir uno, el objetivo pasa a <b style={{ color: '#15803D' }}>Logrado</b>.
+      </p>
+      <div className="flex items-end gap-2 flex-wrap">
+        <label className="block flex-1 min-w-[180px]">
+          <span className="block text-[10.5px] font-semibold uppercase tracking-wider mb-1" style={{ color: '#64748B' }}>Nota (opcional)</span>
+          <input className="vx-input w-full" value={nota} onChange={e => setNota(e.target.value)} placeholder="ej. lo logró con 2 recordatorios" />
+        </label>
+        <label className="block">
+          <span className="block text-[10.5px] font-semibold uppercase tracking-wider mb-1" style={{ color: '#64748B' }}>Fecha</span>
+          <input className="vx-input max-w-[150px]" type="date" value={fecha} onChange={e => setFecha(e.target.value)} />
+        </label>
+        <button type="submit" disabled={saving} className="px-3 py-2 rounded-lg text-white text-[12.5px] font-semibold flex items-center gap-1.5 disabled:opacity-50" style={{ background: TEAL }}>
+          {saving ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />} Guardar evaluación
+        </button>
+      </div>
     </form>
   );
 }

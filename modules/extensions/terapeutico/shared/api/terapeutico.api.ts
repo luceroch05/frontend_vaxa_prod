@@ -6,6 +6,7 @@ export const PRODUCTO_TERAPEUTICO = 'historias-clinicas';
 
 // ── Tipos ────────────────────────────────────────────────────────────────────
 export interface Catalogo { id: number; codigo: string; nombre: string; }
+export interface NivelLogro { id: number; codigo: string; nombre: string; orden: number; }
 export interface Catalogos {
   sexos: Catalogo[];
   estados_historia: Catalogo[];
@@ -13,6 +14,7 @@ export interface Catalogos {
   estados_cita: Catalogo[];
   estados_objetivo?: Catalogo[];
   estados_tratamiento?: Catalogo[];
+  niveles_logro?: NivelLogro[];      // escala de logro de objetivos (maestro hc_nivel_logro)
 }
 
 export interface Paciente {
@@ -68,6 +70,8 @@ export interface HistoriaDto {
 export interface Sesion {
   id: number;
   historia_id: number;
+  servicio_id?: number | null;
+  servicio_nombre?: string | null;
   terapeuta_id: number;
   terapeuta_nombre?: string | null;
   fecha: string;
@@ -81,6 +85,7 @@ export interface Sesion {
 }
 export interface SesionDto {
   fecha?: string;
+  servicio_id?: number | null;
   subjetivo?: string | null;
   objetivo?: string | null;
   analisis?: string | null;
@@ -189,6 +194,8 @@ export interface Adjunto {
 export interface Objetivo {
   id: number;
   historia_id: number;
+  servicio_id?: number | null;
+  servicio_nombre?: string | null;
   descripcion: string;
   unidad: string;
   meta: number;
@@ -198,6 +205,7 @@ export interface Objetivo {
   fecha_inicio: string;
   fecha_logro: string | null;
   ultimo_valor: number | null;
+  hoy_valor: number | null;      // nivel registrado HOY (null si aún no se evaluó hoy)
   avances: number;
 }
 export interface ObjetivoDto {
@@ -205,6 +213,7 @@ export interface ObjetivoDto {
   unidad?: string | null;
   meta?: number | null;
   estado_id?: number;
+  servicio_id?: number | null;
 }
 export interface ObjetivoAvance {
   id: number;
@@ -488,4 +497,28 @@ export const terapApi = {
     }
     return res.json() as Promise<Adjunto>;
   },
+
+  // Auditoría (bitácora de acciones sobre datos clínicos; solo ADMINISTRADOR)
+  auditoria: (empresa: string, params?: { accion?: string; entidad?: string; limit?: number; offset?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.accion)  q.set('accion', params.accion);
+    if (params?.entidad) q.set('entidad', params.entidad);
+    if (params?.limit != null)  q.set('limit', String(params.limit));
+    if (params?.offset != null) q.set('offset', String(params.offset));
+    const qs = q.toString();
+    return api.get<{ items: HcAuditoriaEvento[]; total: number }>(`${B}/auditoria${qs ? `?${qs}` : ''}`, opts(empresa));
+  },
 };
+
+export interface HcAuditoriaEvento {
+  id: number;
+  usuario_id: number | null;
+  usuario_nombre: string | null;
+  usuario_rol: string | null;
+  accion: string;
+  entidad: string;
+  entidad_id: number | null;
+  descripcion: string;
+  ip: string | null;
+  created_at: string;
+}

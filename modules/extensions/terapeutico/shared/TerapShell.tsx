@@ -1,5 +1,5 @@
 import { Outlet, useOutletContext, useNavigate, NavLink } from 'react-router-dom';
-import { Users, LogOut, Activity, Calendar, Layers, Globe } from '@/components/ui/icon';
+import { Users, LogOut, Activity, Calendar, Layers, Globe, Shield } from '@/components/ui/icon';
 import { authStorage } from '@/lib/auth';
 import { terapPath } from '@/lib/paths';
 import { useEmpresaSlug } from '@/lib/useEmpresa';
@@ -28,6 +28,7 @@ export default function TerapShell() {
     { to: terapPath(slug, '/panel/agenda'), label: 'Agenda', icon: Calendar, end: false },
     ...(gestiona ? [{ to: terapPath(slug, '/panel/servicios'), label: 'Servicios', icon: Layers, end: false }] : []),
     ...(esAdmin ? [{ to: terapPath(slug, '/panel/web'), label: 'Mi Web', icon: Globe, end: false }] : []),
+    ...(esAdmin ? [{ to: terapPath(slug, '/panel/auditoria'), label: 'Auditoría', icon: Shield, end: false }] : []),
   ];
 
   return (

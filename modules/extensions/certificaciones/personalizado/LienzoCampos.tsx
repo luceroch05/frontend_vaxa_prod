@@ -107,8 +107,8 @@ export default function LienzoCampos({ layout, vars, codigo, qrDataUrl, logos = 
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 'fit-content', maxWidth: 'none' }}>
                 {/* La imagen manda por ALTURA (h); el ancho es libre según su forma. */}
                 <img src={imgUrl(firma.imagen_firma)} alt={firma.nombre_autoridad} style={{ height: h, width: 'auto', maxWidth: 'none', objectFit: 'contain', marginBottom: -6 }} crossOrigin="anonymous" />
-                {/* Línea un poco más ancha que la firma (36px por lado), no al ras ni tan larga. */}
-                <div style={{ width: 'calc(100% + 72px)', borderTop: '1.4px solid #475569', marginBottom: 4 }} />
+                {/* La línea va con el TEXTO. Si el texto está separado (soloImagen), la imagen queda sola SIN línea. */}
+                {!c.soloImagen && <div style={{ width: 'calc(100% + 72px)', borderTop: '1.4px solid #475569', marginBottom: 4 }} />}
               </div>
               {/* Nombre + cargo, salvo que el texto esté separado en su propio elemento (firmatextoN). */}
               {!c.soloImagen && <>
@@ -130,6 +130,8 @@ export default function LienzoCampos({ layout, vars, codigo, qrDataUrl, logos = 
           const align = c.align ?? 'center';
           return (
             <div key={key} style={{ position: 'absolute', left: c.x ?? 0, top: c.y ?? 0, width: w }}>
+              {/* La línea va CON el texto: arriba del nombre. */}
+              <div style={{ width: w, borderTop: '1.4px solid #475569', marginBottom: 4 }} />
               <p style={{ margin: 0, width: w, fontSize: tSize, fontWeight: 700, color: '#1e293b', textAlign: align, lineHeight: 1.25, whiteSpace: 'pre-wrap', fontFamily: fontFamilyCss('sans') }}>{firma.nombre_autoridad}</p>
               <p style={{ margin: '2px 0 0', width: w, fontSize: cargoSize, fontStyle: 'italic', color: '#64748b', textAlign: align, lineHeight: 1.25, whiteSpace: 'pre-wrap', fontFamily: fontFamilyCss('sans') }}>{firma.cargo}</p>
             </div>

@@ -8,7 +8,7 @@
  * ──────────────────────────────────────────────────────────────── */
 import type { CSSProperties } from 'react';
 import { imgUrl } from '@/lib/api/client';
-import { CampoFirma, CampoLinea, CampoLogo, CampoQR, CampoTexto, LayoutLienzo, expandirLienzo, fontFamilyCss, tipoCampo, indiceLogo, indiceFirma, segmentosBold, quitarBold } from './layout';
+import { CampoFirma, CampoFirmaTexto, CampoLinea, CampoLogo, CampoQR, CampoTexto, LayoutLienzo, expandirLienzo, fontFamilyCss, tipoCampo, indiceLogo, indiceFirma, segmentosBold, quitarBold } from './layout';
 
 interface Props {
   layout: LayoutLienzo;
@@ -97,12 +97,41 @@ export default function LienzoCampos({ layout, vars, codigo, qrDataUrl, logos = 
           if (!firma) return null;
           const w = c.w ?? 260;
           const h = c.h ?? 58;
+          // Tamaño del texto INDEPENDIENTE de la imagen. El nombre usa textSize; el cargo, 2px menos.
+          const tSize = c.textSize ?? 12;
+          const cargoSize = Math.max(6, tSize - 2);
           return (
             <div key={key} style={{ position: 'absolute', left: c.x ?? 0, top: c.y ?? 0, width: w, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <img src={imgUrl(firma.imagen_firma)} alt={firma.nombre_autoridad} style={{ height: h, maxWidth: w, objectFit: 'contain', marginBottom: -6 }} crossOrigin="anonymous" />
-              <div style={{ width: w, borderTop: '1.4px solid #475569', marginBottom: 4 }} />
-              <p style={{ margin: 0, width: w, fontSize: 12, fontWeight: 700, color: '#1e293b', textAlign: 'center', lineHeight: 1.25, fontFamily: fontFamilyCss('sans') }}>{firma.nombre_autoridad}</p>
-              <p style={{ margin: '2px 0 0', width: w, fontSize: 10, fontStyle: 'italic', color: '#64748b', textAlign: 'center', lineHeight: 1.25, whiteSpace: 'pre-wrap', fontFamily: fontFamilyCss('sans') }}>{firma.cargo}</p>
+              {/* Imagen + línea agrupadas en un contenedor que se ENCOGE al ancho real de la
+                  imagen (fit-content), así la línea de abajo mide lo mismo que la firma y no sale larga. */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 'fit-content', maxWidth: 'none' }}>
+                {/* La imagen manda por ALTURA (h); el ancho es libre según su forma. */}
+                <img src={imgUrl(firma.imagen_firma)} alt={firma.nombre_autoridad} style={{ height: h, width: 'auto', maxWidth: 'none', objectFit: 'contain', marginBottom: -6 }} crossOrigin="anonymous" />
+                {/* Línea un poco más ancha que la firma (36px por lado), no al ras ni tan larga. */}
+                <div style={{ width: 'calc(100% + 72px)', borderTop: '1.4px solid #475569', marginBottom: 4 }} />
+              </div>
+              {/* Nombre + cargo, salvo que el texto esté separado en su propio elemento (firmatextoN). */}
+              {!c.soloImagen && <>
+                <p style={{ margin: 0, width: w, fontSize: tSize, fontWeight: 700, color: '#1e293b', textAlign: 'center', lineHeight: 1.25, whiteSpace: 'pre-wrap', fontFamily: fontFamilyCss('sans') }}>{firma.nombre_autoridad}</p>
+                <p style={{ margin: '2px 0 0', width: w, fontSize: cargoSize, fontStyle: 'italic', color: '#64748b', textAlign: 'center', lineHeight: 1.25, whiteSpace: 'pre-wrap', fontFamily: fontFamilyCss('sans') }}>{firma.cargo}</p>
+              </>}
+            </div>
+          );
+        }
+
+        // ── TEXTO DE FIRMA separado (nombre + cargo movibles aparte de la imagen) ──
+        if (tipoCampo(key) === 'firmatexto') {
+          const c = raw as CampoFirmaTexto;
+          const firma = firmas[indiceFirma(key)];
+          if (!firma) return null;
+          const w = c.w ?? 260;
+          const tSize = c.textSize ?? 12;
+          const cargoSize = Math.max(6, tSize - 2);
+          const align = c.align ?? 'center';
+          return (
+            <div key={key} style={{ position: 'absolute', left: c.x ?? 0, top: c.y ?? 0, width: w }}>
+              <p style={{ margin: 0, width: w, fontSize: tSize, fontWeight: 700, color: '#1e293b', textAlign: align, lineHeight: 1.25, whiteSpace: 'pre-wrap', fontFamily: fontFamilyCss('sans') }}>{firma.nombre_autoridad}</p>
+              <p style={{ margin: '2px 0 0', width: w, fontSize: cargoSize, fontStyle: 'italic', color: '#64748b', textAlign: align, lineHeight: 1.25, whiteSpace: 'pre-wrap', fontFamily: fontFamilyCss('sans') }}>{firma.cargo}</p>
             </div>
           );
         }
@@ -180,7 +209,9 @@ export default function LienzoCampos({ layout, vars, codigo, qrDataUrl, logos = 
           const fit = lineaSigueTexto(c, vars);
           if (fit) {
             const lineCount = measureTxt.split('\n').length || 1;
-            const top = (c.y ?? 0) + lineCount * fontSize * 1.2 + (c.underlineOffset ?? 6);
+            // La última línea baja solo ~1.0 (base + descendente) en vez del 1.2 del
+            // interlineado, para que la línea quede PEGADA al texto (espejo del backend).
+            const top = (c.y ?? 0) + ((lineCount - 1) * 1.2 + 1.0) * fontSize + (c.underlineOffset ?? 6);
             subrayado = {
               position: 'absolute', left: fit.x, top, width: fit.w,
               borderTop: `${c.underlineThickness ?? 1.5}px solid ${c.underlineColor ?? c.color ?? '#0f172a'}`,

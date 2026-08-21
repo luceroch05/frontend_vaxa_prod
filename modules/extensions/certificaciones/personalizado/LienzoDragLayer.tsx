@@ -15,7 +15,7 @@ import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, ty
 import { imgUrl } from '@/lib/api/client';
 import {
   CampoTexto, CampoQR, CampoLogo, CampoFirma, CampoLinea, LayoutLienzo, Box,
-  campoBox, snapToGuides, labelCampo, tipoCampo, indiceLogo, LIENZO_W as W, LIENZO_H as H,
+  campoBox, snapToGuides, labelCampo, tipoCampo, indiceLogo, indiceFirma, LIENZO_W as W, LIENZO_H as H,
 } from './layout';
 
 type Campo = CampoTexto & CampoQR & CampoLogo & CampoFirma & CampoLinea;
@@ -32,6 +32,9 @@ interface Props {
   /** Logos seleccionados (mismo orden que en la preview). Sirve para ajustar la
    *  caja de selección de cada logo a la forma real de su imagen. */
   logos?: { imagen_logo: string }[];
+  /** Firmas seleccionadas (mismo orden). Sirve para ajustar la caja de selección de
+   *  cada firma al ancho REAL de su imagen (no al ancho del bloque). */
+  firmas?: { imagen_firma: string }[];
 }
 
 /** Padding extra: el selector mide un poquito más que la imagen, no un cuadrado. */
@@ -81,8 +84,24 @@ function logoHugBox(c: Campo, aspect?: number): Box {
   };
 }
 
-export default function LienzoDragLayer({ layout, scale, onMove, selectedKey: selProp, onSelectField, logos = [] }: Props) {
+/**
+ * Caja que "abraza" una firma: la imagen se dibuja por ALTURA (h) con el ancho según
+ * su forma real, y la línea sobresale ~20px por lado. Devuelve la caja del ancho real
+ * (no el ancho w del bloque), centrada en el bloque. Sin aspecto todavía → cae a w.
+ */
+function firmaHugBox(c: Campo, aspect?: number): Box {
+  const h = c.h ?? 58;
+  const blockW = c.w ?? 260;
+  const imgW = (aspect && Number.isFinite(aspect)) ? h * aspect : blockW;
+  const w = imgW + 72;                          // igual que la línea (36px por lado)
+  const cx = (c.x ?? 0) + blockW / 2;           // centro horizontal del bloque
+  const totalH = c.soloImagen ? h + 8 : h + 46; // imagen (+ línea, + nombre/cargo si no está separado)
+  return { x: Math.round(cx - w / 2), y: c.y ?? 0, w, h: totalH };
+}
+
+export default function LienzoDragLayer({ layout, scale, onMove, selectedKey: selProp, onSelectField, logos = [], firmas = [] }: Props) {
   const aspects = useImageAspects(logos.map((l) => imgUrl(l.imagen_logo)).filter(Boolean));
+  const firmaAspects = useImageAspects(firmas.map((f) => imgUrl(f.imagen_firma)).filter(Boolean));
   // Selección controlada si el padre la pasa; si no, estado interno (retrocompatible).
   const [innerSel, setInnerSel] = useState<string | null>(null);
   const selectedKey = selProp !== undefined ? selProp : innerSel;
@@ -116,6 +135,19 @@ export default function LienzoDragLayer({ layout, scale, onMove, selectedKey: se
           y: Math.round(Math.max(-gapY, Math.min(H - gapY - rh, y))),
         };
       }
+    }
+    // FIRMA: la imagen va centrada en el bloque `w`. Dejamos que la x se pase (negativa
+    // o más allá) lo que sobra por el centrado, así la firma REAL puede llegar hasta el
+    // borde izquierdo/derecho en vez de frenarse a media caja. Mismo criterio que el logo.
+    if (tipoCampo(key) === 'firma') {
+      const ar = firmaAspects[imgUrl(firmas[indiceFirma(key)]?.imagen_firma ?? '')];
+      const h = c.h ?? 58, blockW = c.w ?? 260;
+      const imgW = (ar && Number.isFinite(ar)) ? h * ar : blockW;
+      const gapX = Math.max(0, (blockW - imgW) / 2);   // aire a cada lado por el centrado
+      return {
+        x: Math.round(Math.max(-gapX, Math.min(W - gapX - imgW, x))),
+        y: clamp(Math.round(y), H),
+      };
     }
     return { x: clamp(Math.round(x), W), y: clamp(Math.round(y), H) };
   };
@@ -198,39 +230,49 @@ export default function LienzoDragLayer({ layout, scale, onMove, selectedKey: se
       onPointerDown={() => setSelectedKey(null)}   // clic en zona vacía = deseleccionar
       style={{ position: 'absolute', inset: 0, width: W, height: H, outline: 'none' }}
     >
-      {/* Cajas arrastrables */}
-      {Object.entries(campos).map(([key, raw]) => {
-        const c = (raw ?? {}) as Campo;
-        if (c.on === false) return null;
-        // Los logos usan una caja que abraza la imagen real (no el cuadrado size×size).
-        let box = tipoCampo(key) === 'logo'
-          ? logoHugBox(c, aspects[imgUrl(logos[indiceLogo(key)]?.imagen_logo ?? '')])
-          : campoBox(key, c);
-        // Línea que subraya un texto: el agarre cubre la zona del texto (su ancho real
-        // lo mide el render; aquí basta con la caja del texto para poder tomarla).
-        if (tipoCampo(key) === 'linea' && c.sigueA && campos[c.sigueA] && tipoCampo(c.sigueA) === 'texto') {
-          const t = campos[c.sigueA] as Campo;
-          box = { x: t.x ?? 0, y: (c.y ?? 0) - 5, w: t.w ?? 400, h: box.h };
-        }
-        const sel = selectedKey === key;
-        return (
-          <div
-            key={key}
-            title={`${labelCampo(key, c)} · clic para editar sus propiedades`}
-            onPointerDown={e => onBoxDown(e, key, c)}
-            onPointerMove={onBoxMove}
-            onPointerUp={endDrag}
-            onPointerCancel={endDrag}
-            style={{
-              position: 'absolute', left: box.x, top: box.y, width: box.w, height: box.h,
-              cursor: 'move', zIndex: sel ? 20 : 10, borderRadius: 3,
-              // Sin marco cuando no está seleccionado → la preview se ve limpia.
-              border: sel ? '2px dashed #EA580C' : 'none',
-              background: sel ? 'rgba(234,88,12,0.08)' : 'transparent',
-            }}
-          />
-        );
-      })}
+      {/* Cajas arrastrables. Se dibujan de MAYOR a MENOR área, así las cajas chicas
+          (p. ej. un logo) quedan ENCIMA de las grandes (un texto ancho, una firma) y
+          se pueden agarrar aunque se solapen. */}
+      {Object.entries(campos)
+        .map(([key, raw]) => {
+          const c = (raw ?? {}) as Campo;
+          if (c.on === false) return null;
+          // Logos y firmas usan una caja que abraza la imagen real (no el bloque completo).
+          let box = tipoCampo(key) === 'logo'
+            ? logoHugBox(c, aspects[imgUrl(logos[indiceLogo(key)]?.imagen_logo ?? '')])
+            : tipoCampo(key) === 'firma'
+            ? firmaHugBox(c, firmaAspects[imgUrl(firmas[indiceFirma(key)]?.imagen_firma ?? '')])
+            : campoBox(key, c);
+          // Línea que subraya un texto: el agarre cubre la zona del texto (su ancho real
+          // lo mide el render; aquí basta con la caja del texto para poder tomarla).
+          if (tipoCampo(key) === 'linea' && c.sigueA && campos[c.sigueA] && tipoCampo(c.sigueA) === 'texto') {
+            const t = campos[c.sigueA] as Campo;
+            box = { x: t.x ?? 0, y: (c.y ?? 0) - 5, w: t.w ?? 400, h: box.h };
+          }
+          return { key, c, box };
+        })
+        .filter((it): it is { key: string; c: Campo; box: Box } => it !== null)
+        .sort((a, b) => (b.box.w * b.box.h) - (a.box.w * a.box.h))   // grandes primero → chicas encima
+        .map(({ key, c, box }) => {
+          const sel = selectedKey === key;
+          return (
+            <div
+              key={key}
+              title={`${labelCampo(key, c)} · clic para editar sus propiedades`}
+              onPointerDown={e => onBoxDown(e, key, c)}
+              onPointerMove={onBoxMove}
+              onPointerUp={endDrag}
+              onPointerCancel={endDrag}
+              style={{
+                position: 'absolute', left: box.x, top: box.y, width: box.w, height: box.h,
+                cursor: 'move', zIndex: sel ? 20 : 10, borderRadius: 3,
+                // Sin marco cuando no está seleccionado → la preview se ve limpia.
+                border: sel ? '2px dashed #EA580C' : 'none',
+                background: sel ? 'rgba(234,88,12,0.08)' : 'transparent',
+              }}
+            />
+          );
+        })}
 
       {/* Guías de alineación (rosa, no interactivas) */}
       {guides.v.map((gx, i) => (

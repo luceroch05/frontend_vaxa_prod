@@ -11,6 +11,7 @@ import { useState, useEffect, useRef } from 'react';
 import {
   CampoFirma, CampoLinea, CampoLogo, CampoQR, CampoTexto, LayoutLienzo,
   VARIABLES_LIENZO, labelCampo, tipoCampo, indiceLogo, indiceFirma,
+  separarTextoFirma, unirTextoFirma,
 } from './layout';
 import { MousePointerClick, Trash2, Layers, Lock } from '@/components/ui/icon';
 
@@ -95,6 +96,7 @@ function chipLabel(key: string, c: CampoTexto): string {
   if (t === 'qr')    return 'QR';
   if (t === 'logo')  return `Logo ${indiceLogo(key) + 1}`;
   if (t === 'firma') return `Firma ${indiceFirma(key) + 1}`;
+  if (t === 'firmatexto') return `Texto firma ${indiceFirma(key) + 1}`;
   if (t === 'linea') return 'Línea';
   return key;
 }
@@ -241,7 +243,7 @@ export default function InspectorLienzo({ layout, selectedKey, onChange, onSelec
                   </span>
                 </label>
               )}
-              {(t === 'texto' || t === 'linea' || t === 'firma') && (
+              {(t === 'texto' || t === 'linea' || t === 'firma' || t === 'firmatexto') && (
                 <button type="button" onClick={() => removeCampo(sel)} title="Quitar elemento"
                   className="p-1 rounded-md" style={{ color: '#B91C1C' }}>
                   <Trash2 size={14} />
@@ -395,11 +397,59 @@ export default function InspectorLienzo({ layout, selectedKey, onChange, onSelec
                 <div className="flex flex-wrap items-end gap-2">
                   <NumBox label="X" value={c.x} onChange={n => setCampo(sel, { x: n })} />
                   <NumBox label="Y" value={c.y} onChange={n => setCampo(sel, { y: n })} />
-                  <NumBox label="Ancho" value={c.w} min={80} max={600} onChange={n => setCampo(sel, { w: n })} />
-                  <NumBox label="Alto firma" value={c.h} min={20} max={200} onChange={n => setCampo(sel, { h: n })} />
+                  {/* Un solo "Tamaño": la imagen escala por su altura y la línea la sigue (mide lo
+                      que mide la firma real), así se mantiene la proporción y no sale larga. */}
+                  <NumBox label="Tamaño" value={c.h} min={20} max={200} onChange={n => setCampo(sel, { h: n })} />
+                  {!c.soloImagen && (
+                    <NumBox label="Tamaño texto" value={c.textSize} min={6} max={40} onChange={n => setCampo(sel, { textSize: n })} />
+                  )}
+                </div>
+                {/* Separar / unir el nombre+cargo de la imagen, para moverlos por su cuenta. */}
+                {!c.soloImagen ? (
+                  <button type="button"
+                    onClick={() => {
+                      const { campos: next, textoKey } = separarTextoFirma(campos, sel);
+                      onChange({ ...(layout ?? {}), activo: true, campos: next });
+                      onSelect(textoKey);
+                    }}
+                    className="text-[12px] font-semibold px-3 py-1.5 rounded-lg"
+                    style={{ background: '#FFF7ED', color: '#EA580C', border: '1px solid #FED7AA' }}>
+                    Separar nombre/cargo (moverlos aparte)
+                  </button>
+                ) : (
+                  <button type="button"
+                    onClick={() => onChange({ ...(layout ?? {}), activo: true, campos: unirTextoFirma(campos, sel) })}
+                    className="text-[12px] font-semibold px-3 py-1.5 rounded-lg"
+                    style={{ background: '#F1F5F9', color: '#475569', border: '1px solid #E2E8F0' }}>
+                    Unir nombre/cargo con la imagen
+                  </button>
+                )}
+                <p className="text-[10.5px]" style={{ color: '#9CA3AF' }}>
+                  Usa la firma #{indiceFirma(sel) + 1} de <b>Firmas</b>. <b>Tamaño</b> agranda la firma manteniendo la proporción, y la línea de abajo mide lo mismo que la firma{c.soloImagen ? '' : '; Tamaño texto cambia el nombre/cargo'}. {c.soloImagen ? 'El nombre/cargo están como elemento aparte: selecciónalos en el lienzo para moverlos o cambiar su tamaño.' : 'Con Separar, el nombre/cargo se vuelven un elemento propio movible.'}
+                </p>
+              </div>
+            )}
+
+            {/* ── TEXTO DE FIRMA (nombre + cargo separados) ── */}
+            {t === 'firmatexto' && (
+              <div className="space-y-2">
+                <div className="flex flex-wrap items-end gap-2">
+                  <NumBox label="X" value={c.x} onChange={n => setCampo(sel, { x: n })} />
+                  <NumBox label="Y" value={c.y} onChange={n => setCampo(sel, { y: n })} />
+                  <NumBox label="Ancho" value={c.w} min={60} max={600} onChange={n => setCampo(sel, { w: n })} />
+                  <NumBox label="Tamaño texto" value={c.textSize} min={6} max={40} onChange={n => setCampo(sel, { textSize: n })} />
+                  <label style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: '#9CA3AF' }}>Alineado</span>
+                    <select value={c.align ?? 'center'} onChange={e => setCampo(sel, { align: e.target.value as CampoTexto['align'] })}
+                      className="vx-input" style={{ padding: '5px 6px', fontSize: 12 }}>
+                      <option value="left">Izq.</option>
+                      <option value="center">Centro</option>
+                      <option value="right">Der.</option>
+                    </select>
+                  </label>
                 </div>
                 <p className="text-[10.5px]" style={{ color: '#9CA3AF' }}>
-                  Usa la firma #{indiceFirma(sel) + 1} que subiste en <b>Firmas</b> (trae imagen + línea + nombre + cargo). Aquí solo la posicionas.
+                  Nombre y cargo de la firma #{indiceFirma(sel) + 1}, como elemento aparte. Muévelo/redimensiónalo libre. Para volver a pegarlo a la imagen, selecciona la firma y usa <b>Unir</b>.
                 </p>
               </div>
             )}

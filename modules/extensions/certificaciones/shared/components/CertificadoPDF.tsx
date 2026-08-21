@@ -430,7 +430,7 @@ export function CertificadoPDF({ certificado, config, onClose }: Props) {
                       color: '#1e293b',
                       textAlign: 'center',
                       lineHeight: '15px',
-                      whiteSpace: 'normal',
+                      whiteSpace: 'pre-wrap',
                       wordBreak: 'break-word',
                     }}>
                       {f.nombre_autoridad}
@@ -444,7 +444,7 @@ export function CertificadoPDF({ certificado, config, onClose }: Props) {
                       color: '#64748b',
                       textAlign: 'center',
                       lineHeight: '12px',
-                      whiteSpace: 'normal',
+                      whiteSpace: 'pre-wrap',
                       wordBreak: 'break-word',
                     }}>
                       {f.cargo}

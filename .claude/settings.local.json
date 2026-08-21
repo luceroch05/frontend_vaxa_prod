@@ -272,7 +272,9 @@
       "PowerShell($p = Get-NetTCPConnection -LocalPort 5173 -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1; if \\($p\\) { $proc = Get-Process -Id $p.OwningProcess -ErrorAction SilentlyContinue; \"5173 EN USO por PID $\\($p.OwningProcess\\) \\($\\($proc.ProcessName\\)\\) — el dev server SÍ corre\" } else { \"Nada escuchando en 5173 — el dev server NO está corriendo\" })",
       "PowerShell($p = Get-NetTCPConnection -LocalPort 4000 -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1; if \\($p\\) { $proc = Get-Process -Id $p.OwningProcess -ErrorAction SilentlyContinue; \"4000 EN USO por PID $\\($p.OwningProcess\\) \\($\\($proc.ProcessName\\)\\)\"; try { \\(Get-CimInstance Win32_Process -Filter \"ProcessId=$\\($p.OwningProcess\\)\"\\).CommandLine } catch {} } else { \"Nada en 4000 — backend NO corre\" })",
       "Bash(find . -path ./node_modules -prune -o \\\\\\( -iname \"*combobox*\" -o -iname \"*autocomplete*\" -o -iname \"*searchselect*\" \\\\\\) -print)",
-      "Bash(find . -path ./node_modules -prune -o \\\\\\( -iname \"*datepicker*\" -o -iname \"*datetimepicker*\" -o -iname \"*timepicker*\" -o -iname \"*timefield*\" \\\\\\) -print)"
+      "Bash(find . -path ./node_modules -prune -o \\\\\\( -iname \"*datepicker*\" -o -iname \"*datetimepicker*\" -o -iname \"*timepicker*\" -o -iname \"*timefield*\" \\\\\\) -print)",
+      "Bash(echo \"BACK EXIT: $?\")",
+      "Bash(echo \"FRONT EXIT: $?\")"
     ],
     "deny": [],
     "ask": []

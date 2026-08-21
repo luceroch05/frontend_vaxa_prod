@@ -90,7 +90,23 @@ export interface CampoFirma {
   x?:  number;  // px (izquierda del bloque)
   y?:  number;  // px (arriba)
   w?:  number;  // px (ancho del bloque; el nombre/cargo se centran en él)
-  h?:  number;  // px (alto de la imagen de la firma; debajo van nombre y cargo)
+  h?:  number;  // px (alto de la imagen de la firma; manda por altura, el ancho es libre)
+  textSize?: number;  // px del NOMBRE (el cargo va 2px menos). Default 12. Se cambia aparte de la imagen.
+  /** Si true, este slot dibuja SOLO la imagen + línea (el nombre/cargo van en un
+   *  elemento aparte `firmatextoN`, para moverlos/redimensionarlos por separado). */
+  soloImagen?: boolean;
+}
+
+/** Texto (nombre + cargo) de una firma como elemento SEPARADO del garabato, para
+ *  poder ubicarlo/redimensionarlo aparte. Jala nombre/cargo de la firma N (por el
+ *  dígito de la clave: firmatexto1 → firma #1). Se crea con "Separar nombre/cargo". */
+export interface CampoFirmaTexto {
+  on?: boolean;
+  x?:  number;  // px
+  y?:  number;  // px
+  w?:  number;  // px (ancho; el texto se alinea dentro)
+  textSize?: number;  // px del NOMBRE (el cargo va 2px menos). Default 12.
+  align?: 'left' | 'center' | 'right';
 }
 
 /** Línea decorativa horizontal (ej. el subrayado de "PARTICIPANTE"). */
@@ -109,15 +125,16 @@ export interface CampoLinea {
 
 export interface LayoutLienzo {
   activo?: boolean;
-  campos?: Record<string, CampoTexto | CampoQR | CampoLogo | CampoFirma | CampoLinea>;
+  campos?: Record<string, CampoTexto | CampoQR | CampoLogo | CampoFirma | CampoFirmaTexto | CampoLinea>;
 }
 
 /** Tipo de un campo según su clave. */
-export function tipoCampo(key: string): 'texto' | 'qr' | 'logo' | 'firma' | 'linea' {
+export function tipoCampo(key: string): 'texto' | 'qr' | 'logo' | 'firma' | 'firmatexto' | 'linea' {
   if (key === 'qr') return 'qr';
-  if (/^logo\d+$/i.test(key))  return 'logo';
-  if (/^firma\d+$/i.test(key)) return 'firma';   // firma1/firma2 (con dígito) = imagen; firmaIzq/firmaDer = texto
-  if (/^linea/i.test(key))     return 'linea';   // linea1, linea_xxx…
+  if (/^logo\d+$/i.test(key))       return 'logo';
+  if (/^firmatexto\d+$/i.test(key)) return 'firmatexto';  // nombre+cargo separados del garabato
+  if (/^firma\d+$/i.test(key))      return 'firma';       // firma1/firma2 = imagen (+ línea, + texto si no está separado)
+  if (/^linea/i.test(key))          return 'linea';       // linea1, linea_xxx…
   return 'texto';
 }
 
@@ -169,7 +186,12 @@ export function campoBox(
     }
     case 'firma': {
       const w = campo.w ?? 260, h = campo.h ?? 58;
-      return { x, y, w, h: h + 46 };   // imagen + línea + nombre + cargo
+      // Si el texto está separado, el bloque es solo imagen + línea; si no, +nombre+cargo.
+      return { x, y, w, h: campo.soloImagen ? h + 8 : h + 46 };
+    }
+    case 'firmatexto': {
+      const w = campo.w ?? 260, ts = campo.textSize ?? 12;
+      return { x, y, w, h: ts * 1.25 + (ts - 2) * 1.25 + 10 };   // nombre + cargo (aprox., para agarrarlo)
     }
     case 'qr': {
       const s = campo.size ?? 90;
@@ -233,9 +255,10 @@ export function labelCampo(key: string, campo: CampoTexto | CampoQR | CampoLogo)
   const l = (campo as CampoTexto).label;
   if (l) return l;
   if (key === 'qr') return 'Código QR de validación';
-  if (tipoCampo(key) === 'logo')  return `Logo ${indiceLogo(key) + 1} (el que seleccionaste)`;
-  if (tipoCampo(key) === 'firma') return `Firma ${indiceFirma(key) + 1} (imagen + nombre + cargo)`;
-  if (tipoCampo(key) === 'linea') return 'Línea decorativa';
+  if (tipoCampo(key) === 'logo')       return `Logo ${indiceLogo(key) + 1} (el que seleccionaste)`;
+  if (tipoCampo(key) === 'firma')      return `Firma ${indiceFirma(key) + 1} (imagen${(campo as CampoFirma).soloImagen ? '' : ' + nombre + cargo'})`;
+  if (tipoCampo(key) === 'firmatexto') return `Texto de la firma ${indiceFirma(key) + 1} (nombre + cargo)`;
+  if (tipoCampo(key) === 'linea')      return 'Línea decorativa';
   return key;
 }
 
@@ -347,6 +370,37 @@ export function contarFirmas(campos: Record<string, unknown>): number {
   return Object.keys(campos).filter(k => /^firma\d+$/i.test(k)).length;
 }
 
+/** Clave del texto separado de una firma (firma1 → firmatexto1). */
+export function firmaTextoKey(firmaKey: string): string {
+  return `firmatexto${Number(firmaKey.replace(/\D/g, '')) || 1}`;
+}
+
+/**
+ * Separa el nombre/cargo de una firma en un elemento PROPIO (para ubicarlo aparte).
+ * Marca la firma como `soloImagen` y crea el texto justo debajo de la imagen,
+ * heredando ancho y tamaño de texto. Idempotente. Devuelve los campos y la clave del texto.
+ */
+export function separarTextoFirma(
+  campos: Record<string, any>, firmaKey: string,
+): { campos: Record<string, any>; textoKey: string } {
+  const f = campos[firmaKey] ?? {};
+  const textoKey = firmaTextoKey(firmaKey);
+  const h = f.h ?? 58;
+  const next = { ...campos, [firmaKey]: { ...f, soloImagen: true } };
+  next[textoKey] = next[textoKey]
+    ? { ...next[textoKey], on: true }
+    : { on: true, x: f.x ?? 0, y: (f.y ?? 0) + h + 8, w: f.w ?? 260, textSize: f.textSize ?? 12, align: 'center' };
+  return { campos: next, textoKey };
+}
+
+/** Vuelve a unir el texto con la imagen de la firma (quita el elemento separado). */
+export function unirTextoFirma(campos: Record<string, any>, firmaKey: string): Record<string, any> {
+  const next = { ...campos };
+  if (next[firmaKey]) next[firmaKey] = { ...next[firmaKey], soloImagen: false };
+  delete next[firmaTextoKey(firmaKey)];
+  return next;
+}
+
 /**
  * Sincroniza los espacios de firma del lienzo con las firmas ELEGIDAS en la
  * configuración: crea firma1..firmaN (conservando posiciones ya puestas) y quita
@@ -359,9 +413,10 @@ export function sincronizarFirmas(
   const n = Math.max(0, Math.min(numFirmas, MAX_FIRMAS));
   const next = { ...campos };
   let changed = false;
-  // Quita las sobrantes (más slots que firmas seleccionadas).
+  // Quita las sobrantes (más slots que firmas seleccionadas), junto con su texto separado.
   for (let i = n + 1; i <= MAX_FIRMAS; i++) {
-    if (next[`firma${i}`]) { delete next[`firma${i}`]; changed = true; }
+    if (next[`firma${i}`])      { delete next[`firma${i}`];      changed = true; }
+    if (next[`firmatexto${i}`]) { delete next[`firmatexto${i}`]; changed = true; }
   }
   // Agrega las que faltan, con una posición por defecto (el usuario luego las mueve).
   for (let i = 1; i <= n; i++) {

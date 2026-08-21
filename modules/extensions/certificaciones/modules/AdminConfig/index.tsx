@@ -22,6 +22,19 @@ import EditorEnfocado from '../../personalizado/EditorEnfocado';
 import { LayoutLienzo, layoutActivo, parseLayout } from '../../personalizado/layout';
 import type { Logo, Firma } from '../../shared/types';
 
+/* ── Textarea que crece solo conforme se escribe (sin scroll ni arrastrar) ──── */
+function AutoTextarea({ value, style, ...rest }: React.ComponentProps<'textarea'>) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = 'auto';                    // reinicia para medir bien
+    el.style.height = `${el.scrollHeight}px`;    // ajusta al contenido
+  }, [value]);
+  return <textarea ref={ref} value={value} rows={1}
+    style={{ resize: 'none', overflow: 'hidden', ...style }} {...rest} />;
+}
+
 /* ── Campo de texto del certificado con variables insertables ──── */
 function TextoCertificadoField({ value, onChange, placeholder }: {
   value: string;
@@ -435,13 +448,14 @@ function SeccionFirmas({ empresa, onChanged }: { empresa: string; onChanged: () 
             <button onClick={() => { setShowForm(false); setError(null); }} style={{ color: '#9CA3AF' }}><X size={15} /></button>
           </div>
           <div className="grid grid-cols-2 gap-2">
-            <input type="text" placeholder="Nombre y apellido" value={form.nombre_autoridad}
+            <AutoTextarea placeholder="Nombre y apellido" value={form.nombre_autoridad}
               onChange={e => setForm(f => ({ ...f, nombre_autoridad: e.target.value }))}
               className="vx-input" style={{ padding: '0.5rem 0.75rem' }} />
-            <input type="text" placeholder="Cargo" value={form.cargo}
+            <AutoTextarea placeholder="Cargo" value={form.cargo}
               onChange={e => setForm(f => ({ ...f, cargo: e.target.value }))}
               className="vx-input" style={{ padding: '0.5rem 0.75rem' }} />
           </div>
+          <p className="text-[10.5px]" style={{ color: '#9CA3AF' }}>Presiona <b>Enter</b> para partir el nombre o el cargo en varias líneas (salen centradas en el certificado).</p>
           <label className={`flex items-center justify-center gap-2 py-2.5 text-[13px] font-semibold rounded-xl cursor-pointer w-full ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}
             style={{ background: '#F5F3FF', color: '#7C3AED', border: '1.5px dashed #DDD6FE' }}>
             {uploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
@@ -468,13 +482,14 @@ function SeccionFirmas({ empresa, onChanged }: { empresa: string; onChanged: () 
             </label>
           </div>
           <div className="grid grid-cols-2 gap-2">
-            <input type="text" placeholder="Nombre y apellido" value={editForm.nombre_autoridad}
+            <AutoTextarea placeholder="Nombre y apellido" value={editForm.nombre_autoridad}
               onChange={e => setEditForm(f => ({ ...f, nombre_autoridad: e.target.value }))}
               className="vx-input" style={{ padding: '0.5rem 0.75rem' }} />
-            <input type="text" placeholder="Cargo" value={editForm.cargo}
+            <AutoTextarea placeholder="Cargo" value={editForm.cargo}
               onChange={e => setEditForm(f => ({ ...f, cargo: e.target.value }))}
               className="vx-input" style={{ padding: '0.5rem 0.75rem' }} />
           </div>
+          <p className="text-[10.5px]" style={{ color: '#9CA3AF' }}>Presiona <b>Enter</b> para partir en varias líneas (salen centradas).</p>
           <div className="flex justify-end gap-2">
             <button onClick={() => setEditing(null)} className="text-[12px] font-semibold px-3 py-1.5 rounded-lg" style={{ background: '#fff', color: '#6B7280', border: '1px solid #EEECE6' }}>Cancelar</button>
             <button onClick={handleSaveEdit} disabled={savingEdit}

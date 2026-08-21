@@ -148,6 +148,7 @@ export default function CertificadoPreview({
                 layout={layout!}
                 scale={scale}
                 logos={logos}
+                firmas={firmas}
                 onMove={(key, x, y) => onLayoutChange({
                   ...layout!,
                   activo: true,
@@ -197,8 +198,8 @@ export default function CertificadoPreview({
                 <img src={imgUrl(f.imagen_firma)} alt={f.nombre_autoridad}
                   style={{ height: SIG_IMG_H, width: 'auto', maxWidth: SIG_ITEM_W, objectFit: 'contain', marginBottom: -10 }} />
                 <div style={{ width: SIG_ITEM_W, borderTop: '1.5px solid #475569', marginBottom: 6 }} />
-                <p style={{ display: 'block', width: SIG_ITEM_W, margin: 0, fontSize: 11, fontWeight: 700, color: '#1e293b', textAlign: 'center', lineHeight: '15px', whiteSpace: 'normal', wordBreak: 'break-word' }}>{f.nombre_autoridad}</p>
-                <p style={{ display: 'block', width: SIG_ITEM_W, margin: '4px 0 0', fontSize: 9, fontStyle: 'italic', color: '#64748b', textAlign: 'center', lineHeight: '12px', whiteSpace: 'normal', wordBreak: 'break-word' }}>{f.cargo}</p>
+                <p style={{ display: 'block', width: SIG_ITEM_W, margin: 0, fontSize: 11, fontWeight: 700, color: '#1e293b', textAlign: 'center', lineHeight: '15px', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{f.nombre_autoridad}</p>
+                <p style={{ display: 'block', width: SIG_ITEM_W, margin: '4px 0 0', fontSize: 9, fontStyle: 'italic', color: '#64748b', textAlign: 'center', lineHeight: '12px', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{f.cargo}</p>
               </div>
             ))}
           </div>

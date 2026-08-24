@@ -665,7 +665,12 @@ export default function AdminEstudiantes() {
                   checked={selected.has(p.id)} onChange={() => toggleOne(p.id)} disabled={borrando} />
               )}
               <p className="text-[13px] font-mono tabular-nums" style={{ color: '#4B5563' }}>{p.numero_documento}</p>
-              <p className="text-[13px] font-semibold truncate" style={{ color: '#0D0E12' }}>{p.nombres} {p.apellidos}</p>
+              <p className="text-[13px] font-semibold truncate" style={{ color: '#0D0E12' }}>
+                {parseGrados(p.grados).length > 0 && (
+                  <span style={{ color: '#4338CA' }} title="Grados que saldrán antes del nombre en el certificado">{parseGrados(p.grados).join(' ')} </span>
+                )}
+                {p.nombres} {p.apellidos}
+              </p>
               <p className="text-[12.5px] truncate" style={{ color: '#6B7280' }}>{p.email || '—'}</p>
               <p className="text-[12.5px]" style={{ color: '#6B7280' }}>{p.telefono || '—'}</p>
               <div className="flex items-center gap-2 justify-start sm:justify-end mt-2 sm:mt-0">

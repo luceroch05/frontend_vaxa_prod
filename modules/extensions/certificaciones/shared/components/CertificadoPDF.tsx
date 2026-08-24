@@ -32,11 +32,20 @@ function fmtDate(d: string | Date | undefined | null) {
 
 /* Nombre corto = primer nombre + apellidos (para {nombreCorto}). El front solo
    tiene el nombre completo; heurística: 1er palabra + las 2 últimas (apellidos).
-   Con <4 palabras deja el nombre tal cual. */
-function nombreCortoDe(full?: string | null): string {
-  const parts = (full ?? '').trim().split(/\s+/).filter(Boolean);
-  if (parts.length < 4) return (full ?? '').trim();
-  return `${parts[0]} ${parts[parts.length - 2]} ${parts[parts.length - 1]}`;
+   Con <4 palabras deja el nombre tal cual.
+   Los grados/términos van al inicio como abreviaturas terminadas en "." (ej.
+   "Mag.", "Lic.", "Ph.D."): se separan, se calcula el corto con el resto y se
+   vuelven a anteponer, para que el término también aparezca en {nombreCorto}. */
+export function nombreCortoDe(full?: string | null): string {
+  const all = (full ?? '').trim().split(/\s+/).filter(Boolean);
+  let i = 0;
+  while (i < all.length && all[i].endsWith('.')) i++;   // grados académicos del inicio
+  const grados = all.slice(0, i);
+  const parts = all.slice(i);
+  const corto = parts.length < 4
+    ? parts.join(' ')
+    : `${parts[0]} ${parts[parts.length - 2]} ${parts[parts.length - 1]}`;
+  return [...grados, corto].join(' ').trim();
 }
 
 /* Mes + año, ej. "septiembre 2026" (para {mesEmision}). Espejo del backend. */

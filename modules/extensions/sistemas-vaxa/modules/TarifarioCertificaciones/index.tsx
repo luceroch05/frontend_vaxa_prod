@@ -352,6 +352,12 @@ function ServiciosEditor() {
 
   const COLS = '150px 1fr 110px 76px 40px';
 
+  // Grupos presentes en la lista, en el orden del catálogo (los desconocidos van al final).
+  const gruposOrdenados = Array.from(new Set(rows.map(r => r.grupo))).sort((a, b) => {
+    const ia = GRUPOS_SERVICIO.indexOf(a), ib = GRUPOS_SERVICIO.indexOf(b);
+    return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib) || a.localeCompare(b);
+  });
+
   return (
     <div className="mt-8 rounded-2xl p-5" style={{ background: '#FFFFFF', border: '1px solid #EEECE6' }}>
       <div className="flex items-center gap-2 mb-1">
@@ -370,19 +376,25 @@ function ServiciosEditor() {
             <span>Grupo</span><span>Nombre</span><span className="text-right">Precio S/</span><span /><span />
           </div>
           {rows.length === 0 && <p className="text-[12.5px] py-4 text-center" style={{ color: '#B0A898' }}>Aún no hay servicios. Agrega uno abajo.</p>}
-          {rows.map(r => (
-            <div key={r.id} className="grid gap-2 items-center py-1.5" style={{ gridTemplateColumns: COLS, borderTop: '1px solid #F2F0EA' }}>
-              <select value={r.grupo} onChange={e => editar(r.id, { grupo: e.target.value })} className="sv-cell text-[12px]">
-                {GRUPOS_SERVICIO.map(g => <option key={g} value={g}>{g}</option>)}
-              </select>
-              <input value={r.nombre} onChange={e => editar(r.id, { nombre: e.target.value })} className="sv-cell text-[12px]" placeholder="Nombre del servicio" />
-              <input type="number" min={0} step="0.01" value={r.precio} onFocus={e => e.target.select()} onChange={e => editar(r.id, { precio: Math.round((Number(e.target.value) || 0) * 100) / 100 })} className="sv-cell text-right text-[12px]" />
-              <button type="button" onClick={() => guardar(r)} disabled={savingId === r.id} className="flex items-center justify-center gap-1 rounded-lg text-[11px] font-semibold text-white disabled:opacity-50" style={{ background: '#059669', height: 32 }}>
-                {savingId === r.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-              </button>
-              <button type="button" onClick={() => eliminar(r)} disabled={savingId === r.id} title="Eliminar" className="justify-self-center disabled:opacity-50">
-                <Trash2 className="w-4 h-4" style={{ color: '#C8887E' }} />
-              </button>
+          {/* Agrupados por semejanza (Desarrollo Web / Dominios / Hosting), respetando el orden dentro de cada grupo. */}
+          {gruposOrdenados.map(g => (
+            <div key={g}>
+              <p className="text-[10.5px] font-bold uppercase tracking-wider pt-3 pb-1 pl-1" style={{ color: '#059669' }}>{g}</p>
+              {rows.filter(r => r.grupo === g).map(r => (
+                <div key={r.id} className="grid gap-2 items-center py-1.5" style={{ gridTemplateColumns: COLS, borderTop: '1px solid #F2F0EA' }}>
+                  <select value={r.grupo} onChange={e => editar(r.id, { grupo: e.target.value })} className="sv-cell text-[12px]">
+                    {GRUPOS_SERVICIO.map(gg => <option key={gg} value={gg}>{gg}</option>)}
+                  </select>
+                  <input value={r.nombre} onChange={e => editar(r.id, { nombre: e.target.value })} className="sv-cell text-[12px]" placeholder="Nombre del servicio" />
+                  <input type="number" min={0} step="0.01" value={r.precio} onFocus={e => e.target.select()} onChange={e => editar(r.id, { precio: Math.round((Number(e.target.value) || 0) * 100) / 100 })} className="sv-cell text-right text-[12px]" />
+                  <button type="button" onClick={() => guardar(r)} disabled={savingId === r.id} className="flex items-center justify-center gap-1 rounded-lg text-[11px] font-semibold text-white disabled:opacity-50" style={{ background: '#059669', height: 32 }}>
+                    {savingId === r.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                  </button>
+                  <button type="button" onClick={() => eliminar(r)} disabled={savingId === r.id} title="Eliminar" className="justify-self-center disabled:opacity-50">
+                    <Trash2 className="w-4 h-4" style={{ color: '#C8887E' }} />
+                  </button>
+                </div>
+              ))}
             </div>
           ))}
 

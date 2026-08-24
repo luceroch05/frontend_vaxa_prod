@@ -1,5 +1,5 @@
 import {
-  W, H, getLogoSlots, logoSlotStyle, logoImgStyle, firmasGap, SIG_ITEM_W, SIG_IMG_H,
+  W, H, getLogoSlots, logoSlotStyle, logoImgStyle, firmasGap, SIG_ITEM_W, SIG_IMG_H, nombreCortoDe,
 } from './CertificadoPDF';
 import { expandirVariablesCertificado, periodoCurso, fechaLargaISO, mesAnioISO } from '../utils/certVariables';
 import { imgUrl } from '@/lib/api/client';
@@ -83,7 +83,7 @@ export default function CertificadoPreview({
   // Variables de ejemplo para los campos del lienzo (así el admin ve cómo queda).
   const varsLienzo: Record<string, string> = {
     nombre: EJEMPLO.participante, participante: EJEMPLO.participante,
-    nombreCorto: 'Ana Torres López',
+    nombreCorto: nombreCortoDe(EJEMPLO.participante),
     calidad: 'Participante',
     tipoDocumento: EJEMPLO.tipoDocumento, documento: EJEMPLO.documento,
     programa, curso: programa, tipo,

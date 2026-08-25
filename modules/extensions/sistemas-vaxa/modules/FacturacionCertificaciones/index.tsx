@@ -377,6 +377,7 @@ function EmitirModal({ empresas, onClose, onDone }: {
   const [nombreCli, setNombreCli] = useState('');
   const [descTipo, setDescTipo] = useState<'monto' | 'pct'>('pct');
   const [descVal, setDescVal]   = useState('');
+  const [notas, setNotas]       = useState('');
   const [enviando, setEnviando] = useState(false);
   const [resultado, setResultado] = useState<{ ok: boolean; msg: string } | null>(null);
 
@@ -495,12 +496,13 @@ function EmitirModal({ empresas, onClose, onDone }: {
         descuentoValor: l.descuentoValor || undefined,
       }));
       const descDto = descuento > 0 ? { tipo: descTipo, valor: descValor } : undefined;
+      const notasDto = notas.trim() || undefined;
       const r = modo === 'dni'
         ? await facturacionApi.registrarVentaManual({
             cliente: { tipoDoc: docTipo, numDoc: docTipo === '0' ? '0' : numDoc.trim(), razonSocial: nombreCli.trim() },
-            items: itemsDto, descuento: descDto, tipo_comprobante: esNV ? 'NV' : '03',
+            items: itemsDto, descuento: descDto, tipo_comprobante: esNV ? 'NV' : '03', notas: notasDto,
           })
-        : await creditosAdminApi.registrarVenta(empresaId, { items: itemsDto, descuento: descDto, tipo_comprobante: tipoComp });
+        : await creditosAdminApi.registrarVenta(empresaId, { items: itemsDto, descuento: descDto, tipo_comprobante: tipoComp, notas: notasDto });
       const c = r.comprobante;
       const ok = c.estado === 'ACEPTADO' || c.estado === 'OBSERVADO' || c.estado === 'EMITIDA';
       setResultado({ ok, msg: ok ? `${c.numero} — ${c.estado_nombre}${r.creditosAgregados ? ` · +${r.creditosAgregados} créditos` : ''}` : `${c.numero}: ${c.sunat_resp_desc ?? c.estado_nombre}` });
@@ -629,6 +631,20 @@ function EmitirModal({ empresas, onClose, onDone }: {
                   </div>
                 );
               })}
+            </div>
+
+            {/* Notas / observaciones (van al PDF, no a SUNAT). Admite párrafos. */}
+            <div className="mb-4">
+              <label className="block text-[11px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: '#374151' }}>Notas (opcional)</label>
+              <textarea
+                ref={el => { if (el) { el.style.height = 'auto'; el.style.height = `${el.scrollHeight}px`; } }}
+                value={notas}
+                onChange={e => { setNotas(e.target.value); e.target.style.height = 'auto'; e.target.style.height = `${e.target.scrollHeight}px`; }}
+                rows={3}
+                placeholder={'Condiciones, forma de pago…\nUsa Enter para separar en párrafos.'}
+                className="sv-input w-full text-[13px]"
+                style={{ whiteSpace: 'pre-wrap', minHeight: 68, overflow: 'hidden', resize: 'none' }} />
+              <p className="text-[10.5px] mt-1" style={{ color: '#9CA3AF' }}>Se imprimen en el PDF respetando los saltos de línea. No se declaran a SUNAT.</p>
             </div>
 
             {/* Descuento + Totales */}

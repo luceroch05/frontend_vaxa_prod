@@ -73,6 +73,7 @@ export const facturacionApi = {
     items: Array<{ descripcion: string; cantidad: number; precioUnitario: number; creditos?: number; renueva?: boolean; descuentoTipo?: 'monto' | 'pct'; descuentoValor?: number }>;
     descuento?: { tipo: 'monto' | 'pct'; valor: number };
     tipo_comprobante: '03' | 'NV';
+    notas?: string;
   }) =>
     api.post<{ comprobante: { numero: string; estado: string; estado_nombre: string; sunat_resp_desc: string | null }; descuento: number; total: number; creditosAgregados: number }>(
       '/api/admin/comprobantes/venta-manual', dto, opts(),

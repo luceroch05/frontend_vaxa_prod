@@ -655,7 +655,14 @@ function NuevaCotizacionModal({ empresas, editar, onClose, onDone }: {
           </div>
           <div>
             <label className="block text-[11px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: '#374151' }}>Notas (opcional)</label>
-            <input value={notas} onChange={e => setNotas(e.target.value)} placeholder="Condiciones, forma de pago…" className="sv-input w-full text-[13px]" />
+            <textarea
+              ref={el => { if (el) { el.style.height = 'auto'; el.style.height = `${el.scrollHeight}px`; } }}
+              value={notas}
+              onChange={e => { setNotas(e.target.value); e.target.style.height = 'auto'; e.target.style.height = `${e.target.scrollHeight}px`; }}
+              rows={3}
+              placeholder={'Condiciones, forma de pago…\nPuedes usar Enter para separar en párrafos.'}
+              className="sv-input w-full text-[13px]"
+              style={{ whiteSpace: 'pre-wrap', minHeight: 84, overflow: 'hidden', resize: 'none' }} />
           </div>
         </div>
 

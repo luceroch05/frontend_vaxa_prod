@@ -294,7 +294,9 @@
       "PowerShell(Set-Content *)",
       "PowerShell(Start-Process \"C:\\\\Users\\\\Lucero\\\\Desktop\\\\Vaxa - Informe de Pruebas de Carga.docx\"; \"Abriendo...\")",
       "PowerShell(Set-Location \"C:\\\\Users\\\\Lucero\\\\Desktop\\\\backend-vaxa-prod\"; Start-Process -FilePath \"cmd.exe\" -ArgumentList \"/c npm run dev > `\"$env:TEMP\\\\vaxa-back.log`\" 2>&1\" -WindowStyle Hidden; \"Backend arrancando en segundo plano... log: $env:TEMP\\\\vaxa-back.log\")",
-      "PowerShell(Start-Process \"C:\\\\Users\\\\Lucero\\\\Desktop\\\\Vaxa - Informe de Pruebas de Carga.docx\"; \"Abriendo el informe actualizado...\")"
+      "PowerShell(Start-Process \"C:\\\\Users\\\\Lucero\\\\Desktop\\\\Vaxa - Informe de Pruebas de Carga.docx\"; \"Abriendo el informe actualizado...\")",
+      "PowerShell(Set-Location \"C:\\\\Users\\\\Lucero\\\\Desktop\\\\backend-vaxa-prod\"; npx tsc --noEmit 2>&1 | Select-Object -First 30; Write-Output \"EXIT: $LASTEXITCODE\")",
+      "WebFetch(domain:www.namecheap.com)"
     ],
     "deny": [],
     "ask": []

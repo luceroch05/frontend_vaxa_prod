@@ -340,6 +340,7 @@ export const creditosAdminApi = {
     descuento?: { tipo: 'monto' | 'pct'; valor: number };
     tipo_comprobante?: '01' | '03' | 'NV';
     marcar_activacion_usuarios?: number[];   // usuarios cuya activación (S/50) se cobra en esta venta
+    notas?: string;
   }) =>
     api.post<{ comprobante: { numero: string; estado: string; estado_nombre: string; sunat_resp_desc: string | null }; descuento: number; total: number; creditosAgregados: number }>(
       `/api/admin/empresas/${empresaId}/venta`, dto, opts(),

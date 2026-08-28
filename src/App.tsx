@@ -158,6 +158,21 @@ export default function App() {
     );
   }
 
+  // ── Subdominio historias.vaxasys.com → Historias Clínicas, empresa = 1er segmento.
+  //    Mismo producto que 'terapeutico', pero el tenant viene en el path
+  //    (historias.vaxasys.com/<centro>/login), igual que certificados. ─────────
+  if (modo === 'historias') {
+    return (
+      <Routes>
+        <Route path="/" element={<HomePage />} />
+        <Route path="/:empresa" element={<TerapLayout />}>
+          {terapeuticoChildren()}
+        </Route>
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    );
+  }
+
   // ── Dominio propio del cliente (mundokids.com.pe) → Historias Clínicas en la raíz.
   //    El tenant lo fija el dominio (ver lib/host.ts); la URL queda limpia
   //    (mundokids.com.pe/login, /panel…). ─────────────────────────────────────

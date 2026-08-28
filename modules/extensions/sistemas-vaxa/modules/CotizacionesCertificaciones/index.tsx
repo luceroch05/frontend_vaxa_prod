@@ -596,7 +596,7 @@ function NuevaCotizacionModal({ empresas, editar, onClose, onDone }: {
         <div className="flex gap-2 mb-1.5">
           <select value="" onChange={e => addCatalogo(e.target.value)} className="sv-input flex-1 text-[12.5px]">
             <option value="">+ Agregar producto del catálogo…</option>
-            {['Desarrollo Web', 'Dominios', 'Hosting', 'Planes', 'Créditos', 'Usuarios'].map((g) => {
+            {Array.from(new Set(['Desarrollo Web', 'Dominios', 'Hosting', 'VPS', 'Planes', 'Créditos', 'Usuarios', ...catalogo.map(x => x.grupo)])).map((g) => {
               const items = catalogo.filter(x => x.grupo === g);
               return items.length ? (
                 <optgroup key={g} label={g}>

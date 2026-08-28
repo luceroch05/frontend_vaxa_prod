@@ -25,16 +25,17 @@ export function certPath(empresa: string, sub = ''): string {
 /**
  * Ruta interna del área de Historias Clínicas (centros terapéuticos) de una empresa.
  *   sub: '', '/login', '/panel', '/panel/pacientes/:id', ...
- * Por ahora siempre lleva el segmento /terapeutico (aún no hay subdominio propio;
- * cuando lo haya, se replica el patrón de certPath con su HostMode).
+ * Según el modo de host:
+ *   - terapeutico (dominio propio) → URL limpia, el tenant lo fija el dominio.
+ *   - historias   (subdominio Vaxa) → el tenant va en el path, SIN /terapeutico
+ *                  (historias.vaxasys.com/<centro>/login), igual que certPath.
+ *   - legacy      → con el segmento /:empresa/terapeutico (sin cambios).
  */
 export function terapPath(empresa: string, sub = ''): string {
-  // En el dominio propio del cliente el tenant lo fija el dominio, así que la
-  // ruta va sin el prefijo /:empresa/terapeutico (URL limpia: /login, /panel…).
   const { modo } = getHostMode();
-  return modo === 'terapeutico'
-    ? (sub || '/')
-    : `/${empresa}/terapeutico${sub}`;
+  if (modo === 'terapeutico') return sub || '/';        // dominio propio: URL limpia
+  if (modo === 'historias')   return `/${empresa}${sub}`; // subdominio Vaxa: tenant en path
+  return `/${empresa}/terapeutico${sub}`;                // legacy
 }
 
 /**

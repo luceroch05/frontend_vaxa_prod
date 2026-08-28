@@ -65,6 +65,17 @@ export function fontFamilyCss(font?: string): string {
   return "'Montserrat', Helvetica, Arial, sans-serif";
 }
 
+/** Fuentes de un SOLO peso (solo existe el archivo Regular). No tienen negrita
+ *  real: el navegador la "falsifica" (faux bold) en la vista previa de la config,
+ *  pero el PDF final incrusta el .ttf real y la negrita se ignora → se ve fino.
+ *  Para no engañar, en estas fuentes se bloquea el selector de Peso y la Negrita.
+ *  (El resto —sans/poppins/barlow/cardo/tangerine/cinzel/crimson/serif— sí traen
+ *  archivo Bold, así que la negrita funciona igual en preview y en PDF.) */
+export function fontEsPesoUnico(font?: string): boolean {
+  return ['vibes', 'bebas', 'lobster', 'pacifico', 'sacramento',
+          'allura', 'alexbrush', 'parisienne', 'abril'].includes(font ?? '');
+}
+
 export interface CampoQR {
   on?:         boolean;
   x?:          number;  // px

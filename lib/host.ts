@@ -7,12 +7,21 @@
  *
  *   sistemas.vaxasys.com      → sistema interno de Vaxa (tenant fijo)
  *   certificados.vaxasys.com  → SaaS de certificados (empresa = 1er segmento)
+ *   historias.vaxasys.com     → SaaS de Historias Clínicas (empresa = 1er segmento)
+ *   <dominio propio>          → Historias Clínicas white-label (tenant = dominio)
  *   cualquier otro / local    → 'legacy' (comportamiento actual, sin cambios)
+ *
+ * Nota: `historias` y `terapeutico` sirven el MISMO producto (Historias Clínicas)
+ * pero difieren en de dónde sale el tenant:
+ *   - historias   → subdominio Vaxa compartido; el tenant va en el PATH
+ *                   (historias.vaxasys.com/<centro>/login).
+ *   - terapeutico → dominio PROPIO del cliente; el tenant lo fija el dominio y la
+ *                   URL queda limpia (mundokids.com.pe/login).
  *
  * Si mañana cambian los subdominios, se toca SOLO este archivo.
  */
 
-export type HostMode = 'legacy' | 'sistemas' | 'certificados' | 'terapeutico';
+export type HostMode = 'legacy' | 'sistemas' | 'certificados' | 'historias' | 'terapeutico';
 
 export interface HostInfo {
   modo: HostMode;
@@ -39,6 +48,9 @@ export function getHostMode(): HostInfo {
   const h = window.location.hostname.toLowerCase();
   if (h.startsWith('sistemas.'))     return { modo: 'sistemas',     tenant: 'sistemas-vaxa' };
   if (h.startsWith('certificados.')) return { modo: 'certificados', tenant: '' };
+  // Subdominio Vaxa compartido de Historias Clínicas: el tenant va en el path
+  // (historias.vaxasys.com/<centro>/login), igual que certificados.
+  if (h.startsWith('historias.'))    return { modo: 'historias',    tenant: '' };
 
   // Dominio propio del cliente (Historias Clínicas): la URL queda limpia y el
   // tenant lo fija el dominio, no el path.

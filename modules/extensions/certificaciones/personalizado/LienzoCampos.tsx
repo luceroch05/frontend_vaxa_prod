@@ -8,7 +8,7 @@
  * ──────────────────────────────────────────────────────────────── */
 import type { CSSProperties } from 'react';
 import { imgUrl } from '@/lib/api/client';
-import { CampoFirma, CampoFirmaTexto, CampoLinea, CampoLogo, CampoQR, CampoTexto, LayoutLienzo, expandirLienzo, fontFamilyCss, tipoCampo, indiceLogo, indiceFirma, segmentosBold, quitarBold } from './layout';
+import { CampoFirma, CampoFirmaTexto, CampoLinea, CampoLogo, CampoQR, CampoTexto, LayoutLienzo, expandirLienzo, fontFamilyCss, fontEsPesoUnico, tipoCampo, indiceLogo, indiceFirma, segmentosBold, quitarBold } from './layout';
 
 interface Props {
   layout: LayoutLienzo;
@@ -54,7 +54,9 @@ function lineaSigueTexto(
   let txt = quitarBold(expandirLienzo(campo.text ?? '', vars));
   if (campo.uppercase) txt = txt.toUpperCase();
   if (!txt.trim()) return null;
-  const weight = campo.weight ?? (campo.bold ? 700 : 400);
+  // Fuentes de un solo peso no tienen negrita real: forzamos 400 para que la
+  // medición (y por tanto el ancho de la línea) coincida con el PDF final.
+  const weight = fontEsPesoUnico(campo.font) ? 400 : (campo.weight ?? (campo.bold ? 700 : 400));
   const fam = fontFamilyCss(campo.font);
   const base = campo.size ?? 20;
   const size = campo.autoFit
@@ -181,7 +183,10 @@ export default function LienzoCampos({ layout, vars, codigo, qrDataUrl, logos = 
         const txt = expandirLienzo(c.text ?? '', vars);
         const plano = quitarBold(txt);            // sin marcas ** (para medir / detectar vacío)
         if (!plano.trim()) return null;
-        const weight = c.weight ?? (c.bold ? 700 : 400);
+        // Fuente de un solo peso → sin negrita real: se muestra en 400 para que la
+        // vista previa sea idéntica al PDF (que incrusta solo el .ttf Regular).
+        const pesoUnico = fontEsPesoUnico(c.font);
+        const weight = pesoUnico ? 400 : (c.weight ?? (c.bold ? 700 : 400));
         const measureTxt = c.uppercase ? plano.toUpperCase() : plano;
         const fontSize = c.autoFit
           ? fitSize(measureTxt, c.w ?? 400, c.size ?? 20, weight, !!c.italic, fontFamilyCss(c.font), c.tracking ?? 0)
@@ -203,7 +208,9 @@ export default function LienzoCampos({ layout, vars, codigo, qrDataUrl, logos = 
           whiteSpace: 'pre-wrap',
           fontFamily: fontFamilyCss(c.font),
         };
-        const boldWeight = Math.max(weight, 700);
+        // En fuentes de un solo peso, el **negrita parcial** tampoco tiene efecto en
+        // el PDF → se mantiene en 400 para no mostrar un grosor que luego no saldrá.
+        const boldWeight = pesoUnico ? 400 : Math.max(weight, 700);
         // Línea DEBAJO del texto (opción "underline"): del ancho del texto, alineada
         // como él y separada por underlineOffset. Reusa la medición del subrayado adaptado.
         let subrayado: CSSProperties | null = null;

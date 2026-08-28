@@ -288,7 +288,7 @@ export default function TarifarioCertificaciones({ tenantId }: Props) {
   );
 }
 
-const GRUPOS_SERVICIO = ['Desarrollo Web', 'Dominios', 'Hosting'];
+const GRUPOS_SERVICIO = ['Desarrollo Web', 'Dominios', 'Hosting','VPS'];
 
 /**
  * Editor de servicios sueltos (web/dominios/hosting). Persisten en la BD

@@ -11,7 +11,7 @@ import { useState, useEffect, useRef } from 'react';
 import {
   CampoFirma, CampoLinea, CampoLogo, CampoQR, CampoTexto, LayoutLienzo,
   VARIABLES_LIENZO, labelCampo, tipoCampo, indiceLogo, indiceFirma,
-  separarTextoFirma, unirTextoFirma,
+  separarTextoFirma, unirTextoFirma, fontEsPesoUnico,
 } from './layout';
 import { MousePointerClick, Trash2, Layers, Lock } from '@/components/ui/icon';
 
@@ -334,26 +334,40 @@ export default function InspectorLienzo({ layout, selectedKey, onChange, onSelec
                       </optgroup>
                     </select>
                   </label>
-                  <label style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  {/* Fuentes de un solo peso (Great Vibes, Pacifico, etc.) no tienen negrita
+                      real: la vista previa la falsifica pero el PDF final la ignora. Se
+                      bloquea el Peso para que lo que se ve = lo que sale. */}
+                  {(() => { const pesoUnico = fontEsPesoUnico(c.font ?? 'sans'); return (
+                  <label style={{ display: 'flex', flexDirection: 'column', gap: 2, opacity: pesoUnico ? 0.5 : 1 }}
+                    title={pesoUnico ? 'Esta fuente solo tiene un grosor (no tiene negrita real en el PDF).' : undefined}>
                     <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: '#9CA3AF' }}>Peso</span>
-                    <select value={c.weight ?? (c.bold ? 700 : 400)} onChange={e => setCampo(sel, { weight: Number(e.target.value) as CampoTexto['weight'] })}
-                      className="vx-input" style={{ padding: '5px 6px', fontSize: 12 }}>
-                      <option value={400}>Normal</option>
-                      <option value={500}>Medium</option>
-                      <option value={600}>SemiBold</option>
-                      <option value={700}>Bold</option>
-                      <option value={800}>ExtraBold</option>
+                    <select disabled={pesoUnico} value={pesoUnico ? 400 : (c.weight ?? (c.bold ? 700 : 400))} onChange={e => setCampo(sel, { weight: Number(e.target.value) as CampoTexto['weight'] })}
+                      className="vx-input" style={{ padding: '5px 6px', fontSize: 12, cursor: pesoUnico ? 'not-allowed' : 'pointer' }}>
+                      {pesoUnico
+                        ? <option value={400}>Único</option>
+                        : <>
+                            <option value={400}>Normal</option>
+                            <option value={500}>Medium</option>
+                            <option value={600}>SemiBold</option>
+                            <option value={700}>Bold</option>
+                            <option value={800}>ExtraBold</option>
+                          </>}
                     </select>
                   </label>
+                  ); })()}
                   <NumBox label="Espaciado" value={c.tracking} min={0} max={20} onChange={n => setCampo(sel, { tracking: n })} />
                 </div>
                 <div className="flex items-center gap-3 flex-wrap">
-                  {([['bold', 'Negrita'], ['italic', 'Cursiva'], ['uppercase', 'MAYÚS.']] as const).map(([prop, lbl]) => (
-                    <label key={prop} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, cursor: 'pointer' }}>
-                      <input type="checkbox" checked={!!c[prop]} onChange={e => setCampo(sel, { [prop]: e.target.checked })} />
+                  {([['bold', 'Negrita'], ['italic', 'Cursiva'], ['uppercase', 'MAYÚS.']] as const).map(([prop, lbl]) => {
+                    // La negrita no tiene efecto en fuentes de un solo peso → se deshabilita.
+                    const bloqueado = prop === 'bold' && fontEsPesoUnico(c.font ?? 'sans');
+                    return (
+                    <label key={prop} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, cursor: bloqueado ? 'not-allowed' : 'pointer', opacity: bloqueado ? 0.5 : 1 }}
+                      title={bloqueado ? 'Esta fuente no tiene negrita real (se vería igual en el PDF).' : undefined}>
+                      <input type="checkbox" disabled={bloqueado} checked={bloqueado ? false : !!c[prop]} onChange={e => setCampo(sel, { [prop]: e.target.checked })} />
                       <span className="text-[11px]" style={{ color: '#475569' }}>{lbl}</span>
                     </label>
-                  ))}
+                  ); })}
                   <label style={{ display: 'inline-flex', alignItems: 'center', gap: 5, cursor: 'pointer' }} title="Encoge el texto para que entre en una línea (ideal para nombres largos)">
                     <input type="checkbox" checked={!!c.autoFit} onChange={e => setCampo(sel, { autoFit: e.target.checked })} />
                     <span className="text-[11px]" style={{ color: '#475569' }}>Auto-ajustar</span>

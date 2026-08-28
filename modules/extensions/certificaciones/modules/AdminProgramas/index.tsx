@@ -10,7 +10,7 @@ import { usePagination } from '../../shared/hooks/usePagination';
 import Pagination from '../../shared/components/Pagination';
 import type { CreateProgramaDto, Programa } from '../../shared/types';
 
-const NOMBRE_MAX = 100;
+const NOMBRE_MAX = 500;
 const DESC_MAX   = 300;
 
 /* ── Form ───────────────────────────────────────────────────── */

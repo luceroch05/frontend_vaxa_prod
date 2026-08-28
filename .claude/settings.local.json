@@ -297,7 +297,10 @@
       "PowerShell(Start-Process \"C:\\\\Users\\\\Lucero\\\\Desktop\\\\Vaxa - Informe de Pruebas de Carga.docx\"; \"Abriendo el informe actualizado...\")",
       "PowerShell(Set-Location \"C:\\\\Users\\\\Lucero\\\\Desktop\\\\backend-vaxa-prod\"; npx tsc --noEmit 2>&1 | Select-Object -First 30; Write-Output \"EXIT: $LASTEXITCODE\")",
       "WebFetch(domain:www.namecheap.com)",
-      "WebFetch(domain:hosting-ssd.com)"
+      "WebFetch(domain:hosting-ssd.com)",
+      "Bash(xargs grep -ilE \"lienzo|layout_personalizado|fitSize|fontFamilyCss|drawText|pdfkit|PDFDocument\")",
+      "Bash(echo \"exit: $?\")",
+      "Bash(grep -rniA3 \"INSERT INTO certificados\" src/modules/certificados/shared/certificados.repository.ts)"
     ],
     "deny": [],
     "ask": []

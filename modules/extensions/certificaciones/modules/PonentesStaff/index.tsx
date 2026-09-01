@@ -12,8 +12,11 @@ import CalidadBadge from '../../shared/components/CalidadBadge';
  * gestionarlas aparte. Reusa las inscripciones existentes; la calidad
  * sale de inscripciones.calidad. Módulo aislado, no toca lo demás.
  * ─────────────────────────────────────────────────────────────── */
+// Un "Asistente" se trata igual que un Participante: no es staff, así que
+// no aparece en esta página (se gestiona con el resto de participantes).
+const NO_STAFF = new Set(['participante', 'asistente']);
 const esParticipante = (calidad?: string) =>
-  ((calidad ?? 'Participante').trim() || 'Participante').toLowerCase() === 'participante';
+  NO_STAFF.has(((calidad ?? 'Participante').trim() || 'Participante').toLowerCase());
 
 export default function PonentesStaff() {
   const { empresa } = useParams<{ empresa: string }>();

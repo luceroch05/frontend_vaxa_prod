@@ -164,9 +164,9 @@ export default function PublicValidar() {
                 </div>
 
                 <div className="p-5 space-y-4">
-                  {/* Participante */}
+                  {/* Participante (el label refleja la calidad: Asistente, Organizador, Ponente…) */}
                   <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-widest mb-1" style={{ color: '#B0A898' }}>Participante</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-widest mb-1" style={{ color: '#B0A898' }}>{(resultado.calidad?.trim() || 'Participante')}</p>
                     <p className="text-[22px] font-bold tracking-tight" style={{ color: '#0D0E12' }}>
                       {resultado.participante_nombre}
                     </p>

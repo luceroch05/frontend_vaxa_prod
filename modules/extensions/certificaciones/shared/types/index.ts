@@ -244,6 +244,8 @@ export interface CertificadoPublico {
   fecha_dia3?: string | null;
   modalidad: string;
   estado: string;
+  /** Calidad de participación (Participante, Asistente, Ponente, Organizador…). */
+  calidad?: string | null;
   empresa_nombre: string;
   empresa_logo: string | null;
 }

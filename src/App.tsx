@@ -3,6 +3,7 @@ import { getHostMode } from '@/lib/host';
 import { certPath } from '@/lib/paths';
 import TenantLayout from './layouts/TenantLayout';
 import HomePage from './pages/HomePage';
+import MarcaPersonal from './pages/MarcaPersonal';
 import TenantRedirect from './pages/TenantRedirect';
 import LazyRoute from './components/LazyRoute';
 
@@ -168,6 +169,17 @@ export default function App() {
         <Route path="/:empresa" element={<TerapLayout />}>
           {terapeuticoChildren()}
         </Route>
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    );
+  }
+
+  // ── Subdominio mimarca.vaxasys.com → landing de marca personal (mockup/demo).
+  //    Es una página estática de ejemplo; no hay sistema ni login detrás. ──────
+  if (modo === 'marca') {
+    return (
+      <Routes>
+        <Route path="/" element={<MarcaPersonal />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     );

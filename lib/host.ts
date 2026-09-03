@@ -21,7 +21,7 @@
  * Si mañana cambian los subdominios, se toca SOLO este archivo.
  */
 
-export type HostMode = 'legacy' | 'sistemas' | 'certificados' | 'historias' | 'terapeutico';
+export type HostMode = 'legacy' | 'sistemas' | 'certificados' | 'historias' | 'terapeutico' | 'marca';
 
 export interface HostInfo {
   modo: HostMode;
@@ -46,11 +46,24 @@ const DOMINIOS_TERAPEUTICO: Record<string, string> = {
 export function getHostMode(): HostInfo {
   if (typeof window === 'undefined') return { modo: 'legacy', tenant: '' };
   const h = window.location.hostname.toLowerCase();
+
+  // Ayuda SOLO para desarrollo local: forzar un modo con un parámetro, sin
+  // depender de subdominios ni DNS. Ej. para ver la landing de marca personal:
+  //   http://localhost:5173/?modo=marca
+  // En producción el hostname nunca es localhost, así que esto no aplica.
+  if (h === 'localhost' || h === '127.0.0.1') {
+    const forzado = new URLSearchParams(window.location.search).get('modo');
+    if (forzado === 'marca') return { modo: 'marca', tenant: 'mimarca' };
+  }
   if (h.startsWith('sistemas.'))     return { modo: 'sistemas',     tenant: 'sistemas-vaxa' };
   if (h.startsWith('certificados.')) return { modo: 'certificados', tenant: '' };
   // Subdominio Vaxa compartido de Historias Clínicas: el tenant va en el path
   // (historias.vaxasys.com/<centro>/login), igual que certificados.
   if (h.startsWith('historias.'))    return { modo: 'historias',    tenant: '' };
+  // Página de marca personal (MOCKUP / demo de ejemplo de los servicios que
+  // ofrecemos). Es una landing estática, sin sistema ni login detrás.
+  //   mimarca.vaxasys.com  (o  mimarca.lvh.me  para probar en local)
+  if (h.startsWith('mimarca.'))      return { modo: 'marca',        tenant: 'mimarca' };
 
   // Dominio propio del cliente (Historias Clínicas): la URL queda limpia y el
   // tenant lo fija el dominio, no el path.

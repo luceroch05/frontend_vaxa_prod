@@ -300,7 +300,9 @@
       "WebFetch(domain:hosting-ssd.com)",
       "Bash(xargs grep -ilE \"lienzo|layout_personalizado|fitSize|fontFamilyCss|drawText|pdfkit|PDFDocument\")",
       "Bash(echo \"exit: $?\")",
-      "Bash(grep -rniA3 \"INSERT INTO certificados\" src/modules/certificados/shared/certificados.repository.ts)"
+      "Bash(grep -rniA3 \"INSERT INTO certificados\" src/modules/certificados/shared/certificados.repository.ts)",
+      "Bash(nslookup mimarca.lvh.me)",
+      "WebFetch(domain:unsplash.com)"
     ],
     "deny": [],
     "ask": []

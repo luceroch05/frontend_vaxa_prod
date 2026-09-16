@@ -302,7 +302,15 @@
       "Bash(echo \"exit: $?\")",
       "Bash(grep -rniA3 \"INSERT INTO certificados\" src/modules/certificados/shared/certificados.repository.ts)",
       "Bash(nslookup mimarca.lvh.me)",
-      "WebFetch(domain:unsplash.com)"
+      "WebFetch(domain:unsplash.com)",
+      "WebFetch(domain:carloscueto.edu.pe)",
+      "PowerShell(Get-ChildItem \"C:\\\\Users\\\\Lucero\\\\Downloads\" | Where-Object { $_.Name -match '\\\\.\\(jpe?g|png|webp\\)$' } | Sort-Object LastWriteTime -Descending | Select-Object -First 15 Name, Length, LastWriteTime | Format-Table -AutoSize)",
+      "PowerShell(Add-Type -AssemblyName System.Drawing; $img = [System.Drawing.Image]::FromFile\\(\"C:\\\\Users\\\\Lucero\\\\Downloads\\\\WhatsApp Image 2026-09-15 at 10.24.31 AM 2.jpeg\"\\); \"$\\($img.Width\\) x $\\($img.Height\\)\"; $img.Dispose\\(\\))",
+      "PowerShell(npx tsc --noEmit -p tsconfig.json 2>&1 | Select-Object -First 40)",
+      "PowerShell(Add-Type -AssemblyName System.Drawing; $i=[System.Drawing.Image]::FromFile\\(\"C:\\\\Users\\\\Lucero\\\\Desktop\\\\frontend_vaxa_prod\\\\public\\\\lisseth.jpg\"\\); \"$\\($i.Width\\) x $\\($i.Height\\)\"; $i.Dispose\\(\\))",
+      "PowerShell(npx tsc --noEmit -p tsconfig.json 2>&1 | Select-Object -First 30)",
+      "PowerShell(npx tsc --noEmit -p tsconfig.json 2>&1 | Select-Object -First 20)",
+      "PowerShell(Add-Type -AssemblyName System.Drawing; $i=[System.Drawing.Image]::FromFile\\(\"C:\\\\Users\\\\Lucero\\\\Desktop\\\\frontend_vaxa_prod\\\\public\\\\liss.png\"\\); \"$\\($i.Width\\) x $\\($i.Height\\)\"; $i.Dispose\\(\\))"
     ],
     "deny": [],
     "ask": []

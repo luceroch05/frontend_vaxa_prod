@@ -4,6 +4,7 @@ import { certPath } from '@/lib/paths';
 import TenantLayout from './layouts/TenantLayout';
 import HomePage from './pages/HomePage';
 import MarcaPersonal from './pages/MarcaPersonal';
+import LissethBaca from './pages/LissethBaca';
 import TenantRedirect from './pages/TenantRedirect';
 import LazyRoute from './components/LazyRoute';
 
@@ -37,6 +38,9 @@ import TerapPacientes    from '../modules/extensions/terapeutico/modules/Pacient
 import TerapPacienteDetalle from '../modules/extensions/terapeutico/modules/PacienteDetalle';
 import TerapAgenda       from '../modules/extensions/terapeutico/modules/Agenda';
 import TerapServicios    from '../modules/extensions/terapeutico/modules/Servicios';
+import TerapVentas        from '../modules/extensions/terapeutico/modules/Ventas';
+import TerapInventario    from '../modules/extensions/terapeutico/modules/Inventario';
+import TerapCaja          from '../modules/extensions/terapeutico/modules/Caja';
 import TerapMiWeb        from '../modules/extensions/terapeutico/modules/MiWeb';
 import TerapAuditoria    from '../modules/extensions/terapeutico/modules/Auditoria';
 import TerapLanding      from '../modules/extensions/terapeutico/modules/Landing';
@@ -104,6 +108,9 @@ function terapeuticoChildren() {
           <Route index element={<TerapPacientes />} />
           <Route path="agenda" element={<TerapAgenda />} />
           <Route path="servicios" element={<TerapServicios />} />
+          <Route path="ventas" element={<TerapVentas />} />
+          <Route path="inventario" element={<TerapInventario />} />
+          <Route path="caja" element={<TerapCaja />} />
           <Route path="web" element={<TerapMiWeb />} />
           <Route path="auditoria" element={<TerapAuditoria />} />
           <Route path="pacientes/:id" element={<TerapPacienteDetalle />} />
@@ -185,6 +192,17 @@ export default function App() {
     );
   }
 
+  // ── Subdominio lissethbaca.vaxa.com.pe → landing de marca personal REAL de la
+  //    clienta (terapia de lenguaje). Página estática; sin sistema detrás. ──────
+  if (modo === 'lissethbaca') {
+    return (
+      <Routes>
+        <Route path="/" element={<LissethBaca />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    );
+  }
+
   // ── Dominio propio del cliente (mundokids.com.pe) → Historias Clínicas en la raíz.
   //    El tenant lo fija el dominio (ver lib/host.ts); la URL queda limpia
   //    (mundokids.com.pe/login, /panel…). ─────────────────────────────────────
@@ -202,6 +220,9 @@ export default function App() {
               <Route index element={<TerapPacientes />} />
               <Route path="agenda" element={<TerapAgenda />} />
               <Route path="servicios" element={<TerapServicios />} />
+              <Route path="ventas" element={<TerapVentas />} />
+              <Route path="inventario" element={<TerapInventario />} />
+              <Route path="caja" element={<TerapCaja />} />
               <Route path="web" element={<TerapMiWeb />} />
               <Route path="auditoria" element={<TerapAuditoria />} />
               <Route path="pacientes/:id" element={<TerapPacienteDetalle />} />

@@ -1,8 +1,9 @@
 import { useEffect, useState, FormEvent } from 'react';
-import { Loader2, Plus, Save, Pencil, Users, Activity } from '@/components/ui/icon';
+import { Loader2, Plus, Pencil, Save, Users, Activity, Layers } from '@/components/ui/icon';
 import { authStorage } from '@/lib/auth';
 import { useEmpresaSlug } from '@/lib/useEmpresa';
 import { terapApi, type Servicio, type Terapeuta } from '../../shared/api/terapeutico.api';
+import { Overlay, Cabecera, Campo } from '../../shared/finanzas';
 
 const TEAL = '#0F766E';
 const gestiona = (rol?: string) => ['ADMINISTRADOR', 'ADMISION'].includes((rol ?? '').toUpperCase());
@@ -52,25 +53,20 @@ function CatalogoServicios({ slug, servicios, onChange }: {
 }) {
   const [nombre, setNombre] = useState('');
   const [desc, setDesc] = useState('');
+  const [precio, setPrecio] = useState('');
   const [saving, setSaving] = useState(false);
-  const [editId, setEditId] = useState<number | null>(null);
-  const [editNombre, setEditNombre] = useState('');
+  const [editar, setEditar] = useState<Servicio | null>(null);
 
   const crear = async (e: FormEvent) => {
     e.preventDefault();
     if (!nombre.trim()) return;
     setSaving(true);
-    const s = await terapApi.createServicio(slug, { nombre, descripcion: desc || null });
-    onChange([...servicios, s]); setNombre(''); setDesc(''); setSaving(false);
+    const s = await terapApi.createServicio(slug, { nombre, descripcion: desc || null, precio: Number(precio) || 0 });
+    onChange([...servicios, s]); setNombre(''); setDesc(''); setPrecio(''); setSaving(false);
   };
   const toggle = async (s: Servicio) => {
     const upd = await terapApi.updateServicio(slug, s.id, { activo: !s.activo });
     onChange(servicios.map(x => x.id === s.id ? upd : x));
-  };
-  const guardarNombre = async (s: Servicio) => {
-    const upd = await terapApi.updateServicio(slug, s.id, { nombre: editNombre });
-    onChange(servicios.map(x => x.id === s.id ? upd : x));
-    setEditId(null);
   };
 
   return (
@@ -84,6 +80,10 @@ function CatalogoServicios({ slug, servicios, onChange }: {
           <span className="block text-[11px] font-semibold uppercase tracking-wider mb-1" style={{ color: '#64748B' }}>Descripción (opcional)</span>
           <input className="vx-input" value={desc} onChange={e => setDesc(e.target.value)} />
         </label>
+        <label className="w-[110px]">
+          <span className="block text-[11px] font-semibold uppercase tracking-wider mb-1" style={{ color: '#64748B' }}>Precio (S/)</span>
+          <input className="vx-input" type="number" min={0} step="0.01" value={precio} onChange={e => setPrecio(e.target.value)} placeholder="0.00" />
+        </label>
         <button type="submit" disabled={saving || !nombre.trim()} className="px-4 py-2 rounded-xl text-white text-[13px] font-semibold flex items-center gap-1.5 disabled:opacity-50" style={{ background: TEAL }}>
           {saving ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />} Agregar
         </button>
@@ -95,21 +95,17 @@ function CatalogoServicios({ slug, servicios, onChange }: {
         <ul className="space-y-1.5">
           {servicios.map(s => (
             <li key={s.id} className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg" style={{ background: '#F6FAF9' }}>
-              {editId === s.id ? (
-                <input className="vx-input flex-1 mr-2" value={editNombre} onChange={e => setEditNombre(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && guardarNombre(s)} autoFocus />
-              ) : (
-                <div className="min-w-0">
-                  <p className="text-[13.5px] font-semibold" style={{ color: s.activo ? '#0E1A1A' : '#9CA3AF' }}>{s.nombre}</p>
-                  {s.descripcion && <p className="text-[12px] truncate" style={{ color: '#6B7280' }}>{s.descripcion}</p>}
-                </div>
-              )}
+              <div className="min-w-0">
+                <p className="text-[13.5px] font-semibold" style={{ color: s.activo ? '#0E1A1A' : '#9CA3AF' }}>
+                  {s.nombre}
+                  <span className="ml-2 text-[12px] font-semibold" style={{ color: TEAL }}>S/ {Number(s.precio).toFixed(2)}</span>
+                </p>
+                {s.descripcion && <p className="text-[12px] truncate" style={{ color: '#6B7280' }}>{s.descripcion}</p>}
+              </div>
               <div className="flex items-center gap-2 shrink-0">
-                {editId === s.id ? (
-                  <button onClick={() => guardarNombre(s)} className="text-[12px] font-semibold flex items-center gap-1" style={{ color: TEAL }}><Save size={13} /> Guardar</button>
-                ) : (
-                  <button onClick={() => { setEditId(s.id); setEditNombre(s.nombre); }} style={{ color: '#94A3B8' }}><Pencil size={14} /></button>
-                )}
+                <button onClick={() => setEditar(s)} className="text-[12px] font-semibold flex items-center gap-1" style={{ color: '#64748B' }}>
+                  <Pencil size={14} /> Editar
+                </button>
                 <button onClick={() => toggle(s)} className="text-[11px] font-semibold px-2.5 py-1 rounded-full"
                   style={s.activo ? { background: '#CCFBF1', color: TEAL } : { background: '#F1F5F4', color: '#9CA3AF' }}>
                   {s.activo ? 'Activo' : 'Inactivo'}
@@ -119,7 +115,56 @@ function CatalogoServicios({ slug, servicios, onChange }: {
           ))}
         </ul>
       )}
+
+      {editar && (
+        <ModalEditarServicio
+          slug={slug} servicio={editar}
+          onClose={() => setEditar(null)}
+          onSaved={upd => { onChange(servicios.map(x => x.id === upd.id ? upd : x)); setEditar(null); }}
+        />
+      )}
     </div>
+  );
+}
+
+/** Modal para editar un servicio: nombre, descripción y precio. */
+function ModalEditarServicio({ slug, servicio, onClose, onSaved }: {
+  slug: string; servicio: Servicio; onClose: () => void; onSaved: (s: Servicio) => void;
+}) {
+  const [nombre, setNombre] = useState(servicio.nombre);
+  const [desc, setDesc] = useState(servicio.descripcion ?? '');
+  const [precio, setPrecio] = useState(String(servicio.precio ?? 0));
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!nombre.trim()) { setError('El nombre es obligatorio.'); return; }
+    setSaving(true); setError(null);
+    try {
+      const upd = await terapApi.updateServicio(slug, servicio.id, {
+        nombre: nombre.trim(), descripcion: desc || null, precio: Number(precio) || 0,
+      });
+      onSaved(upd);
+    } catch (err: any) { setError(err?.message ?? 'No se pudo guardar'); setSaving(false); }
+  };
+
+  return (
+    <Overlay onClose={onClose}>
+      <Cabecera icon={<Layers size={16} style={{ color: TEAL }} />} titulo="Editar servicio" onClose={onClose} />
+      <form onSubmit={submit} className="p-5 space-y-4">
+        <Campo label="Nombre *"><input className="vx-input" value={nombre} onChange={e => setNombre(e.target.value)} autoFocus /></Campo>
+        <Campo label="Descripción (opcional)"><input className="vx-input" value={desc} onChange={e => setDesc(e.target.value)} /></Campo>
+        <Campo label="Precio (S/)"><input className="vx-input" type="number" min={0} step="0.01" value={precio} onChange={e => setPrecio(e.target.value)} placeholder="0.00" /></Campo>
+        {error && <p className="text-[12.5px] px-3 py-2 rounded-lg" style={{ background: '#FEF2F2', color: '#B91C1C' }}>{error}</p>}
+        <div className="flex justify-end gap-2">
+          <button type="button" onClick={onClose} className="px-4 py-2 rounded-xl text-[13px] font-semibold" style={{ background: '#F1F5F4', color: '#374151' }}>Cancelar</button>
+          <button type="submit" disabled={saving} className="px-5 py-2 rounded-xl text-[13px] font-semibold text-white flex items-center gap-2 disabled:opacity-60" style={{ background: TEAL }}>
+            {saving && <Loader2 size={14} className="animate-spin" />} Guardar
+          </button>
+        </div>
+      </form>
+    </Overlay>
   );
 }
 

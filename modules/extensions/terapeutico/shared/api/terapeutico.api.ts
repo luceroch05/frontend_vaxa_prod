@@ -112,8 +112,72 @@ export interface DiagnosticoDto {
 
 export interface Terapeuta { id: number; nombre: string; }
 
-export interface Servicio { id: number; nombre: string; descripcion: string | null; activo: number; }
-export interface ServicioDto { nombre: string; descripcion?: string | null; activo?: boolean; }
+export interface Servicio { id: number; nombre: string; descripcion: string | null; precio: number; activo: number; }
+export interface ServicioDto { nombre: string; descripcion?: string | null; precio?: number | null; activo?: boolean; }
+
+// ── Finanzas: Inventario / Ventas / Caja ──────────────────────────────────────
+export interface Producto {
+  id: number;
+  nombre: string;
+  sku: string | null;
+  descripcion: string | null;
+  unidad: string;
+  precio_venta: number;
+  costo: number;
+  stock: number;
+  stock_min: number;
+  activo: number;
+}
+export interface ProductoDto {
+  nombre: string;
+  sku?: string | null;
+  descripcion?: string | null;
+  unidad?: string | null;
+  precio_venta?: number | null;
+  costo?: number | null;
+  stock?: number | null;
+  stock_min?: number | null;
+  activo?: boolean;
+}
+export interface InventarioMov {
+  id: number; producto_id: number; tipo: 'entrada' | 'salida';
+  cantidad: number; motivo: string | null; venta_id: number | null;
+  usuario: string | null; created_at: string;
+}
+export interface VentaItem {
+  id: number; venta_id: number; tipo: 'servicio' | 'producto';
+  servicio_id: number | null; producto_id: number | null;
+  descripcion: string; cantidad: number; precio_unit: number; subtotal: number;
+}
+export interface Venta {
+  id: number; paciente_id: number | null; paciente_nombre: string | null;
+  fecha: string; total: number; metodo_pago: string; nota: string | null;
+  estado: 'emitida' | 'anulada'; vendedor: string | null; items?: VentaItem[];
+}
+export interface VentaItemDto {
+  tipo: 'servicio' | 'producto';
+  servicio_id?: number | null;
+  producto_id?: number | null;
+  cantidad?: number;
+  precio_unit?: number | null;
+}
+export interface VentaDto {
+  paciente_id?: number | null;
+  metodo_pago?: string | null;
+  nota?: string | null;
+  items: VentaItemDto[];
+}
+export interface CajaMov {
+  id: number; fecha: string; tipo: 'ingreso' | 'egreso'; monto: number;
+  concepto: string; categoria: string | null; metodo_pago: string | null;
+  venta_id: number | null; usuario: string | null;
+}
+export interface CajaResumen { ingresos: number; egresos: number; saldo: number; }
+export interface CajaData { movimientos: CajaMov[]; resumen: CajaResumen; }
+export interface CajaMovDto {
+  tipo: 'ingreso' | 'egreso'; monto: number; concepto: string;
+  categoria?: string | null; metodo_pago?: string | null; fecha?: string | null;
+}
 
 // ── Tratamientos (etapas de atención; varios servicios a la vez) ──────────────
 export interface TratamientoServicio {
@@ -508,6 +572,47 @@ export const terapApi = {
     const qs = q.toString();
     return api.get<{ items: HcAuditoriaEvento[]; total: number }>(`${B}/auditoria${qs ? `?${qs}` : ''}`, opts(empresa));
   },
+
+  // ── Finanzas: Inventario ──────────────────────────────────────────────────────
+  listProductos: (empresa: string, todos = false) =>
+    api.get<Producto[]>(`${B}/productos${todos ? '?todos=1' : ''}`, opts(empresa)),
+  createProducto: (empresa: string, data: ProductoDto) =>
+    api.post<Producto>(`${B}/productos`, data, opts(empresa)),
+  updateProducto: (empresa: string, id: number, data: Partial<ProductoDto>) =>
+    api.patch<Producto>(`${B}/productos/${id}`, data, opts(empresa)),
+  listMovsInventario: (empresa: string, productoId: number) =>
+    api.get<InventarioMov[]>(`${B}/productos/${productoId}/movimientos`, opts(empresa)),
+  ajustarStock: (empresa: string, productoId: number, tipo: 'entrada' | 'salida', cantidad: number, motivo?: string) =>
+    api.post<Producto>(`${B}/productos/${productoId}/stock`, { tipo, cantidad, motivo }, opts(empresa)),
+
+  // ── Finanzas: Ventas ──────────────────────────────────────────────────────────
+  listVentas: (empresa: string, params?: { desde?: string; hasta?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.desde) q.set('desde', params.desde);
+    if (params?.hasta) q.set('hasta', params.hasta);
+    const qs = q.toString();
+    return api.get<Venta[]>(`${B}/ventas${qs ? `?${qs}` : ''}`, opts(empresa));
+  },
+  getVenta: (empresa: string, id: number) =>
+    api.get<Venta>(`${B}/ventas/${id}`, opts(empresa)),
+  createVenta: (empresa: string, data: VentaDto) =>
+    api.post<Venta>(`${B}/ventas`, data, opts(empresa)),
+  anularVenta: (empresa: string, id: number) =>
+    api.post<Venta>(`${B}/ventas/${id}/anular`, {}, opts(empresa)),
+
+  // ── Finanzas: Caja ────────────────────────────────────────────────────────────
+  listCaja: (empresa: string, params?: { desde?: string; hasta?: string; tipo?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.desde) q.set('desde', params.desde);
+    if (params?.hasta) q.set('hasta', params.hasta);
+    if (params?.tipo)  q.set('tipo', params.tipo);
+    const qs = q.toString();
+    return api.get<CajaData>(`${B}/caja${qs ? `?${qs}` : ''}`, opts(empresa));
+  },
+  createCajaMov: (empresa: string, data: CajaMovDto) =>
+    api.post<CajaMov>(`${B}/caja`, data, opts(empresa)),
+  deleteCajaMov: (empresa: string, id: number) =>
+    api.delete<void>(`${B}/caja/${id}`, opts(empresa)),
 };
 
 export interface HcAuditoriaEvento {

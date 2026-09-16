@@ -21,7 +21,7 @@
  * Si mañana cambian los subdominios, se toca SOLO este archivo.
  */
 
-export type HostMode = 'legacy' | 'sistemas' | 'certificados' | 'historias' | 'terapeutico' | 'marca';
+export type HostMode = 'legacy' | 'sistemas' | 'certificados' | 'historias' | 'terapeutico' | 'marca' | 'lissethbaca';
 
 export interface HostInfo {
   modo: HostMode;
@@ -54,6 +54,7 @@ export function getHostMode(): HostInfo {
   if (h === 'localhost' || h === '127.0.0.1') {
     const forzado = new URLSearchParams(window.location.search).get('modo');
     if (forzado === 'marca') return { modo: 'marca', tenant: 'mimarca' };
+    if (forzado === 'lissethbaca') return { modo: 'lissethbaca', tenant: 'lissethbaca' };
   }
   if (h.startsWith('sistemas.'))     return { modo: 'sistemas',     tenant: 'sistemas-vaxa' };
   if (h.startsWith('certificados.')) return { modo: 'certificados', tenant: '' };
@@ -64,6 +65,11 @@ export function getHostMode(): HostInfo {
   // ofrecemos). Es una landing estática, sin sistema ni login detrás.
   //   mimarca.vaxasys.com  (o  mimarca.lvh.me  para probar en local)
   if (h.startsWith('mimarca.'))      return { modo: 'marca',        tenant: 'mimarca' };
+  // Landing de marca personal REAL de una clienta (Lisseth Baca · terapia de
+  // lenguaje). Estática, sin sistema detrás. Va ANTES del catch-all `.lvh.me`
+  // para poder probarla en local con  lissethbaca.lvh.me:5173.
+  //   lissethbaca.vaxa.com.pe  (o  lissethbaca.lvh.me  en local)
+  if (h.startsWith('lissethbaca.'))  return { modo: 'lissethbaca',  tenant: 'lissethbaca' };
 
   // Dominio propio del cliente (Historias Clínicas): la URL queda limpia y el
   // tenant lo fija el dominio, no el path.

@@ -76,14 +76,18 @@ export default function PacienteDetalle() {
   useEffect(() => {
     (async () => {
       setLoading(true);
+      // getPaciente puede devolver 403 (terapeuta sin este paciente asignado): lo
+      // tratamos como "no encontrado" para no filtrar que el paciente existe.
       const [pac, cat] = await Promise.all([
-        terapApi.getPaciente(slug, pacienteId),
+        terapApi.getPaciente(slug, pacienteId).catch(() => null),
         terapApi.catalogos(slug).catch(() => null),
       ]);
       setPaciente(pac); setCatalogos(cat);
-      const h = await terapApi.getHistoria(slug, pacienteId).catch(() => null);
-      setHistoria(h);
-      if (h) await cargarHistoria(h.id);
+      if (pac) {
+        const h = await terapApi.getHistoria(slug, pacienteId).catch(() => null);
+        setHistoria(h);
+        if (h) await cargarHistoria(h.id);
+      }
       setLoading(false);
     })();
 

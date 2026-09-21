@@ -6,9 +6,9 @@
  * superpone este overlay (mismo viewport 1122×794). Se reutiliza en la
  * vista previa de configuración, en el visor/descarga y en el editor.
  * ──────────────────────────────────────────────────────────────── */
-import type { CSSProperties } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { imgUrl } from '@/lib/api/client';
-import { CampoFirma, CampoFirmaTexto, CampoLinea, CampoLogo, CampoQR, CampoTexto, LayoutLienzo, expandirLienzo, fontFamilyCss, fontEsPesoUnico, tipoCampo, indiceLogo, indiceFirma, segmentosBold, quitarBold } from './layout';
+import { CampoFirma, CampoFirmaTexto, CampoLinea, CampoLogo, CampoQR, CampoTexto, LayoutLienzo, expandirLienzo, fontFamilyCss, fontEsPesoUnico, tipoCampo, indiceLogo, indiceFirma, paginaDe, segmentosBold, quitarBold } from './layout';
 
 interface Props {
   layout: LayoutLienzo;
@@ -21,6 +21,8 @@ interface Props {
   logos?: { imagen_logo: string }[];
   /** Firmas seleccionadas en la config (en orden). firma1→[0], firma2→[1]… */
   firmas?: { imagen_firma: string; nombre_autoridad: string; cargo: string }[];
+  /** Hoja a dibujar: 1 (principal, default) o 2 (acta/créditos). */
+  pagina?: number;
 }
 
 /* Mide el ancho del texto con una fuente dada y encoge el tamaño hasta que
@@ -71,13 +73,101 @@ function lineaSigueTexto(
   return { x: left, w: tw };
 }
 
-export default function LienzoCampos({ layout, vars, codigo, qrDataUrl, logos = [], firmas = [] }: Props) {
+/** Campo de texto del lienzo con "línea debajo" opcional. La línea se mide sobre
+ *  el texto YA renderizado (offsetWidth/offsetLeft), no con un canvas aparte, así
+ *  cubre EXACTO todo el texto sin importar la fuente, el tamaño ni el tracking
+ *  (antes, con fuentes serif/cursivas, la línea salía más corta). */
+function TextoLienzo({ campoKey, style, segments, boldWeight, underline, onMeasure }: {
+  campoKey: string;
+  style: CSSProperties;
+  segments: { text: string; bold: boolean }[];
+  boldWeight: number;
+  underline: { offset: number; thickness: number; color: string } | null;
+  onMeasure: (key: string, geom: { left: number; width: number; bottom: number }) => void;
+}) {
+  const spanRef = useRef<HTMLSpanElement>(null);
+
+  // Publica la geometría real del texto (para líneas decorativas que lo "siguen").
+  useLayoutEffect(() => {
+    const span = spanRef.current;
+    if (!span) return;
+    const px = (v: string | number | undefined) => typeof v === 'number' ? v : (parseFloat(String(v ?? 0)) || 0);
+    onMeasure(campoKey, {
+      left:   px(style.left) + span.offsetLeft,
+      width:  span.offsetWidth,
+      bottom: px(style.top) + span.offsetTop + span.offsetHeight,
+    });
+  });
+
+  // La "línea debajo" es el border-bottom del PROPIO texto: por CSS mide EXACTAMENTE
+  // el ancho del texto (incluye el grado/término), separada por paddingBottom. No se
+  // mide nada, así que es imposible que quede corta con cualquier fuente.
+  const spanStyle: CSSProperties = underline
+    ? { display: 'inline-block', borderBottom: `${underline.thickness}px solid ${underline.color}`, paddingBottom: underline.offset }
+    : { display: 'inline-block' };
+
+  return (
+    <p style={style}>
+      <span ref={spanRef} style={spanStyle}>
+        {segments.map((s, i) => s.bold
+          ? <strong key={i} style={{ fontWeight: boldWeight }}>{s.text}</strong>
+          : <span key={i}>{s.text}</span>)}
+      </span>
+    </p>
+  );
+}
+
+/** Carga las fuentes del lienzo y fuerza un re-render cuando estén listas. Sin
+ *  esto, la primera medición del ancho (canvas measureText) usa la fuente de
+ *  reemplazo del sistema y la "línea debajo" sale MÁS CORTA que el texto en
+ *  fuentes cursivas/decorativas (Great Vibes, Lobster, Pacifico…). Al re-medir
+ *  con la fuente ya cargada, la línea cubre todo el texto. */
+function useFuentesListas(familias: string): void {
+  const [, bump] = useState(0);
+  useEffect(() => {
+    const fonts = (document as unknown as { fonts?: FontFaceSet }).fonts;
+    if (!fonts) return;
+    let cancel = false;
+    const cargas = familias.split('|').filter(Boolean)
+      .flatMap((fam) => ['400', '700'].map((w) => fonts.load(`${w} 40px ${fam}`).catch(() => undefined)));
+    Promise.all(cargas)
+      .then(() => fonts.ready)
+      .then(() => { if (!cancel) bump((n) => n + 1); });
+    return () => { cancel = true; };
+  }, [familias]);
+}
+
+export default function LienzoCampos({ layout, vars, codigo, qrDataUrl, logos = [], firmas = [], pagina = 1 }: Props) {
   const campos = layout.campos ?? {};
+
+  // Familias realmente usadas por los campos → se cargan y, al estar listas, se
+  // re-mide el ancho para que la "línea debajo" coincida con el texto.
+  const familiasUsadas = useMemo(() => {
+    const set = new Set<string>([fontFamilyCss('sans')]);   // firmas usan 'sans'
+    for (const raw of Object.values(campos)) {
+      set.add(fontFamilyCss((raw as CampoTexto | undefined)?.font));
+    }
+    return Array.from(set).join('|');
+  }, [campos]);
+  useFuentesListas(familiasUsadas);
+
+  // Geometría real (medida en el DOM) de cada campo de texto. La usan las líneas
+  // decorativas que "siguen" a un texto, para tomar su ancho/centro exactos.
+  const [medidas, setMedidas] = useState<Record<string, { left: number; width: number; bottom: number }>>({});
+  const reportarMedida = useCallback((key: string, g: { left: number; width: number; bottom: number }) => {
+    setMedidas(prev => {
+      const a = prev[key];
+      if (a && a.left === g.left && a.width === g.width && a.bottom === g.bottom) return prev;
+      return { ...prev, [key]: g };
+    });
+  }, []);
 
   return (
     <>
       {Object.entries(campos).map(([key, raw]) => {
         if (!raw || (raw as CampoTexto | CampoQR | CampoLogo | CampoFirma).on === false) return null;
+        // Solo los campos de esta hoja (1 = principal, 2 = acta/créditos).
+        if (paginaDe(raw as { pagina?: number }) !== pagina) return null;
 
         // ── LOGO (imagen del logo seleccionado en la config) ──
         if (tipoCampo(key) === 'logo') {
@@ -146,8 +236,15 @@ export default function LienzoCampos({ layout, vars, codigo, qrDataUrl, logos = 
           let left = c.x ?? 0, width = c.w ?? 200;
           const obj = c.sigueA ? campos[c.sigueA] : undefined;
           if (obj && tipoCampo(c.sigueA!) === 'texto') {
-            const fit = lineaSigueTexto(obj as CampoTexto, vars);
-            if (fit) { left = fit.x; width = fit.w; }
+            // Preferimos la medida REAL del DOM (cubre todo el texto, incluido el
+            // grado/término); si aún no llegó, caemos al cálculo por canvas.
+            const dom = medidas[c.sigueA!];
+            if (dom) {
+              left = dom.left; width = dom.width;
+            } else {
+              const fit = lineaSigueTexto(obj as CampoTexto, vars);
+              if (fit) { left = fit.x; width = fit.w; }
+            }
           }
           return (
             <div key={key} style={{ position: 'absolute', left, top: c.y ?? 0, width, borderTop: `${c.thickness ?? 1.5}px solid ${c.color ?? '#c9a24b'}` }} />
@@ -211,33 +308,22 @@ export default function LienzoCampos({ layout, vars, codigo, qrDataUrl, logos = 
         // En fuentes de un solo peso, el **negrita parcial** tampoco tiene efecto en
         // el PDF → se mantiene en 400 para no mostrar un grosor que luego no saldrá.
         const boldWeight = pesoUnico ? 400 : Math.max(weight, 700);
-        // Línea DEBAJO del texto (opción "underline"): del ancho del texto, alineada
-        // como él y separada por underlineOffset. Reusa la medición del subrayado adaptado.
-        let subrayado: CSSProperties | null = null;
-        if (c.underline) {
-          const fit = lineaSigueTexto(c, vars);
-          if (fit) {
-            const lineCount = measureTxt.split('\n').length || 1;
-            // La última línea baja solo ~1.0 (base + descendente) en vez del 1.2 del
-            // interlineado, para que la línea quede PEGADA al texto (espejo del backend).
-            const top = (c.y ?? 0) + ((lineCount - 1) * 1.2 + 1.0) * fontSize + (c.underlineOffset ?? 6);
-            subrayado = {
-              position: 'absolute', left: fit.x, top, width: fit.w,
-              borderTop: `${c.underlineThickness ?? 1.5}px solid ${c.underlineColor ?? c.color ?? '#0f172a'}`,
-            };
-          }
-        }
+        // La "línea debajo" la mide TextoLienzo sobre el texto ya pintado, así cubre
+        // todo el texto exactamente (sin importar la fuente).
         return (
-          <div key={key}>
-            <p style={style}>
-              {segmentosBold(txt).map((s, i) =>
-                s.bold
-                  ? <strong key={i} style={{ fontWeight: boldWeight }}>{s.text}</strong>
-                  : <span key={i}>{s.text}</span>,
-              )}
-            </p>
-            {subrayado && <div style={subrayado} />}
-          </div>
+          <TextoLienzo
+            key={key}
+            campoKey={key}
+            style={style}
+            segments={segmentosBold(txt)}
+            boldWeight={boldWeight}
+            underline={c.underline ? {
+              offset: c.underlineOffset ?? 10,   // más aire por defecto (antes 6, quedaba pegada)
+              thickness: c.underlineThickness ?? 1.5,
+              color: c.underlineColor ?? c.color ?? '#0f172a',
+            } : null}
+            onMeasure={reportarMedida}
+          />
         );
       })}
     </>

@@ -18,6 +18,7 @@ import {
   ArrowRight, ArrowUpRight, GraduationCap, Award, ShieldCheck, CheckCircle2,
   Plus, Minus, Phone, Menu, X, HeartHandshake, Sparkles,
 } from 'lucide-react';
+import { api } from '@/lib/api/client';
 
 // ── Paleta (dark premium) ───────────────────────────────────────────────────
 const C = {
@@ -29,16 +30,22 @@ const HEAD = "'Space Grotesk', system-ui, sans-serif";
 const BODY = "'Inter', system-ui, sans-serif";
 
 // ── Datos reales (editables) ────────────────────────────────────────────────
+// IMPORTANTE: por acuerdo con la clienta NO se publica su correo ni su teléfono.
+// Todo contacto pasa por Vaxa (WhatsApp de Vaxa + formulario que llega a
+// info@vaxa.com.pe) y Vaxa hace de intermediario con la profesional.
 const MARCA = {
   nombre: 'Lisseth Baca Nole',
   corto: 'Lisseth',
   rol: 'Tecnóloga Médica en Terapia de Lenguaje · CTMP 19175',
   foto: '/liss.png',
   fotoCut: '/liss-cut.png',
-  whatsapp: '51966134878',
-
-  // email: 'lissethbaca2@gmail.com',
   ciudad: 'Lima, Perú',
+};
+
+// Canal de contacto PÚBLICO = Vaxa (no el de la profesional).
+const VAXA = {
+  whatsapp: '51924600490',
+  mensajeWa: 'Hola Vaxa 👋, quiero información sobre la Lic. Lisseth Baca (terapia de lenguaje).',
 };
 
 const SERVICIOS = [
@@ -91,7 +98,7 @@ const FAQ = [
 
 // ── Página ───────────────────────────────────────────────────────────────────
 export default function LissethBaca() {
-  const wa = `https://wa.me/${MARCA.whatsapp}?text=${encodeURIComponent('Hola Lisseth, quisiera agendar una cita 🙂')}`;
+  const wa = `https://wa.me/${VAXA.whatsapp}?text=${encodeURIComponent(VAXA.mensajeWa)}`;
   const barRef = useRef<HTMLDivElement>(null);
   const navRef = useRef<HTMLElement>(null);
   const [menu, setMenu] = useState(false);
@@ -338,7 +345,7 @@ export default function LissethBaca() {
             </div>
           </Reveal>
           <Reveal delay={120}>
-            <ContactForm wa={wa} />
+            <ContactForm />
           </Reveal>
         </div>
       </section>
@@ -351,9 +358,9 @@ export default function LissethBaca() {
             <span className="lb-logo-txt"> <b> {MARCA.nombre}</b> <small>  · {MARCA.rol}</small></span>
           </div>
           <div className="lb-social">
-            <a href={`tel:+${MARCA.whatsapp}`} aria-label="Llamar"><Phone size={18} /></a>
+            <a href={`tel:+${VAXA.whatsapp}`} aria-label="Llamar"><Phone size={18} /></a>
             <a href={wa} target="_blank" rel="noreferrer" aria-label="WhatsApp"><MessageCircle size={18} /></a>
-            <a href={`mailto:${MARCA.email}`} aria-label="Correo"><Mail size={18} /></a>
+  
           </div>
         </div>
         <div className="lb-wrap lb-footer-legal">
@@ -503,19 +510,55 @@ function Testimonios() {
   );
 }
 
-function ContactForm({ wa }: { wa: string }) {
-  const [enviado, setEnviado] = useState(false);
-  const onSubmit = (e: FormEvent<HTMLFormElement>) => {
+/**
+ * Formulario de contacto. Envía los datos al backend de Vaxa (POST /public/contacto),
+ * que a su vez manda el correo a info@vaxa.com.pe. NO abre WhatsApp ni expone datos
+ * de la profesional: Vaxa recibe el mensaje y hace de intermediario.
+ */
+function ContactForm() {
+  const [estado, setEstado] = useState<'idle' | 'enviando' | 'ok' | 'error'>('idle');
+  const [errMsg, setErrMsg] = useState('');
+
+  const onSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const f = new FormData(e.currentTarget);
-    const msg = `Hola Lisseth, soy ${f.get('nombre')}.%0A` +
-      `Motivo: ${f.get('motivo')}%0A` +
-      `Tel: ${f.get('telefono')} · Correo: ${f.get('correo')}%0A%0A` +
-      `${f.get('mensaje')}`;
-    const base = wa.split('?')[0];
-    window.open(`${base}?text=${msg}`, '_blank');
-    setEnviado(true);
+    if (estado === 'enviando') return;
+    const form = e.currentTarget;
+    const f = new FormData(form);
+    setEstado('enviando');
+    setErrMsg('');
+    try {
+      await api.post('/public/contacto', {
+        origen: 'Lisseth Baca · Terapia de Lenguaje',
+        nombre: f.get('nombre'),
+        telefono: f.get('telefono'),
+        correo: f.get('correo'),
+        motivo: f.get('motivo'),
+        mensaje: f.get('mensaje'),
+      });
+      setEstado('ok');
+      form.reset();
+    } catch (err) {
+      setEstado('error');
+      setErrMsg(err instanceof Error ? err.message : 'No se pudo enviar. Inténtalo de nuevo.');
+    }
   };
+
+  if (estado === 'ok') {
+    return (
+      <div className="lb-form" style={{ alignItems: 'center', textAlign: 'center', justifyContent: 'center', gap: 12 }}>
+        <span className="lb-serv-ic" style={{ width: 62, height: 62 }}><CheckCircle2 size={30} /></span>
+        <h3 style={{ fontFamily: HEAD, fontSize: 23, fontWeight: 600, margin: '4px 0 0', color: C.ink }}>¡Mensaje enviado!</h3>
+        <p style={{ color: C.soft, margin: 0, maxWidth: 340, lineHeight: 1.6 }}>
+          Gracias por escribir. Recibimos tu solicitud y nos pondremos en contacto contigo muy pronto.
+        </p>
+        <button type="button" className="lb-btn lb-btn-ghost lb-btn-lg" onClick={() => setEstado('idle')}>
+          Enviar otro mensaje
+        </button>
+      </div>
+    );
+  }
+
+  const enviando = estado === 'enviando';
   return (
     <form className="lb-form" onSubmit={onSubmit}>
       <div className="lb-form-row">
@@ -536,10 +579,13 @@ function ContactForm({ wa }: { wa: string }) {
           </select>
         </label>
       </div>
-      <label className="lb-field"><span>Cuéntame un poco (opcional)</span><textarea name="mensaje" rows={4} placeholder="¿En qué te puedo ayudar?" /></label>
-      <button type="submit" className="lb-btn lb-btn-primary lb-btn-lg" style={{ width: '100%', justifyContent: 'center' }}>
-        {enviado ? <><CheckCircle2 size={18} /> ¡Listo! Continúa en WhatsApp</> : <><MessageCircle size={18} /> Enviar y agendar</>}
+      <label className="lb-field"><span>Cuéntanos un poco (opcional)</span><textarea name="mensaje" rows={4} placeholder="¿En qué te podemos ayudar?" /></label>
+      <button type="submit" disabled={enviando} className="lb-btn lb-btn-primary lb-btn-lg" style={{ width: '100%', justifyContent: 'center', opacity: enviando ? 0.7 : 1, cursor: enviando ? 'wait' : 'pointer' }}>
+        {enviando ? 'Enviando…' : <><MessageCircle size={18} /> Enviar mensaje</>}
       </button>
+      {estado === 'error' && (
+        <p className="lb-form-note" style={{ color: '#c0392b' }}><X size={13} /> {errMsg}</p>
+      )}
       <p className="lb-form-note"><ShieldCheck size={13} /> Tus datos son confidenciales. No se comparten con terceros.</p>
     </form>
   );

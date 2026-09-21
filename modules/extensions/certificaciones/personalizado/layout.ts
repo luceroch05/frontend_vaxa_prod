@@ -40,6 +40,8 @@ export interface CampoTexto {
   underlineColor?:     string;  // #hex (default: el color del texto)
   underlineOffset?:    number;  // px de separación entre el texto y la línea (default 6)
   underlineThickness?: number;  // px de grosor (default 1.5)
+  /** Hoja del certificado en la que va el campo (1 = principal, 2 = acta/créditos). Default 1. */
+  pagina?:    number;
 }
 
 /** Familia CSS para la vista previa según el `font` del campo.
@@ -82,6 +84,7 @@ export interface CampoQR {
   y?:          number;  // px
   size?:       number;  // px (lado)
   showCodigo?: boolean;
+  pagina?:     number;  // hoja 1 (default) o 2
 }
 
 /** Slot de logo: la imagen sale de los logos seleccionados en la config (por orden).
@@ -91,6 +94,7 @@ export interface CampoLogo {
   x?:    number;  // px
   y?:    number;  // px
   size?: number;  // px (lado de la caja)
+  pagina?: number;  // hoja 1 (default) o 2
 }
 
 /** Slot de firma: jala la firma seleccionada (firma1→1ª, firma2→2ª) y dibuja el
@@ -106,6 +110,7 @@ export interface CampoFirma {
   /** Si true, este slot dibuja SOLO la imagen + línea (el nombre/cargo van en un
    *  elemento aparte `firmatextoN`, para moverlos/redimensionarlos por separado). */
   soloImagen?: boolean;
+  pagina?: number;  // hoja 1 (default) o 2
 }
 
 /** Texto (nombre + cargo) de una firma como elemento SEPARADO del garabato, para
@@ -118,6 +123,7 @@ export interface CampoFirmaTexto {
   w?:  number;  // px (ancho; el texto se alinea dentro)
   textSize?: number;  // px del NOMBRE (el cargo va 2px menos). Default 12.
   align?: 'left' | 'center' | 'right';
+  pagina?: number;  // hoja 1 (default) o 2
 }
 
 /** Línea decorativa horizontal (ej. el subrayado de "PARTICIPANTE"). */
@@ -132,11 +138,23 @@ export interface CampoLinea {
    *  horizontal de ese texto (subrayado que se adapta a "nombre", "calidad"…). Se
    *  ignoran x/w cuando está puesto. */
   sigueA?:    string;
+  pagina?:    number;  // hoja 1 (default) o 2
 }
 
 export interface LayoutLienzo {
   activo?: boolean;
   campos?: Record<string, CampoTexto | CampoQR | CampoLogo | CampoFirma | CampoFirmaTexto | CampoLinea>;
+}
+
+/** Hoja del certificado en la que va un campo (1 = principal, 2 = acta/créditos). */
+export function paginaDe(c: { pagina?: number } | null | undefined): number {
+  return (c && c.pagina === 2) ? 2 : 1;
+}
+
+/** true si el layout tiene al menos un campo visible en la hoja 2. */
+export function tieneHoja2(layout: LayoutLienzo | null | undefined): boolean {
+  const campos = layout?.campos ?? {};
+  return Object.values(campos).some(c => c && (c as { on?: boolean }).on !== false && paginaDe(c as { pagina?: number }) === 2);
 }
 
 /** Tipo de un campo según su clave. */
@@ -432,6 +450,33 @@ export function sincronizarFirmas(
   for (let i = 1; i <= n; i++) {
     const key = `firma${i}`;
     if (!next[key]) { next[key] = { on: true, x: 300 + (i - 1) * 260, y: 615, w: 260, h: 58 }; changed = true; }
+  }
+  return { campos: next, changed };
+}
+
+/** Máximo de logos en un certificado (igual que el tope de la selección de la config). */
+export const MAX_LOGOS = 10;
+
+/**
+ * Sincroniza los slots de logo del lienzo con los logos ELEGIDOS en la config:
+ * crea logo1..logoN (conservando las posiciones ya puestas) y quita los sobrantes.
+ * Así los logos seleccionados aparecen SOLOS en el editor, igual que las firmas
+ * ([[sincronizarFirmas]]). No toca el logo obligatorio (su índice está dentro de N).
+ */
+export function sincronizarLogos(
+  campos: Record<string, any>, numLogos: number,
+): { campos: Record<string, any>; changed: boolean } {
+  const n = Math.max(0, Math.min(numLogos, MAX_LOGOS));
+  const next = { ...campos };
+  let changed = false;
+  // Quita los slots sobrantes (más que logos seleccionados).
+  for (let i = n + 1; i <= MAX_LOGOS; i++) {
+    if (next[`logo${i}`]) { delete next[`logo${i}`]; changed = true; }
+  }
+  // Crea los que faltan, en fila arriba (el usuario luego los mueve).
+  for (let i = 1; i <= n; i++) {
+    const key = `logo${i}`;
+    if (!next[key]) { next[key] = { on: true, x: 40 + (i - 1) * 110, y: 30, size: 110 }; changed = true; }
   }
   return { campos: next, changed };
 }

@@ -15,7 +15,7 @@ import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, ty
 import { imgUrl } from '@/lib/api/client';
 import {
   CampoTexto, CampoQR, CampoLogo, CampoFirma, CampoLinea, LayoutLienzo, Box,
-  campoBox, snapToGuides, labelCampo, tipoCampo, indiceLogo, indiceFirma, LIENZO_W as W, LIENZO_H as H,
+  campoBox, snapToGuides, labelCampo, tipoCampo, indiceLogo, indiceFirma, paginaDe, LIENZO_W as W, LIENZO_H as H,
 } from './layout';
 
 type Campo = CampoTexto & CampoQR & CampoLogo & CampoFirma & CampoLinea;
@@ -25,6 +25,8 @@ interface Props {
   /** Escala a la que se muestra la preview (displayWidth / 1122). */
   scale: number;
   onMove: (key: string, x: number, y: number) => void;
+  /** Redimensiona un campo (tamaño de fuente/logo/QR, alto de firma o ancho de línea). */
+  onResize?: (key: string, patch: Partial<Campo>) => void;
   /** Campo seleccionado (controlado desde afuera para compartirlo con el panel de propiedades). */
   selectedKey?: string | null;
   /** Se llama al seleccionar/deseleccionar un campo (clic en el campo o en zona vacía). */
@@ -35,6 +37,8 @@ interface Props {
   /** Firmas seleccionadas (mismo orden). Sirve para ajustar la caja de selección de
    *  cada firma al ancho REAL de su imagen (no al ancho del bloque). */
   firmas?: { imagen_firma: string }[];
+  /** Hoja que se está editando: 1 (default) o 2. Solo se pueden agarrar sus campos. */
+  pagina?: number;
 }
 
 /** Padding extra: el selector mide un poquito más que la imagen, no un cuadrado. */
@@ -99,7 +103,7 @@ function firmaHugBox(c: Campo, aspect?: number): Box {
   return { x: Math.round(cx - w / 2), y: c.y ?? 0, w, h: totalH };
 }
 
-export default function LienzoDragLayer({ layout, scale, onMove, selectedKey: selProp, onSelectField, logos = [], firmas = [] }: Props) {
+export default function LienzoDragLayer({ layout, scale, onMove, onResize, selectedKey: selProp, onSelectField, logos = [], firmas = [], pagina = 1 }: Props) {
   const aspects = useImageAspects(logos.map((l) => imgUrl(l.imagen_logo)).filter(Boolean));
   const firmaAspects = useImageAspects(firmas.map((f) => imgUrl(f.imagen_firma)).filter(Boolean));
   // Selección controlada si el padre la pasa; si no, estado interno (retrocompatible).
@@ -110,6 +114,8 @@ export default function LienzoDragLayer({ layout, scale, onMove, selectedKey: se
   const rootRef = useRef<HTMLDivElement>(null);
   // Arrastre en curso: qué campo y desde dónde (coords del campo + puntero en pantalla).
   const drag = useRef<{ key: string; startX: number; startY: number; cx: number; cy: number } | null>(null);
+  // Redimensionado en curso (tirador de la esquina): tipo, caja y tamaños iniciales.
+  const resize = useRef<{ key: string; type: string; box: Box; cx: number; cy: number; size: number; w: number; h: number } | null>(null);
   // Pila de deshacer: posición previa de cada movimiento (una entrada por gesto).
   const undoStack = useRef<{ key: string; x: number; y: number }[]>([]);
 
@@ -204,6 +210,50 @@ export default function LienzoDragLayer({ layout, scale, onMove, selectedKey: se
     setGuides({ v: [], h: [] });
   };
 
+  /* ── Redimensionar desde la esquina (tipo Canva) ──────────────── */
+  const clampN = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, Math.round(v)));
+
+  const onHandleDown = (e: ReactPointerEvent, key: string, c: Campo, box: Box) => {
+    e.stopPropagation();                 // no inicia arrastre ni deselecciona
+    if (!onResize) return;
+    setSelectedKey(key);
+    rootRef.current?.focus();
+    resize.current = {
+      key, type: tipoCampo(key), box, cx: e.clientX, cy: e.clientY,
+      size: c.size ?? 0, w: c.w ?? 0, h: c.h ?? 0,
+    };
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+  };
+
+  const onHandleMove = (e: ReactPointerEvent) => {
+    const r = resize.current;
+    if (!r || !onResize) return;
+    // Delta en px reales (la preview está escalada) → factor por la diagonal esquina.
+    const dx = (e.clientX - r.cx) / scale;
+    const dy = (e.clientY - r.cy) / scale;
+    const fw = (r.box.w + dx) / Math.max(1, r.box.w);
+    const fh = (r.box.h + dy) / Math.max(1, r.box.h);
+    const diag = (fw + fh) / 2;
+    const clampF = (f: number) => (!Number.isFinite(f) || f < 0.15) ? 0.15 : f;
+    if (r.type === 'texto') {
+      // El texto crece por su ALTO (= tamaño de fuente); el ancho de caja no cuenta.
+      onResize(r.key, { size: clampN((r.size || 20) * clampF(fh), 6, 320) });
+    } else if (r.type === 'logo') {
+      onResize(r.key, { size: clampN((r.size || 100) * clampF(diag), 20, 900) });
+    } else if (r.type === 'qr') {
+      onResize(r.key, { size: clampN((r.size || 90) * clampF(diag), 40, 400) });
+    } else if (r.type === 'firma') {
+      onResize(r.key, { h: clampN((r.h || 58) * clampF(diag), 20, 320) });
+    } else if (r.type === 'linea') {
+      onResize(r.key, { w: clampN((r.w || 200) * clampF(fw), 10, W) });
+    }
+  };
+
+  const endResize = (e: ReactPointerEvent) => {
+    if (resize.current) { try { (e.target as HTMLElement).releasePointerCapture(e.pointerId); } catch { /* noop */ } }
+    resize.current = null;
+  };
+
   const onKeyDown = (e: ReactKeyboardEvent) => {
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); undo(); return; }
     if (!selectedKey) return;
@@ -237,6 +287,7 @@ export default function LienzoDragLayer({ layout, scale, onMove, selectedKey: se
         .map(([key, raw]) => {
           const c = (raw ?? {}) as Campo;
           if (c.on === false) return null;
+          if (paginaDe(c) !== pagina) return null;   // solo se editan los campos de la hoja actual
           // Logos y firmas usan una caja que abraza la imagen real (no el bloque completo).
           let box = tipoCampo(key) === 'logo'
             ? logoHugBox(c, aspects[imgUrl(logos[indiceLogo(key)]?.imagen_logo ?? '')])
@@ -255,6 +306,8 @@ export default function LienzoDragLayer({ layout, scale, onMove, selectedKey: se
         .sort((a, b) => (b.box.w * b.box.h) - (a.box.w * a.box.h))   // grandes primero → chicas encima
         .map(({ key, c, box }) => {
           const sel = selectedKey === key;
+          // Tipos que se pueden redimensionar por la esquina (tipo Canva).
+          const redimensionable = ['texto', 'logo', 'qr', 'firma', 'linea'].includes(tipoCampo(key));
           return (
             <div
               key={key}
@@ -270,7 +323,23 @@ export default function LienzoDragLayer({ layout, scale, onMove, selectedKey: se
                 border: sel ? '2px dashed #EA580C' : 'none',
                 background: sel ? 'rgba(234,88,12,0.08)' : 'transparent',
               }}
-            />
+            >
+              {/* Tirador de la esquina inferior-derecha: arrástralo para agrandar/achicar. */}
+              {sel && redimensionable && onResize && (
+                <div
+                  title="Arrastra para cambiar el tamaño"
+                  onPointerDown={e => onHandleDown(e, key, c, box)}
+                  onPointerMove={onHandleMove}
+                  onPointerUp={endResize}
+                  onPointerCancel={endResize}
+                  style={{
+                    position: 'absolute', right: -7, bottom: -7, width: 14, height: 14,
+                    background: '#fff', border: '2px solid #EA580C', borderRadius: '50%',
+                    cursor: 'nwse-resize', zIndex: 25, boxShadow: '0 1px 3px rgba(0,0,0,0.25)',
+                  }}
+                />
+              )}
+            </div>
           );
         })}
 

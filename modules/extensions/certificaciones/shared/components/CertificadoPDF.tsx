@@ -93,6 +93,34 @@ export const logoImgStyle: React.CSSProperties = {
   display: 'block',
 };
 
+/* Fila de logos de la cabecera (diseño por defecto). Reparte de 1 hasta 10 logos
+   en UNA sola línea, centrados, y achica cada uno para que entren sin encimarse.
+   Reemplaza a los 3 slots fijos izquierda/centro/derecha. */
+export function LogosFila({ logos }: { logos: { id: number; imagen_logo: string; nombre?: string | null }[] }) {
+  const n = logos.length;
+  if (n === 0) return null;
+  const disponible = W - 140;                           // margen de 70px a cada lado
+  const gap = n > 4 ? 18 : 32;
+  const maxW = Math.min(220, Math.floor((disponible - gap * (n - 1)) / n));
+  return (
+    <div style={{
+      position: 'absolute', top: 50, left: 70, right: 70, height: 135,
+      display: 'flex', alignItems: 'center', justifyContent: 'center', gap,
+    }}>
+      {logos.map((logo) => (
+        <div key={logo.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 125, maxWidth: maxW }}>
+          <img
+            src={imgUrl(logo.imagen_logo)}
+            alt={logo.nombre ?? 'logo'}
+            style={{ maxHeight: 125, maxWidth: maxW, width: 'auto', height: 'auto', display: 'block' }}
+            crossOrigin="anonymous"
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /* Gap entre firmas según cantidad — mismo criterio del otro proyecto */
 export function firmasGap(n: number): number {
   if (n <= 1) return 0;
@@ -150,12 +178,8 @@ export function CertificadoPDF({ certificado, config, onClose }: Props) {
 
     try {
       const canvas = await html2canvas(ref.current, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: '#ffffff',
-        logging: false,
-        letterRendering: true,
+        scale: 2, useCORS: true, allowTaint: true,
+        backgroundColor: '#ffffff', logging: false, letterRendering: true,
       } as any);
       const imgData = canvas.toDataURL('image/jpeg', 0.95);
       const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
@@ -199,9 +223,6 @@ export function CertificadoPDF({ certificado, config, onClose }: Props) {
   // Tamaño cuerpo adaptativo (igual que el otro proyecto)
   const esTextoLargo = cuerpoTexto.length > 200;
   const cuerpoSize   = esTextoLargo ? 18 : 20;
-
-  // Logos
-  const slots = getLogoSlots(config.logos?.length ?? 0);
 
   // Modo "Diseño Personalizado (Lienzo)": si está activo, se dibuja el fondo del
   // cliente + los campos posicionados, en vez del diseño por defecto.
@@ -304,17 +325,8 @@ export function CertificadoPDF({ certificado, config, onClose }: Props) {
               <LienzoCampos layout={layout!} vars={varsLienzo} codigo={certificado.codigo_unico} qrDataUrl={qrDataUrl} logos={config.logos ?? []} firmas={config.firmas ?? []} />
             ) : (
             <>
-            {/* ── LOGOS (slot 200x110, img respeta aspect ratio) ── */}
-            {config.logos?.map((logo, i) => (
-              <div key={logo.id} style={logoSlotStyle(slots[i] ?? 'center')}>
-                <img
-                  src={imgUrl(logo.imagen_logo)}
-                  alt={logo.nombre ?? 'logo'}
-                  style={logoImgStyle}
-                  crossOrigin="anonymous"
-                />
-              </div>
-            ))}
+            {/* ── LOGOS (fila centrada, hasta 10, sin encimarse) ── */}
+            <LogosFila logos={config.logos ?? []} />
 
             {/* ── CONTENIDO CENTRAL ────────────────────────── */}
             <div style={{
@@ -523,6 +535,7 @@ export function CertificadoPDF({ certificado, config, onClose }: Props) {
             )}
           </div>
           {/* ═══════════ /CERTIFICADO ═══════════ */}
+
         </div>
       </div>
     </div>

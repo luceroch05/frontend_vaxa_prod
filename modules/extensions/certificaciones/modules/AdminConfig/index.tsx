@@ -11,6 +11,7 @@ import { useConfirm } from '../../shared/hooks/useConfirm';
 import { logosApi }  from '../../shared/api/logos.api';
 import { firmasApi } from '../../shared/api/firmas.api';
 import { configApi } from '../../shared/api/config.api';
+import { unidadesApi } from '../../shared/api/unidades.api';
 import { useProgramas } from '../../shared/hooks/useProgramas';
 import { useGrupos }    from '../../shared/hooks/useGrupos';
 import { usePlan }      from '../../shared/hooks/usePlan';
@@ -19,8 +20,8 @@ import { VARIABLES_CERTIFICADO } from '../../shared/utils/certVariables';
 import EditorLienzo from '../../personalizado/EditorLienzo';
 import InspectorLienzo from '../../personalizado/InspectorLienzo';
 import EditorEnfocado from '../../personalizado/EditorEnfocado';
-import { LayoutLienzo, layoutActivo, parseLayout } from '../../personalizado/layout';
-import type { Logo, Firma } from '../../shared/types';
+import { LayoutLienzo, layoutActivo, layoutPorDefecto, parseLayout } from '../../personalizado/layout';
+import type { Logo, Firma, Unidad } from '../../shared/types';
 
 /* ── Textarea que crece solo conforme se escribe (sin scroll ni arrastrar) ──── */
 function AutoTextarea({ value, style, ...rest }: React.ComponentProps<'textarea'>) {
@@ -551,7 +552,8 @@ function SeccionFirmas({ empresa, onChanged }: { empresa: string; onChanged: () 
 }
 
 /* ── Multi-selector genérico ────────────────────────────────── */
-const MAX_SEL = 3;
+const MAX_LOGOS  = 10;   // logos por certificado (se reparten en una fila)
+const MAX_FIRMAS = 3;    // firmas por certificado
 
 function PosicionBadge({ pos }: { pos: number }) {
   const colors = ['#2563EB', '#7C3AED', '#15803D'];
@@ -574,6 +576,14 @@ type ProgramCfg = {
   firmas: number[];
   /** Modo "Diseño Personalizado (Lienzo)". null = diseño por defecto de Vaxa. */
   layout: LayoutLienzo | null;
+};
+
+/** Fondo + logos + firmas que acompañan a la plantilla base (viajan dentro del JSON
+ *  del layout_base bajo la clave __base). Así "Guardar base" guarda TODO. */
+type BaseExtras = {
+  plantilla_url: string;
+  logo_ids:  number[];
+  firma_ids: number[];
 };
 
 /* ── GrupoCombobox: select con búsqueda integrada ───────────── */
@@ -762,6 +772,10 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
   const [baselines, setBaselines] = useState<Record<string, string>>({});
   /* Lista de grupos con config propia por programa: progId -> Set<grupoId> */
   const [gruposConCfg, setGruposConCfg] = useState<Record<number, Set<number>>>({});
+  /* Unidades por programa (para el gate y la vista de ejemplo del acta en la Hoja 2). */
+  const [unidadesPorPrograma, setUnidadesPorPrograma] = useState<Record<number, Unidad[]>>({});
+  /* Hoja que muestra la vista previa inline por programa (1 = certificado, 2 = acta). */
+  const [previewPagina, setPreviewPagina] = useState<Record<number, number>>({});
   /* Cuál grupo se está editando para cada programa (0 = default) */
   const [grupoSelected, setGrupoSelected] = useState<Record<number, number>>({});
 
@@ -795,24 +809,52 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
   // Plantilla base del diseño personalizado (por empresa): se carga al activar en frío
   // y se guarda una vez con "Guardar base". Reemplaza a los presets hardcodeados.
   const [layoutBase, setLayoutBase] = useState<LayoutLienzo | null>(null);
+  // Fondo/logos/firmas que acompañan a la plantilla base (van dentro del mismo JSON,
+  // bajo la clave __base). Así "Guardar base" captura TODO, no solo las posiciones.
+  const [baseExtras, setBaseExtras] = useState<BaseExtras | null>(null);
   const [savingBase, setSavingBase] = useState(false);
   const [baseSaved,  setBaseSaved]  = useState(false);
   useEffect(() => {
     if (!permiteDiseno) return;
     configApi.getLayoutBase(empresa)
-      .then(r => setLayoutBase(parseLayout(r.layout_base)))
+      .then(r => {
+        const parsed = parseLayout(r.layout_base) as (LayoutLienzo & { __base?: BaseExtras }) | null;
+        if (!parsed) { setLayoutBase(null); setBaseExtras(null); return; }
+        const { __base, ...limpio } = parsed;            // separa el layout de los extras
+        setLayoutBase(limpio as LayoutLienzo);
+        setBaseExtras(__base ?? null);
+      })
       .catch(() => { /* sin base aún */ });
   }, [empresa, permiteDiseno, refreshKey]);
 
-  const handleGuardarBase = async (l: LayoutLienzo) => {
+  const handleGuardarBase = async (l: LayoutLienzo, extras?: BaseExtras) => {
     setSavingBase(true); setError(null);
     try {
-      await configApi.saveLayoutBase(empresa, JSON.stringify(l));
+      // El fondo/logos/firmas viajan dentro del JSON del layout (clave __base) para no
+      // depender de un cambio en el backend: "Guardar base" queda con TODO.
+      const bundle = extras ? { ...l, __base: extras } : l;
+      await configApi.saveLayoutBase(empresa, JSON.stringify(bundle));
       setLayoutBase(l);
+      setBaseExtras(extras ?? null);
       setBaseSaved(true);
       setTimeout(() => setBaseSaved(false), 2500);
     } catch (e: unknown) { setError((e as Error).message); }
     finally { setSavingBase(false); }
+  };
+
+  /** Aplica la plantilla base a un programa/grupo: posiciones (layout) SIEMPRE, y el
+   *  fondo/logos/firmas SOLO si ese programa aún no los tiene (no pisa lo ya elegido). */
+  const aplicarBase = (progId: number, grupoId: number) => {
+    if (!layoutBase) { setCfg(progId, grupoId, { layout: layoutPorDefecto() }); setSelectedKey(null); return; }
+    const cur = cfg(progId, grupoId);
+    const patch: Partial<ProgramCfg> = { layout: { ...layoutBase, activo: true } };
+    if (baseExtras) {
+      patch.plantilla_url = cur.plantilla_url || baseExtras.plantilla_url || '';
+      patch.logos  = cur.logos.length  ? cur.logos  : [...baseExtras.logo_ids];
+      patch.firmas = cur.firmas.length ? cur.firmas : [...baseExtras.firma_ids];
+    }
+    setCfg(progId, grupoId, patch);
+    setSelectedKey(null);
   };
   const [busqueda,    setBusqueda]    = useState('');
   const [queryLogos,  setQueryLogos]  = useState('');
@@ -877,6 +919,11 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
       configApi.listGruposConConfig(empresa, p.id)
         .then(r => setGruposConCfg(prev => ({ ...prev, [p.id]: new Set(r.grupos) })))
         .catch(() => setGruposConCfg(prev => ({ ...prev, [p.id]: new Set() })));
+
+      // Unidades del programa: si tiene, hay acta → se habilita la Hoja 2 y su vista de ejemplo.
+      unidadesApi.list(empresa, p.id)
+        .then(us => setUnidadesPorPrograma(prev => ({ ...prev, [p.id]: us ?? [] })))
+        .catch(() => setUnidadesPorPrograma(prev => ({ ...prev, [p.id]: [] })));
     });
   }, [empresa, programas, refreshKey]);
 
@@ -906,11 +953,11 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
     if (logoId === defaultLogoId) return;   // el logo obligatorio no se quita ni se mueve
     const g = grupoActivo(progId);
     const c = cfg(progId, g);
-    // El default cuenta como 1 de los MAX_SEL. Solo cuentan logos que existen (sin fantasma).
+    // El default cuenta como 1 de los MAX_LOGOS. Solo cuentan logos que existen (sin fantasma).
     const ocupados = c.logos.filter(id => id !== defaultLogoId && logos.some(l => l.id === id)).length + (defaultLogoId ? 1 : 0);
     if (c.logos.includes(logoId)) {
       setCfg(progId, g, { logos: c.logos.filter(id => id !== logoId) });
-    } else if (ocupados < MAX_SEL) {
+    } else if (ocupados < MAX_LOGOS) {
       setCfg(progId, g, { logos: [...c.logos, logoId] });
     }
   };
@@ -936,7 +983,7 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
     const ocupadas = c.firmas.filter(id => firmas.some(f => f.id === id)).length;
     if (c.firmas.includes(firmaId)) {
       setCfg(progId, g, { firmas: c.firmas.filter(id => id !== firmaId) });
-    } else if (ocupadas < MAX_SEL) {
+    } else if (ocupadas < MAX_FIRMAS) {
       setCfg(progId, g, { firmas: [...c.firmas, firmaId] });
     }
   };
@@ -1039,7 +1086,7 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
         </div>
         <div>
           <p className="text-[15px] font-bold" style={{ color: '#0D0E12' }}>Plantillas de certificado</p>
-          <p className="text-[12px]" style={{ color: '#9CA3AF' }}>Configura fondo, logos y firmas por programa — máx. 3 logos y 3 firmas</p>
+          <p className="text-[12px]" style={{ color: '#9CA3AF' }}>Configura fondo, logos y firmas por programa — máx. 10 logos y 3 firmas</p>
         </div>
       </div>
 
@@ -1094,7 +1141,7 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
         const orderedLogos = (defaultLogoId && !validLogos.includes(defaultLogoId))
           ? [defaultLogoId, ...validLogos] : validLogos;
         const clientLogos = orderedLogos.filter(id => id !== defaultLogoId);
-        const maxLogosCliente = MAX_SEL - (defaultLogo ? 1 : 0);
+        const maxLogosCliente = MAX_LOGOS - (defaultLogo ? 1 : 0);
         const logosSel  = clientLogos.length;     // solo lo que el cliente seleccionó
         // Firmas que existen (ignora fantasma de firmas borradas).
         const clientFirmas = c.firmas.filter(id => firmas.some(f => f.id === id));
@@ -1253,6 +1300,7 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
                   onChange={l => setCfg(p.id, g, { layout: l })}
                   onSelect={setSelectedKey}
                   baseLayout={layoutBase}
+                  onAplicarBase={() => aplicarBase(p.id, g)}
                 />
               )}
 
@@ -1262,12 +1310,31 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
               {(() => {
                 const modoLienzo = permiteDiseno && layoutActivo(c.layout);
                 const canvasW = Math.floor(Math.min(760, areaW || 640));
+                const tieneActaP = (unidadesPorPrograma[p.id]?.length ?? 0) > 0;
+                const pv = previewPagina[p.id] ?? 1;
                 return (
                   <div className="rounded-2xl p-4" style={{ background: '#0F1115', border: '1px solid #1F2937' }}>
                     <div className="flex items-center justify-between mb-3 gap-3">
-                      <p className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: '#9CA3AF' }}>
-                        Vista previa
-                      </p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: '#9CA3AF' }}>
+                          Vista previa
+                        </p>
+                        {/* Cambiar entre certificado (hoja 1) y acta (hoja 2) en la vista previa. */}
+                        {modoLienzo && tieneActaP && (
+                          <div className="flex items-center gap-1">
+                            {[1, 2].map(n => (
+                              <button key={n} type="button"
+                                onClick={() => setPreviewPagina(prev => ({ ...prev, [p.id]: n }))}
+                                className="text-[10.5px] font-semibold px-2 py-0.5 rounded-md"
+                                style={pv === n
+                                  ? { background: '#7C3AED', color: '#fff' }
+                                  : { background: '#1F2937', color: '#9CA3AF' }}>
+                                {n === 1 ? 'Certificado' : 'Acta'}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                       {modoLienzo ? (
                         <button onClick={() => setEditando(true)}
                           className="flex items-center gap-1.5 text-[12px] font-semibold px-3.5 py-1.5 rounded-lg text-white shrink-0"
@@ -1296,6 +1363,8 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
                         fechaDia3={aulaSel?.fecha_dia3}
                         layout={c.layout}
                         displayWidth={canvasW}
+                        pagina={pv}
+                        actaUnidades={unidadesPorPrograma[p.id] ?? []}
                         editable={permiteDiseno && !modoLienzo}
                         onLayoutChange={l => setCfg(p.id, g, { layout: l })}
                         selectedKey={selectedKey}
@@ -1326,11 +1395,17 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
                         layout={c.layout}
                         onLayoutChange={l => setCfg(p.id, g, { layout: l })}
                         numFirmas={selFirmas.length}
+                        tieneActa={(unidadesPorPrograma[p.id]?.length ?? 0) > 0}
+                        actaUnidades={unidadesPorPrograma[p.id] ?? []}
                         logoObligIndex={logoObligIndex}
                         selectedKey={selectedKey}
                         onSelectField={setSelectedKey}
                         baseLayout={layoutBase}
-                        onSaveBase={handleGuardarBase}
+                        onSaveBase={(l) => handleGuardarBase(l, {
+                          plantilla_url: c.plantilla_url,
+                          logo_ids:  orderedLogos,
+                          firma_ids: c.firmas,
+                        })}
                         savingBase={savingBase}
                         baseSaved={baseSaved}
                         onClose={() => setEditando(false)}
@@ -1512,8 +1587,8 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
                   <p className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: '#374151' }}>
                     Firmas
                   </p>
-                  <span className="text-[11px] font-medium" style={{ color: firmasSel === MAX_SEL ? '#D97706' : '#9CA3AF' }}>
-                    {firmasSel}/{MAX_SEL} seleccionadas
+                  <span className="text-[11px] font-medium" style={{ color: firmasSel === MAX_FIRMAS ? '#D97706' : '#9CA3AF' }}>
+                    {firmasSel}/{MAX_FIRMAS} seleccionadas
                   </span>
                 </div>
 
@@ -1543,7 +1618,7 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
                         .map(firma => {
                       const pos = clientFirmas.indexOf(firma.id) + 1;  // posición entre firmas existentes
                       const selected = pos > 0;
-                      const full = firmasSel >= MAX_SEL && !selected;
+                      const full = firmasSel >= MAX_FIRMAS && !selected;
                       return (
                         <button
                           key={firma.id}

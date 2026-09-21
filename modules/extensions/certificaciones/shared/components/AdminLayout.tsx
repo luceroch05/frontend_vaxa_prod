@@ -21,6 +21,7 @@ import { ConfirmProvider } from '../hooks/useConfirm';
 import { PlanProvider, usePlan } from '../hooks/usePlan';
 import { useSessionSocket } from '../hooks/useSessionSocket';
 import SessionRevokedModal from './SessionRevokedModal';
+import PlanVencidoModal from './PlanVencidoModal';
 
 /** Pastilla con el saldo de créditos de la empresa (cada certificado consume 1). */
 function CreditosBadge() {
@@ -415,6 +416,7 @@ export default function AdminLayout() {
   return (
     <PlanProvider empresa={empresa!}>
     <SessionRevokedModal />
+    <PlanVencidoModal />
     <div className="flex h-screen overflow-hidden" style={{ background: '#F5F4F0' }}>
       {/* Overlay móvil */}
       {open && (

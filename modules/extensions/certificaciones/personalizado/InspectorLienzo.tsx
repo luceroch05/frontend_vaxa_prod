@@ -24,6 +24,8 @@ interface Props {
   /** Clave del slot del logo OBLIGATORIO de la empresa (el de sistemas-vaxa). Ese
    *  logo no se puede ocultar ni eliminar; solo mover/redimensionar. */
   logoObligKey?: string | null;
+  /** ¿El programa tiene acta? Solo entonces se ofrece mover elementos a la Hoja 2. */
+  tieneActa?: boolean;
 }
 
 /* Input numérico compacto con etiqueta arriba.
@@ -101,7 +103,7 @@ function chipLabel(key: string, c: CampoTexto): string {
   return key;
 }
 
-export default function InspectorLienzo({ layout, selectedKey, onChange, onSelect, logoObligKey }: Props) {
+export default function InspectorLienzo({ layout, selectedKey, onChange, onSelect, logoObligKey, tieneActa = false }: Props) {
   const campos = (layout?.campos ?? {}) as Record<string, CampoTexto & CampoQR & CampoLogo & CampoFirma & CampoLinea>;
   const entries = Object.entries(campos);
 
@@ -250,6 +252,27 @@ export default function InspectorLienzo({ layout, selectedKey, onChange, onSelec
                 </button>
               )}
             </div>
+
+            {/* Hoja del certificado: 1 (principal) o 2 (acta/créditos). Solo si el
+                programa tiene acta. El logo obligatorio se queda siempre en la hoja 1. */}
+            {tieneActa && sel !== logoObligKey && (
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: '#9CA3AF' }}>Hoja</span>
+                {[1, 2].map(n => {
+                  const activa = (c.pagina === 2 ? 2 : 1) === n;
+                  return (
+                    <button key={n} type="button" onClick={() => setCampo(sel, { pagina: n })}
+                      className="text-[11px] font-semibold px-2 py-0.5 rounded-md transition-colors"
+                      style={activa
+                        ? { background: '#0F1115', color: '#fff' }
+                        : { background: '#fff', color: '#6B7280', border: '1px solid #E5E7EB' }}
+                      title={n === 2 ? 'Mover a la hoja 2 (acta/créditos)' : 'Mantener en la hoja 1 (certificado)'}>
+                      {n === 1 ? '1 · Certificado' : '2 · Acta'}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
 
             {/* ── TEXTO ── */}
             {t === 'texto' && (

@@ -62,8 +62,15 @@ function handlePlanVencido(): void {
   if (enLoginCertificados()) return;
   try { authStorage.clearAllSessions(); } catch { /* ignore */ }
   try { sessionStorage.setItem('vaxa_plan_vencido', '1'); } catch { /* ignore */ }
+  // Un modal bloqueante (PlanVencidoModal) explica el motivo (plan vencido + prórroga
+  // agotada) y de ahí lleva al login; la sesión ya quedó cerrada. Respaldo: si el modal
+  // no está montado, a los 400ms se redirige directo al login.
+  window.dispatchEvent(new CustomEvent('vaxa:plan-vencido'));
   const empresa = empresaDeUrl();
-  window.location.href = empresa ? certPath(empresa, '/login') : '/';
+  const destino = empresa ? certPath(empresa, '/login') : '/';
+  setTimeout(() => {
+    if (sessionStorage.getItem('vaxa_plan_vencido_modal') !== '1') window.location.href = destino;
+  }, 400);
 }
 
 export interface RequestOptions extends RequestInit {

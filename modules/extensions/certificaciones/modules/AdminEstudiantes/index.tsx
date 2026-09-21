@@ -148,17 +148,23 @@ function InscribirModal({ empresa, onClose, onDone }: {
     }
     setSaving(true); setError(null); setOkMsg(null);
     try {
-      await inscripcionesApi.inscribir(empresa, {
+      const { participante } = await inscripcionesApi.inscribir(empresa, {
         tipo_documento_id: tipoDoc || dniId,
         numero_documento: doc.trim(),
         nombres: nombres.trim(),
         apellidos: apellidos.trim(),
         email: email.trim() || undefined,
         telefono: telefono.trim() || undefined,
-        grados: yaRegistrado ? undefined : grados,   // solo al crear la persona nueva
+        grados,                                   // se aplican al crear la persona nueva
         grupo_id: grupoId,
         calidad: calidad.trim() || 'Participante',
       });
+      // El back solo aplica los grados al CREAR la persona. Si el alumno ya
+      // existía, el grado no "chapa" en la inscripción: lo persistimos aquí con
+      // un update para que salga en el certificado sin editarlo aparte.
+      if (participante?.id && parseGrados(participante.grados).join(',') !== grados.join(',')) {
+        await participantesApi.update(empresa, participante.id, { grados });
+      }
       onDone();                                   // refresca la lista detrás
       setOkMsg('✓ Inscrito correctamente');
       setTimeout(onClose, 1100);                  // cierra tras mostrar el mensaje
@@ -261,11 +267,12 @@ function InscribirModal({ empresa, onClose, onDone }: {
             );
           })()}
 
-          {/* Grado(s) académico(s) — se anteponen al nombre (útil sobre todo en ponentes) */}
-          <GradosPicker value={grados} onChange={setGrados} disabled={yaRegistrado} />
+          {/* Grado(s) académico(s) — se anteponen al nombre (útil sobre todo en ponentes).
+              Editable aunque el estudiante ya exista: el grado se guarda en la persona al inscribir. */}
+          <GradosPicker value={grados} onChange={setGrados} />
           {yaRegistrado && (
             <p className="text-[11px]" style={{ color: '#B0A898' }}>
-              El grado se guarda en la persona. Para cambiarlo edítalo desde la lista de estudiantes.
+              El grado se guarda en la persona al inscribir y se usará en todos sus certificados.
             </p>
           )}
 

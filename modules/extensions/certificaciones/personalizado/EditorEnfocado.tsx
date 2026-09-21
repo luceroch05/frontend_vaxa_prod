@@ -13,7 +13,7 @@ import CertificadoPreview from '../shared/components/CertificadoPreview';
 import { W, H } from '../shared/components/CertificadoPDF';
 import EditorLienzo from './EditorLienzo';
 import InspectorLienzo from './InspectorLienzo';
-import { type LayoutLienzo, sincronizarFirmas, sincronizarLogoObligatorio, logoKey } from './layout';
+import { type LayoutLienzo, sincronizarFirmas, sincronizarLogos, sincronizarLogoObligatorio, logoKey } from './layout';
 import { X } from '@/components/ui/icon';
 
 type PreviewProps = ComponentProps<typeof CertificadoPreview>;
@@ -36,6 +36,10 @@ interface Props {
   onLayoutChange: (l: LayoutLienzo) => void;
   /** Nº de firmas ELEGIDAS en la config → se crean solas como espacios en el lienzo. */
   numFirmas: number;
+  /** ¿El programa tiene acta (unidades)? Solo entonces se muestra la Hoja 2. */
+  tieneActa?: boolean;
+  /** Unidades del programa → réplica del acta real en la Hoja 2. */
+  actaUnidades?: { id: number; nombre: string; creditos?: number }[];
   /** Índice 0-based del logo OBLIGATORIO de la empresa (es_default) dentro de los
    *  logos seleccionados. Su slot no se puede ocultar ni borrar. -1/null = ninguno. */
   logoObligIndex?: number | null;
@@ -55,6 +59,10 @@ export default function EditorEnfocado(props: Props) {
   const { onClose } = props;
   const areaRef = useRef<HTMLDivElement>(null);
   const [canvasW, setCanvasW] = useState(760);
+  // Hoja que se está editando: 1 (principal) o 2 (acta/créditos, en blanco).
+  // La Hoja 2 solo existe si el programa tiene acta (unidades).
+  const tieneActa = props.tieneActa ?? false;
+  const [pagina, setPagina] = useState(1);
 
   // Calcula el ancho para que el certificado quepa ENTERO en el área (por ancho
   // y por alto): así no hay scroll. Recalcula al montar y al cambiar el tamaño.
@@ -83,6 +91,16 @@ export default function EditorEnfocado(props: Props) {
     if (changed) props.onLayoutChange({ ...(actual ?? { activo: true }), activo: true, campos });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.numFirmas]);
+
+  // Sincroniza los slots de logo con los logos ELEGIDOS en la config (al abrir y si
+  // cambia la cantidad): así los logos seleccionados aparecen solos en el editor,
+  // igual que las firmas, sin necesidad de un botón "agregar logo".
+  useEffect(() => {
+    const actual = layoutRef.current;
+    const { campos, changed } = sincronizarLogos(actual?.campos ?? {}, props.logos.length);
+    if (changed) props.onLayoutChange({ ...(actual ?? { activo: true }), activo: true, campos });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.logos.length]);
 
   // El logo obligatorio de la empresa (es_default) SIEMPRE debe tener su slot visible:
   // se crea si falta y se fuerza a visible (el inspector impide ocultarlo/borrarlo).
@@ -115,6 +133,29 @@ export default function EditorEnfocado(props: Props) {
         </button>
       </div>
 
+      {/* Pestañas de hoja: la 2 (acta/créditos) solo aparece si el programa tiene acta. */}
+      {tieneActa && (
+        <div className="flex items-center gap-2 px-4 pt-2 shrink-0" style={{ background: '#fff' }}>
+          {[1, 2].map(n => {
+            const activa = pagina === n;
+            return (
+              <button key={n} type="button" onClick={() => { setPagina(n); props.onSelectField(null); }}
+                className="text-[12px] font-semibold px-3 py-1.5 rounded-t-lg transition-colors"
+                style={activa
+                  ? { background: '#0F1115', color: '#fff' }
+                  : { background: '#F1F1F4', color: '#6B7280' }}>
+                {n === 1 ? 'Hoja 1 · Certificado' : 'Hoja 2 · Acta / créditos'}
+              </button>
+            );
+          })}
+          {pagina === 2 && (
+            <span className="text-[11px]" style={{ color: '#9CA3AF' }}>
+              Hoja en blanco — agrega QR, logos de convenios, textos…
+            </span>
+          )}
+        </div>
+      )}
+
       {/* Barra de herramientas (agregar elementos + guardar base) */}
       <div className="px-4 py-2 shrink-0" style={{ background: '#fff', borderBottom: '1px solid #EEF0F2' }}>
         <EditorLienzo
@@ -127,6 +168,9 @@ export default function EditorEnfocado(props: Props) {
           baseSaved={props.baseSaved}
           compact
           firmasAuto
+          pagina={pagina}
+          numLogos={props.logos.length}
+          logoObligIndex={props.logoObligIndex}
         />
       </div>
 
@@ -153,6 +197,8 @@ export default function EditorEnfocado(props: Props) {
               onLayoutChange={props.onLayoutChange}
               selectedKey={props.selectedKey}
               onSelectField={props.onSelectField}
+              pagina={pagina}
+              actaUnidades={props.actaUnidades}
             />
           </div>
         </div>
@@ -163,6 +209,7 @@ export default function EditorEnfocado(props: Props) {
             onChange={props.onLayoutChange}
             onSelect={props.onSelectField}
             logoObligKey={props.logoObligIndex != null && props.logoObligIndex >= 0 ? logoKey(props.logoObligIndex) : null}
+            tieneActa={tieneActa}
           />
         </div>
       </div>

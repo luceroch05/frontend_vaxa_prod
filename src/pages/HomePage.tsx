@@ -5,7 +5,7 @@ import {
   Facebook, Instagram, Youtube, Linkedin, Music2, Mail, Phone,
 } from '@/components/ui/icon';
 import { libroReclamacionesUrl } from '@/lib/paths';
-import { api } from '@/lib/api/client';
+import { api, imgUrl } from '@/lib/api/client';
 
 /** Redes/contacto de la landing (editables desde sistemas-vaxa). */
 interface Redes {
@@ -13,6 +13,9 @@ interface Redes {
   youtube?: string | null; linkedin?: string | null;
   whatsapp?: string | null; email?: string | null; telefono?: string | null;
 }
+
+/** Alianza/convenio (logos editables desde sistemas-vaxa). */
+interface Alianza { id: number; nombre: string; logo_url?: string | null; link?: string | null; }
 const WA_DEFAULT = '51924600490';
 const EMAIL_DEFAULT = 'info@vaxa.com.pe';
 const waLink = (num?: string | null) =>
@@ -40,7 +43,11 @@ const NAV = [
 export default function HomePage() {
   const [open, setOpen] = useState(false);
   const [redes, setRedes] = useState<Redes>({});
-  useEffect(() => { api.get<Redes>('/public/vaxa-landing').then(setRedes).catch(() => {}); }, []);
+  const [alianzas, setAlianzas] = useState<Alianza[]>([]);
+  useEffect(() => {
+    api.get<Redes>('/public/vaxa-landing').then(setRedes).catch(() => {});
+    api.get<Alianza[]>('/public/vaxa-alianzas').then((a) => setAlianzas(Array.isArray(a) ? a : [])).catch(() => {});
+  }, []);
   const WA_LINK = waLink(redes.whatsapp);
   const EMAIL = redes.email || EMAIL_DEFAULT;
 
@@ -130,15 +137,39 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ── Tira ────────────────────────────────────────────── */}
-      <div style={{ borderTop: `1px solid ${BORDER}`, borderBottom: `1px solid ${BORDER}` }}>
-        <div className="max-w-[1200px] mx-auto px-6 sm:px-10 py-5 flex flex-wrap items-center justify-center gap-x-10 gap-y-2" style={{ fontFamily: MONO }}>
-          <span className="text-[11px] uppercase tracking-[0.2em]" style={{ color: '#4F5B57' }}>// usado por</span>
-          {['institutos', 'academias', 'clínicas', 'capacitadoras'].map((t) => (
-            <span key={t} className="text-[12.5px] font-medium" style={{ color: MUTED }}>{t}</span>
-          ))}
+      {/* ── Tira: alianzas (logos editables desde sistemas-vaxa) o fallback de texto ── */}
+      {alianzas.length > 0 ? (
+        // Franja con degradado suave (una sola "pincelada") para que TODO logo lea,
+        // incluso los que tienen negro. Los logos van sueltos, sin recuadros.
+        <div style={{ position: 'relative', background: BG, borderTop: `1px solid ${BORDER}`, borderBottom: `1px solid ${BORDER}` }}>
+          <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(60% 130% at 50% 0%, rgba(16,185,129,0.08), transparent 70%)' }} />
+          <div className="relative py-12">
+            <div className="max-w-[1200px] mx-auto px-6 sm:px-10 mb-8 text-center">
+              <span className="text-[11px] uppercase tracking-[0.22em] font-medium" style={{ fontFamily: MONO, color: MUTED }}>
+                <span style={{ color: GREEN }}>//</span> alianzas
+              </span>
+            </div>
+            {alianzas.length >= 6 ? (
+              // 6 o más → carrusel que se mueve solo.
+              <AlianzasCarrusel alianzas={alianzas} />
+            ) : (
+              // Menos de 6 → estáticos, cada uno una sola vez (sin repetir).
+              <div className="max-w-[1200px] mx-auto px-6 sm:px-10 flex flex-wrap items-center justify-center gap-x-14 gap-y-8">
+                {alianzas.map((a) => <AlianzaChip key={a.id} a={a} />)}
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      ) : (
+        <div style={{ borderTop: `1px solid ${BORDER}`, borderBottom: `1px solid ${BORDER}` }}>
+          <div className="max-w-[1200px] mx-auto px-6 sm:px-10 py-5 flex flex-wrap items-center justify-center gap-x-10 gap-y-2" style={{ fontFamily: MONO }}>
+            <span className="text-[11px] uppercase tracking-[0.2em]" style={{ color: '#4F5B57' }}>// usado por</span>
+            {['institutos', 'academias', 'clínicas', 'capacitadoras'].map((t) => (
+              <span key={t} className="text-[12.5px] font-medium" style={{ color: MUTED }}>{t}</span>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ── Productos (bento) ───────────────────────────────── */}
       <section id="productos" className="max-w-[1200px] mx-auto px-6 sm:px-10 py-20 sm:py-28">
@@ -382,6 +413,58 @@ function WhatsAppIcon({ size = 28, color = '#04110C' }: { size?: number; color?:
 
 function Logo() {
   return <img src="/vaxa-logo-white.png" alt="Vaxa" className="w-20 h-8 rounded-[9px] object-contain" />;
+}
+
+/** Un logo de aliado dentro de una pastilla de vidrio esmerilado (glass), a color. */
+function AlianzaChip({ a }: { a: Alianza }) {
+  if (!a.logo_url) {
+    const txt = <span className="text-[14px] font-semibold whitespace-nowrap" style={{ color: MUTED }}>{a.nombre}</span>;
+    return a.link ? <a href={a.link} target="_blank" rel="noreferrer">{txt}</a> : txt;
+  }
+  const chip = (
+    <span className="inline-flex items-center justify-center rounded-2xl px-6 py-4" style={{
+      background: 'linear-gradient(180deg, rgba(255,255,255,0.94), rgba(244,246,249,0.86))',
+      border: '1px solid rgba(255,255,255,0.7)',
+      backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)',
+      boxShadow: '0 14px 36px -14px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.9)',
+    }}>
+      <img src={imgUrl(a.logo_url)} alt={a.nombre} title={a.nombre} style={{ height: 64, width: 'auto', maxWidth: 210, objectFit: 'contain' }} />
+    </span>
+  );
+  return a.link
+    ? <a href={a.link} target="_blank" rel="noreferrer" className="inline-flex items-center transition-transform hover:-translate-y-0.5">{chip}</a>
+    : <span className="inline-flex items-center transition-transform hover:-translate-y-0.5">{chip}</span>;
+}
+
+/**
+ * Carrusel de logos que se desplaza solo (marquee infinito). Duplica la lista
+ * para que el bucle sea continuo; se pausa al pasar el mouse.
+ */
+function AlianzasCarrusel({ alianzas }: { alianzas: Alianza[] }) {
+  // Carrusel infinito. Cada logo ocupa 1/6 del ancho → a simple vista se ven ~6 a la
+  // vez (menos en pantallas chicas). La lista va UNA sola vez y se duplica solo para
+  // cerrar el bucle; como solo 6 caben en pantalla, la copia queda fuera y no se ve
+  // repetido. Se pausa al pasar el mouse.
+  const dur = Math.max(24, alianzas.length * 4.5); // seg. por vuelta: más lento = más suave
+  return (
+    <div className="alianzas-marquee">
+      <style>{`
+        @keyframes alianzas-scroll { from { transform: translate3d(0,0,0); } to { transform: translate3d(-50%,0,0); } }
+        .alianzas-marquee { overflow: hidden; -webkit-mask-image: linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent); mask-image: linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent); }
+        .alianzas-marquee-track { display: flex; width: max-content; will-change: transform; backface-visibility: hidden; animation: alianzas-scroll ${dur}s linear infinite; }
+        .alianzas-marquee:hover .alianzas-marquee-track { animation-play-state: paused; }
+        .alianzas-slide { flex: 0 0 calc(100vw / 6); display: flex; align-items: center; justify-content: center; padding: 0 14px; }
+        @media (max-width: 1024px) { .alianzas-slide { flex-basis: calc(100vw / 4); } }
+        @media (max-width: 640px)  { .alianzas-slide { flex-basis: calc(100vw / 2.4); } }
+        @media (prefers-reduced-motion: reduce) { .alianzas-marquee-track { animation: none; } }
+      `}</style>
+      <div className="alianzas-marquee-track">
+        {[...alianzas, ...alianzas].map((a, i) => (
+          <div className="alianzas-slide" key={`${a.id}-${i}`}><AlianzaChip a={a} /></div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function GridGlow() {

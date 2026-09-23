@@ -8,6 +8,7 @@ import { Loader2, Save, Globe } from '@/components/ui/icon';
 import HeaderSistemasVaxa from '../../shared/components/HeaderSistemasVaxa';
 import { VAXA_CONFIG } from '../../shared/constants';
 import { landingAdminApi, type VaxaLanding } from '../../shared/api/landing.admin.api';
+import AlianzasPanel from './AlianzasPanel';
 
 interface Props { tenantId: string; tenant: TenantConfig; }
 interface Usuario { email: string; nombre: string; role: string; }
@@ -32,6 +33,7 @@ export default function LandingVaxa({ tenantId }: Props) {
   const [saving, setSaving] = useState(false);
   const [ok, setOk] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [tab, setTab] = useState<'redes' | 'alianzas'>('redes');
 
   useEffect(() => {
     if (!tenantId) return;
@@ -64,12 +66,25 @@ export default function LandingVaxa({ tenantId }: Props) {
             <Globe size={18} style={{ color: '#059669' }} />
           </div>
           <div>
-            <h1 className="text-[22px] font-bold tracking-tight" style={{ color: '#0D0E12' }}>Redes de la landing</h1>
-            <p className="text-[13px] mt-0.5" style={{ color: '#9CA3AF' }}>Enlaces y contacto que se muestran en la página principal de Vaxa. Deja vacío lo que no uses.</p>
+            <h1 className="text-[22px] font-bold tracking-tight" style={{ color: '#0D0E12' }}>Landing de Vaxa</h1>
+            <p className="text-[13px] mt-0.5" style={{ color: '#9CA3AF' }}>Contenido que se muestra en la página principal de Vaxa.</p>
           </div>
         </div>
 
-        {loading ? (
+        {/* Tabs */}
+        <div className="flex gap-1 mb-5 p-1 rounded-xl w-fit" style={{ background: '#ECECE7' }}>
+          {([['redes', 'Redes y contacto'], ['alianzas', 'Alianzas']] as const).map(([k, label]) => (
+            <button key={k} onClick={() => setTab(k)}
+              className="px-4 py-1.5 rounded-lg text-[13px] font-semibold transition-colors"
+              style={tab === k ? { background: '#fff', color: '#0D0E12', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' } : { color: '#7B8B89' }}>
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {tab === 'alianzas' ? (
+          <AlianzasPanel />
+        ) : loading ? (
           <div className="py-16 flex justify-center"><Loader2 className="w-6 h-6 animate-spin" style={{ color: '#059669' }} /></div>
         ) : (
           <div className="sv-card p-5 space-y-3.5">

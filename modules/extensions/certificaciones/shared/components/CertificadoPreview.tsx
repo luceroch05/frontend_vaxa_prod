@@ -97,7 +97,7 @@ export default function CertificadoPreview({
     calidad: 'Participante',
     tipoDocumento: EJEMPLO.tipoDocumento, documento: EJEMPLO.documento,
     programa, curso: programa, tipo,
-    fecha: fEmision, fechaInicio: fInicio, fechaFin: fFin, periodo: periodoReal,
+    fecha: fEmision, fechaemision: fEmision, fechaInicio: fInicio, fechaFin: fFin, periodo: periodoReal,
     mesEmision: fMesEmision,
     horas: String(horas ?? 40), creditos: creditos ? String(creditos) : '', codigo: 'CERT-EJEMPLO',
   };

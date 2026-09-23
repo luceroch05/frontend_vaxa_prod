@@ -300,7 +300,7 @@ export const VARIABLES_LIENZO: { token: string; desc: string }[] = [
   { token: '{documento}',   desc: 'Número de documento del participante' },
   { token: '{tipo}',        desc: 'Tipo de programa (Curso, Taller, Diplomado…)' },
   { token: '{programa}',    desc: 'Nombre del programa' },
-  { token: '{fecha}',       desc: 'Fecha de emisión (día completo)' },
+  { token: '{fechaemision}', desc: 'Fecha de emisión (día completo)' },
   { token: '{mesEmision}',  desc: 'Mes y año de emisión (ej. septiembre 2026)' },
   { token: '{fechaInicio}', desc: 'Fecha de inicio' },
   { token: '{fechaFin}',    desc: 'Fecha de fin (vacía si el curso es de un solo día)' },
@@ -317,7 +317,7 @@ export function layoutPorDefecto(): LayoutLienzo {
     campos: {
       nombre:  { on: true, label: 'Nombre del participante', text: '{nombre}',     x: 61,  y: 360, w: 1000, size: 40, color: '#0f172a', align: 'center', bold: true },
       calidad: { on: true, label: 'Calidad / rol',           text: 'PARTICIPANTE', x: 61,  y: 470, w: 1000, size: 18, color: '#1e293b', align: 'center', bold: true, uppercase: true },
-      fecha:   { on: true, label: 'Fecha',                   text: '{fecha}',      x: 61,  y: 540, w: 1000, size: 14, color: '#334155', align: 'center' },
+      fecha:   { on: true, label: 'Fecha',                   text: '{fechaemision}', x: 61,  y: 540, w: 1000, size: 14, color: '#334155', align: 'center' },
       logo1:   { on: true, x: 40,  y: 30, size: 110 },
       logo2:   { on: true, x: 972, y: 30, size: 110 },
       logo3:   { on: true, x: 506, y: 24, size: 110 },
@@ -503,6 +503,59 @@ export function expandirLienzo(txt: string, vars: Record<string, string>): strin
     const key = Object.keys(vars).find(v => v.toLowerCase() === String(k).toLowerCase());
     return key ? vars[key] : '';
   });
+}
+
+/* ── Modo de fecha del programa/aula (para la plantilla base) ─────
+   Los programas se dictan con DÍAS PUNTUALES (uno o varios sueltos) o con un
+   RANGO (del X al Y). Según eso se usa una variable de fecha distinta en el texto:
+     · puntual → {periodo}   (ya trae "el 15 de agosto" / "los días 15, 18 y 22…")
+     · rango   → del {fechaInicio} al {fechaFin}
+   Al "jalar la plantilla base", el texto viene con la variable del programa anterior;
+   estas utilidades la ajustan al modo del programa actual. */
+
+export type ModoFecha = 'rango' | 'puntual';
+
+/** Modo de fecha de un aula: 'rango' (fecha_fin distinta, formato legado) o
+ *  'puntual' (un solo día o varios días sueltos con fecha_dia2/dia3). */
+export function modoFechaAula(
+  aula?: { fecha_inicio?: string | null; fecha_fin?: string | null; fecha_dia2?: string | null; fecha_dia3?: string | null } | null,
+): ModoFecha {
+  if (!aula) return 'puntual';
+  const dia = (d?: string | null) => (d ? String(d).substring(0, 10) : '');
+  const ini = dia(aula.fecha_inicio), fin = dia(aula.fecha_fin);
+  const tienePuntuales = !!dia(aula.fecha_dia2) || !!dia(aula.fecha_dia3);
+  const esRango = !tienePuntuales && !!fin && fin !== '0000-00-00' && fin !== ini;
+  return esRango ? 'rango' : 'puntual';
+}
+
+/**
+ * Ajusta la frase de fecha de los textos del layout al modo del programa/aula, para
+ * que al jalar la plantilla base no quede la variable del programa anterior:
+ *   · 'puntual' → {periodo}                      (trae su propia preposición)
+ *   · 'rango'   → del {fechaInicio} al {fechaFin}
+ * Reemplaza la frase COMPLETA (con la preposición "del"/"el" que la anteceda) para
+ * no dejar "del los días…" ni "el {periodo}". No toca {fechaInicio}/{fechaFin}
+ * sueltos ni {fechaemision}: solo la frase del periodo del curso.
+ */
+export function ajustarFechasLayout(layout: LayoutLienzo, modo: ModoFecha): LayoutLienzo {
+  const frase = modo === 'rango' ? 'del {fechaInicio} al {fechaFin}' : '{periodo}';
+  const campos = layout.campos ?? {};
+  const next: Record<string, unknown> = {};
+  let changed = false;
+  for (const [k, c] of Object.entries(campos)) {
+    const campo = c as CampoTexto;
+    if (tipoCampo(k) === 'texto' && typeof campo.text === 'string') {
+      // La preposición inicial ("del"/"el"/"los días") se consume junto con la frase
+      // para poder cambiarla por la del modo destino sin duplicarla.
+      const t = campo.text.replace(
+        /(?:\b(?:del|el|los\s+d[ií]as)\s+)?(?:\{fechaInicio\}\s+al\s+\{fechaFin\}|\{periodo\})/gi,
+        frase,
+      );
+      if (t !== campo.text) { next[k] = { ...campo, text: t }; changed = true; continue; }
+    }
+    next[k] = c;
+  }
+  return changed ? { ...layout, campos: next as LayoutLienzo['campos'] } : layout;
 }
 
 /* ── Negrita parcial: **texto** dentro de un campo de texto ──────

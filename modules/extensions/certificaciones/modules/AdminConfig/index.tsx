@@ -20,7 +20,7 @@ import { VARIABLES_CERTIFICADO } from '../../shared/utils/certVariables';
 import EditorLienzo from '../../personalizado/EditorLienzo';
 import InspectorLienzo from '../../personalizado/InspectorLienzo';
 import EditorEnfocado from '../../personalizado/EditorEnfocado';
-import { LayoutLienzo, layoutActivo, layoutPorDefecto, parseLayout } from '../../personalizado/layout';
+import { LayoutLienzo, layoutActivo, layoutPorDefecto, parseLayout, modoFechaAula, ajustarFechasLayout } from '../../personalizado/layout';
 import type { Logo, Firma, Unidad } from '../../shared/types';
 
 /* ── Textarea que crece solo conforme se escribe (sin scroll ni arrastrar) ──── */
@@ -847,7 +847,15 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
   const aplicarBase = (progId: number, grupoId: number) => {
     if (!layoutBase) { setCfg(progId, grupoId, { layout: layoutPorDefecto() }); setSelectedKey(null); return; }
     const cur = cfg(progId, grupoId);
-    const patch: Partial<ProgramCfg> = { layout: { ...layoutBase, activo: true } };
+    // Detecta el modo de fecha del programa/aula y ajusta la frase de fecha del texto
+    // de la base (puntual → {periodo}; rango → del {fechaInicio} al {fechaFin}), para
+    // que no arrastre la variable del programa anterior. Si se configura a nivel de
+    // programa (grupo 0), se toma un aula del programa como referencia del modo.
+    const aulaRef = grupoId !== 0
+      ? grupos.find(gr => gr.id === grupoId)
+      : grupos.find(gr => gr.programa_id === progId);
+    const layoutBaseAjustado = ajustarFechasLayout({ ...layoutBase, activo: true }, modoFechaAula(aulaRef));
+    const patch: Partial<ProgramCfg> = { layout: layoutBaseAjustado };
     if (baseExtras) {
       patch.plantilla_url = cur.plantilla_url || baseExtras.plantilla_url || '';
       patch.logos  = cur.logos.length  ? cur.logos  : [...baseExtras.logo_ids];

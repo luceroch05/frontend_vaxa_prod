@@ -132,7 +132,7 @@ export default function EditorLienzo({
   if (compact) {
     return (
       <div className="flex items-center gap-2 flex-wrap">
-        <Tool icon={Type}  label="Texto" onClick={addCampo} title="Agregar un texto o variable ({nombre}, {fecha}…)" />
+        <Tool icon={Type}  label="Texto" onClick={addCampo} title="Agregar un texto o variable ({nombre}, {fechaemision}…)" />
         <Tool icon={Minus} label="Línea" onClick={addLinea} title="Agregar una línea" />
         {!firmasAuto && (
           <Tool icon={FileSignature} label="Firma" onClick={addFirma} disabled={firmasCount >= MAX_FIRMAS}

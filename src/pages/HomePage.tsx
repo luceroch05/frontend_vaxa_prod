@@ -1,8 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
-  FileBadge, Shield, Zap, QrCode, ArrowRight, ArrowUpRight,
-  Users, FileText, Clock, Layers, Menu, X, Award, Check, MessageCircle, Sparkles,
-  Facebook, Instagram, Youtube, Linkedin, Music2, Mail, Phone,
+  Shield, Zap, ArrowRight, ArrowUpRight, Users, FileText,
+  BarChart3, Layers, Menu, X, Check, MessageCircle, Sparkles, Award,
+  Phone, Mail, MapPin, ChevronLeft, ChevronRight, GraduationCap,
+  Building2, Star, MousePointerClick, TrendingUp,
+  FileBadge, QrCode, UserPlus, BadgeCheck,
+  Facebook, Instagram, Youtube, Linkedin, Music2,
 } from '@/components/ui/icon';
 import { libroReclamacionesUrl } from '@/lib/paths';
 import { api, imgUrl } from '@/lib/api/client';
@@ -18,13 +21,14 @@ interface Redes {
 interface Alianza { id: number; nombre: string; logo_url?: string | null; link?: string | null; }
 const WA_DEFAULT = '51924600490';
 const EMAIL_DEFAULT = 'info@vaxa.com.pe';
+const TEL_DEFAULT = '+51 924 600 490';
 const waLink = (num?: string | null) =>
   `https://wa.me/${(num || WA_DEFAULT).replace(/\D/g, '')}?text=${encodeURIComponent('Hola Vaxa 👋, quiero información sobre el sistema de certificados.')}`;
 
 /* ── Sistema visual (tech / dark) ────────────────────────────── */
 const BG = '#070B0A';            // casi negro verdoso
-const SURFACE = 'rgba(255,255,255,0.035)';
-const BORDER = 'rgba(255,255,255,0.09)';
+const SURFACE = 'rgba(255,255,255,0.05)';
+const BORDER = 'rgba(255,255,255,0.12)';
 const GREEN = '#10B981';
 const GREEN_BRIGHT = '#34D399';
 const TEXT = '#E8EEEB';
@@ -33,11 +37,15 @@ const MUTED = '#7E8C87';
 const DISPLAY = "'Space Grotesk', system-ui, sans-serif";
 const SANS = "'Inter', system-ui, -apple-system, sans-serif";
 const MONO = "'JetBrains Mono', ui-monospace, monospace";
+const SCRIPT = "'Caveat', 'Segoe Script', cursive";
 
 const NAV = [
+  { label: 'Inicio', href: '#top' },
   { label: 'Productos', href: '#productos' },
-  { label: 'Plataforma', href: '#features' },
-  { label: 'Estudio', href: '#nosotros' },
+  { label: 'Soluciones', href: '#soluciones' },
+  { label: 'Clientes', href: '#clientes' },
+  { label: 'Nosotros', href: '#nosotros' },
+  { label: 'Contacto', href: '#contacto' },
 ];
 
 export default function HomePage() {
@@ -50,6 +58,7 @@ export default function HomePage() {
   }, []);
   const WA_LINK = waLink(redes.whatsapp);
   const EMAIL = redes.email || EMAIL_DEFAULT;
+  const TEL = redes.telefono || TEL_DEFAULT;
 
   // Redes con enlace (para el footer). WhatsApp/teléfono/correo se arman como enlaces especiales.
   const socials: { key: string; href: string; Icon: typeof Facebook; label: string }[] = [
@@ -58,28 +67,58 @@ export default function HomePage() {
     redes.tiktok    && { key: 'tk', href: redes.tiktok,    Icon: Music2,    label: 'TikTok' },
     redes.youtube   && { key: 'yt', href: redes.youtube,   Icon: Youtube,   label: 'YouTube' },
     redes.linkedin  && { key: 'in', href: redes.linkedin,  Icon: Linkedin,  label: 'LinkedIn' },
-    redes.whatsapp  && { key: 'wa', href: WA_LINK,         Icon: MessageCircle, label: 'WhatsApp' },
-    redes.telefono  && { key: 'tel', href: `tel:${redes.telefono.replace(/\s/g, '')}`, Icon: Phone, label: 'Teléfono' },
     { key: 'mail', href: `mailto:${EMAIL}`, Icon: Mail, label: 'Correo' },
   ].filter(Boolean) as { key: string; href: string; Icon: typeof Facebook; label: string }[];
 
   return (
     <div style={{ background: BG, color: TEXT, fontFamily: SANS }} className="min-h-screen overflow-x-hidden">
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&display=swap');
+
+        /* Aparición al hacer scroll */
+        .reveal { opacity: 0; transform: translateY(28px); transition: opacity .7s cubic-bezier(.2,.7,.2,1), transform .7s cubic-bezier(.2,.7,.2,1); will-change: opacity, transform; }
+        .reveal.reveal-in { opacity: 1; transform: none; }
+
+        /* Entrada del hero al cargar */
+        @keyframes rise { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: none; } }
+        .rise { opacity: 0; animation: rise .8s cubic-bezier(.2,.7,.2,1) forwards; }
+
+        /* Flotado continuo de tarjetas */
+        @keyframes floaty { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-9px); } }
+        .floaty { animation: floaty 5s ease-in-out infinite; }
+        .floaty-2 { animation: floaty 6.5s ease-in-out infinite; }
+        .floaty-3 { animation: floaty 5.8s ease-in-out infinite .6s; }
+
+        /* Barras que crecen */
+        @keyframes grow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+        .bar { transform-origin: bottom; animation: grow .9s cubic-bezier(.2,.7,.2,1) both; }
+
+        /* Brillo que recorre (shimmer) */
+        @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+
+        /* Latido suave */
+        @keyframes glowPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(16,185,129,0.0); } 50% { box-shadow: 0 0 22px -2px rgba(16,185,129,0.55); } }
+        .glow-pulse { animation: glowPulse 2.6s ease-in-out infinite; }
+
+        @media (prefers-reduced-motion: reduce) {
+          .reveal, .rise { opacity: 1 !important; transform: none !important; animation: none !important; }
+          .floaty, .floaty-2, .floaty-3, .bar, .glow-pulse { animation: none !important; }
+        }
+      `}</style>
 
       {/* ── Navbar ──────────────────────────────────────────── */}
-      <header className="sticky top-0 z-40" style={{ background: 'rgba(7,11,10,0.7)', backdropFilter: 'blur(14px)', borderBottom: `1px solid ${BORDER}` }}>
+      <header className="sticky top-0 z-40" style={{ background: 'rgba(7,11,10,0.72)', backdropFilter: 'blur(14px)', borderBottom: `1px solid ${BORDER}` }}>
         <nav className="max-w-[1200px] mx-auto px-6 sm:px-10 h-16 flex items-center justify-between">
-          <a href="#top" className="flex items-center gap-2.5">
-            <Logo />
-            
-          </a>
-          <div className="hidden md:flex items-center gap-9">
+          <a href="#top" className="flex items-center gap-2.5"><Logo /></a>
+          <div className="hidden md:flex items-center gap-8">
             {NAV.map((n) => (
-              <a key={n.href} href={n.href} className="text-[13.5px] font-medium transition-colors hover:text-white" style={{ color: MUTED }}>{n.label}</a>
+              <a key={n.href} href={n.href} className="text-[13.5px] font-medium transition-colors hover:text-white" style={{ color: n.label === 'Inicio' ? GREEN_BRIGHT : MUTED }}>{n.label}</a>
             ))}
-            <a href="#contacto" className="group inline-flex items-center gap-1.5 text-[13px] font-semibold px-4 py-2 rounded-lg transition-all"
-              style={{ background: GREEN, color: '#04110C', boxShadow: '0 0 0 1px rgba(52,211,153,0.4), 0 8px 24px -8px rgba(16,185,129,0.6)' }}>
-              Solicitar demo <ArrowUpRight size={14} />
+          </div>
+          <div className="hidden md:flex items-center">
+            <a href="#contacto" className="glow-pulse group inline-flex items-center gap-1.5 text-[13px] font-semibold px-4 py-2 rounded-lg transition-transform hover:-translate-y-0.5"
+              style={{ background: GREEN, color: '#04110C' }}>
+              Solicitar demo <ArrowUpRight size={14} className="transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
             </a>
           </div>
           <button onClick={() => setOpen((o) => !o)} className="md:hidden p-2 -mr-2" aria-label="Menú" style={{ color: TEXT }}>{open ? <X size={22} /> : <Menu size={22} />}</button>
@@ -95,305 +134,370 @@ export default function HomePage() {
       {/* ── Hero ────────────────────────────────────────────── */}
       <section id="top" className="relative">
         <GridGlow />
-        <div className="relative max-w-[1200px] mx-auto px-6 sm:px-10 pt-16 pb-20 sm:pt-24 sm:pb-28 grid lg:grid-cols-[1.05fr_0.95fr] gap-14 items-center">
+        <div className="relative max-w-[1200px] mx-auto px-6 sm:px-10 pt-16 pb-20 sm:pt-24 sm:pb-28 grid lg:grid-cols-[1fr_1.05fr] gap-14 items-center">
           <div>
-            <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[11.5px] font-medium mb-7"
-              style={{ fontFamily: MONO, background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.25)', color: GREEN_BRIGHT }}>
-              <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: GREEN_BRIGHT }} /> v2 · Sistema de Certificados
+            <span className="rise inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-medium mb-7 uppercase tracking-[0.14em]"
+              style={{ fontFamily: MONO, background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.25)', color: GREEN_BRIGHT, animationDelay: '.05s' }}>
+              <FileBadge size={13} /> Software de certificación digital
             </span>
 
-            <h1 style={{ fontFamily: DISPLAY }} className="text-[40px] sm:text-[62px] font-bold leading-[1.04] tracking-[-0.03em]">
-              Infraestructura<br />
-              de software para<br />
-              <span style={{ background: `linear-gradient(100deg, ${GREEN_BRIGHT}, ${GREEN})`, WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' }}>instituciones modernas</span>.
+            <h1 style={{ fontFamily: DISPLAY, animationDelay: '.15s' }} className="rise text-[38px] sm:text-[56px] font-bold leading-[1.05] tracking-[-0.03em]">
+              Digitalizamos tu certificación,<br />
+              <span style={{ background: `linear-gradient(100deg, ${GREEN_BRIGHT}, ${GREEN})`, WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' }}>potenciamos tu institución.</span>
             </h1>
 
-            <p className="text-[16px] sm:text-[17.5px] leading-relaxed mt-7 max-w-lg" style={{ color: MUTED }}>
-              Vaxa construye sistemas confiables: certificación digital con validación pública por QR
-              e historias clínicas. Rápidos de implementar, seguros por diseño.
+            <p className="rise text-[16px] sm:text-[17px] leading-relaxed mt-6 max-w-lg" style={{ color: MUTED, animationDelay: '.28s' }}>
+              Emite, administra y valida certificados en segundos. Una plataforma segura,
+              fácil de usar, con inscripción en línea y validación pública por QR.
             </p>
 
-            <div className="flex flex-col sm:flex-row gap-3 mt-9">
-              <a href="#productos" className="group inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl text-[15px] font-semibold transition-transform hover:-translate-y-0.5"
+            <div className="rise flex flex-col sm:flex-row gap-3 mt-9" style={{ animationDelay: '.4s' }}>
+              <a href="#contacto" className="group inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl text-[15px] font-semibold transition-transform hover:-translate-y-0.5"
                 style={{ background: GREEN, color: '#04110C', boxShadow: '0 0 0 1px rgba(52,211,153,0.4), 0 14px 40px -10px rgba(16,185,129,0.6)' }}>
-                Explorar productos <ArrowRight size={17} className="transition-transform group-hover:translate-x-0.5" />
+                Solicitar demo <ArrowRight size={17} className="transition-transform group-hover:translate-x-0.5" />
               </a>
-              <a href="#contacto" className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl text-[15px] font-semibold"
+              <a href="#productos" className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl text-[15px] font-semibold"
                 style={{ background: SURFACE, color: TEXT, border: `1px solid ${BORDER}` }}>
-                Solicitar demo
+                Conocer productos
               </a>
             </div>
 
-            <div className="flex items-center gap-6 mt-11" style={{ fontFamily: MONO }}>
-              {['cifrado', 'QR público', 'multi-tenant'].map((t) => (
-                <span key={t} className="flex items-center gap-2 text-[12px]" style={{ color: MUTED }}>
-                  <Check size={13} style={{ color: GREEN }} /> {t}
+            <div className="rise flex flex-wrap items-center gap-x-6 gap-y-3 mt-10" style={{ animationDelay: '.52s' }}>
+              {[
+                { Icon: Shield, t: 'Seguro y confiable' },
+                { Icon: MapPin, t: 'Soporte en Perú' },
+                { Icon: Zap, t: 'Implementación rápida' },
+              ].map(({ Icon, t }) => (
+                <span key={t} className="flex items-center gap-2 text-[13px]" style={{ color: MUTED }}>
+                  <span className="w-5 h-5 rounded-full flex items-center justify-center" style={{ background: 'rgba(16,185,129,0.12)' }}>
+                    <Icon size={12} style={{ color: GREEN_BRIGHT }} />
+                  </span>
+                  {t}
                 </span>
               ))}
             </div>
           </div>
 
-          <div className="relative"><HeroVisual /></div>
+          <div className="rise relative lg:pt-10" style={{ animationDelay: '.35s' }}>
+            {/* Detalle manuscrito verde (como el mockup) — arriba a la izquierda, sin chocar con las tarjetas */}
+            <span className="hidden lg:block absolute -top-2 left-0 z-20 -rotate-6 text-[23px] leading-[1.15] pointer-events-none"
+              style={{ fontFamily: SCRIPT, color: GREEN_BRIGHT, textShadow: '0 0 20px rgba(52,211,153,0.45)', maxWidth: 210 }}>
+              Certificación que<br />genera confianza
+            </span>
+            <Shot src="/landing/hero.png" alt="Panel de Vaxa"
+              className="w-full h-auto rounded-2xl"
+              style={{ border: `1px solid ${BORDER}`, boxShadow: '0 40px 90px -30px rgba(0,0,0,0.8)' }}>
+              <HeroDashboard />
+            </Shot>
+          </div>
         </div>
       </section>
 
-      {/* ── Tira: alianzas (logos editables desde sistemas-vaxa) o fallback de texto ── */}
-      {alianzas.length > 0 ? (
-        // Franja con degradado suave (una sola "pincelada") para que TODO logo lea,
-        // incluso los que tienen negro. Los logos van sueltos, sin recuadros.
-        <div style={{ position: 'relative', background: BG, borderTop: `1px solid ${BORDER}`, borderBottom: `1px solid ${BORDER}` }}>
-          <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(60% 130% at 50% 0%, rgba(16,185,129,0.08), transparent 70%)' }} />
-          <div className="relative py-12">
-            <div className="max-w-[1200px] mx-auto px-6 sm:px-10 mb-8 text-center">
-              <span className="text-[11px] uppercase tracking-[0.22em] font-medium" style={{ fontFamily: MONO, color: MUTED }}>
-                <span style={{ color: GREEN }}>//</span> alianzas
-              </span>
-            </div>
-            {alianzas.length >= 6 ? (
-              // 6 o más → carrusel que se mueve solo.
-              <AlianzasCarrusel alianzas={alianzas} />
-            ) : (
-              // Menos de 6 → estáticos, cada uno una sola vez (sin repetir).
-              <div className="max-w-[1200px] mx-auto px-6 sm:px-10 flex flex-wrap items-center justify-center gap-x-14 gap-y-8">
-                {alianzas.map((a) => <AlianzaChip key={a.id} a={a} />)}
-              </div>
-            )}
-          </div>
-        </div>
-      ) : (
-        <div style={{ borderTop: `1px solid ${BORDER}`, borderBottom: `1px solid ${BORDER}` }}>
-          <div className="max-w-[1200px] mx-auto px-6 sm:px-10 py-5 flex flex-wrap items-center justify-center gap-x-10 gap-y-2" style={{ fontFamily: MONO }}>
-            <span className="text-[11px] uppercase tracking-[0.2em]" style={{ color: '#4F5B57' }}>// usado por</span>
-            {['institutos', 'academias', 'clínicas', 'capacitadoras'].map((t) => (
-              <span key={t} className="text-[12.5px] font-medium" style={{ color: MUTED }}>{t}</span>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* ── Productos (bento) ───────────────────────────────── */}
-      <section id="productos" className="max-w-[1200px] mx-auto px-6 sm:px-10 py-20 sm:py-28">
-        <Eyebrow num="01" label="Productos & servicios" />
-        <h2 style={{ fontFamily: DISPLAY }} className="text-[30px] sm:text-[44px] font-bold leading-[1.06] tracking-[-0.025em] mt-5 max-w-2xl">
-          Sistemas y servicios, un mismo núcleo de ingeniería.
-        </h2>
-
-        <div className="grid lg:grid-cols-2 gap-5 mt-12">
-          {/* Certificados */}
-          <Card glow>
-            <div className="flex items-center justify-between mb-7">
-              <IconBox><FileBadge size={22} style={{ color: GREEN_BRIGHT }} strokeWidth={1.75} /></IconBox>
-              <Tag>NUEVO</Tag>
-            </div>
-            <h3 style={{ fontFamily: DISPLAY }} className="text-[24px] font-bold tracking-tight">Sistema de Certificados</h3>
-            <p className="text-[14.5px] leading-relaxed mt-3" style={{ color: MUTED }}>
-              Emite, administra y valida certificados en segundos. Cada empresa con su portal,
-              inscripción en línea y verificación pública por QR.
+      {/* ── Nuestros clientes ───────────────────────────────── */}
+      <section id="clientes" style={{ borderTop: `1px solid ${BORDER}`, position: 'relative' }}>
+        <Aurora />
+        <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(60% 130% at 50% 0%, rgba(16,185,129,0.12), transparent 70%)' }} />
+        <div className="relative max-w-[1200px] mx-auto px-6 sm:px-10 py-20 sm:py-24">
+          <Reveal>
+            <p className="text-center text-[11px] uppercase tracking-[0.22em] font-medium" style={{ fontFamily: MONO, color: MUTED }}>
+              <span style={{ color: GREEN }}>//</span> nuestros clientes
             </p>
-            <ul className="mt-7 space-y-0">
-              {['Emisión individual o masiva', 'Validación pública por QR', 'Portal por empresa', 'Créditos y planes'].map((f, i) => (
-                <li key={f} className="flex items-center gap-3 py-3 text-[14px]" style={{ borderTop: i === 0 ? 'none' : `1px solid ${BORDER}` }}>
-                  <Check size={15} style={{ color: GREEN }} /> {f}
-                </li>
-              ))}
-            </ul>
-            <CardLink>Solicitar una demo</CardLink>
-          </Card>
-
-          {/* Historias clínicas */}
-          <Card>
-            <div className="flex items-center justify-between mb-7">
-              <IconBox><FileText size={22} style={{ color: GREEN_BRIGHT }} strokeWidth={1.75} /></IconBox>
-              <Tag muted>ORIGEN</Tag>
-            </div>
-            <h3 style={{ fontFamily: DISPLAY }} className="text-[24px] font-bold tracking-tight">Historias Clínicas</h3>
-            <p className="text-[14.5px] leading-relaxed mt-3" style={{ color: MUTED }}>
-              La solución con la que nació Vaxa: gestión digital de historias clínicas,
-              ordenada, segura y lista para el día a día de clínicas y consultorios.
+            <h2 style={{ fontFamily: DISPLAY }} className="text-center text-[26px] sm:text-[38px] font-bold leading-[1.1] tracking-[-0.025em] mt-4">
+              Instituciones que confían<br className="hidden sm:block" /> en <span style={{ color: GREEN_BRIGHT }}>nuestras soluciones</span>
+            </h2>
+            <p className="text-center text-[14.5px] leading-relaxed mt-4 max-w-xl mx-auto" style={{ color: MUTED }}>
+              Centros de salud, instituciones educativas y organizaciones de diversos sectores
+              que ya impulsan su transformación digital con Vaxa.
             </p>
-            <ul className="mt-7 space-y-0">
-              {['Registro clínico centralizado', 'Acceso seguro por roles', 'Historial siempre disponible', 'Confidencialidad de datos'].map((f, i) => (
-                <li key={f} className="flex items-center gap-3 py-3 text-[14px]" style={{ borderTop: i === 0 ? 'none' : `1px solid ${BORDER}` }}>
-                  <Check size={15} style={{ color: GREEN }} /> {f}
-                </li>
-              ))}
-            </ul>
-            <CardLink>Consultar disponibilidad</CardLink>
-          </Card>
-
-          {/* Marca Personal (servicio) — tarjeta ancha */}
-          <Card glow className="lg:col-span-2">
-            <div className="grid lg:grid-cols-[1fr_1.1fr] gap-8 lg:gap-12 items-center">
-              <div>
-                <div className="flex items-center justify-between mb-7">
-                  <IconBox><Sparkles size={22} style={{ color: GREEN_BRIGHT }} strokeWidth={1.75} /></IconBox>
-                  <Tag>SERVICIO</Tag>
-                </div>
-                <h3 style={{ fontFamily: DISPLAY }} className="text-[24px] font-bold tracking-tight">Marca Personal</h3>
-                <p className="text-[14.5px] leading-relaxed mt-3" style={{ color: MUTED }}>
-                  Construimos tu identidad como profesional o negocio: logo, identidad visual y
-                  presencia digital para que destaques, transmitas confianza y te recuerden.
-                </p>
-                <CardLink>Quiero mi marca</CardLink>
-              </div>
-              <ul className="space-y-0">
-                {['Logo e identidad visual', 'Presencia digital y redes', 'Diseño de perfil profesional', 'Piezas para tu comunicación'].map((f, i) => (
-                  <li key={f} className="flex items-center gap-3 py-3 text-[14px]" style={{ borderTop: i === 0 ? 'none' : `1px solid ${BORDER}` }}>
-                    <Check size={15} style={{ color: GREEN }} /> {f}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </Card>
+          </Reveal>
+          <div className="mt-12"><ClientesCarrusel alianzas={alianzas} /></div>
         </div>
       </section>
 
-      {/* ── Features (bento) ────────────────────────────────── */}
-      <section id="features" style={{ borderTop: `1px solid ${BORDER}` }}>
-        <div className="max-w-[1200px] mx-auto px-6 sm:px-10 py-20 sm:py-28">
-          <Eyebrow num="02" label="Plataforma" />
-          <h2 style={{ fontFamily: DISPLAY }} className="text-[30px] sm:text-[44px] font-bold leading-[1.06] tracking-[-0.025em] mt-5 max-w-2xl">
-            Certificar, sin fricción.
-          </h2>
+      {/* ── Nuestros productos ──────────────────────────────── */}
+      <section id="productos" style={{ borderTop: `1px solid ${BORDER}` }}>
+        <div className="max-w-[1200px] mx-auto px-6 sm:px-10 py-20 sm:py-28 grid lg:grid-cols-[0.85fr_1.15fr] gap-12 lg:gap-16 items-start">
+          <div className="lg:sticky lg:top-24">
+            <Eyebrow label="Nuestros productos" />
+            <h2 style={{ fontFamily: DISPLAY }} className="text-[30px] sm:text-[42px] font-bold leading-[1.08] tracking-[-0.025em] mt-5">
+              Soluciones digitales para tu institución
+            </h2>
+            <p className="text-[15px] leading-relaxed mt-5 max-w-md" style={{ color: MUTED }}>
+              Con el sistema de certificados como eje, un ecosistema completo para emitir,
+              validar y hacer crecer tu institución.
+            </p>
+            <a href="#contacto" className="group inline-flex items-center gap-2 mt-8 px-5 py-3 rounded-xl text-[14px] font-semibold transition-transform hover:-translate-y-0.5"
+              style={{ background: GREEN, color: '#04110C', boxShadow: '0 12px 34px -12px rgba(16,185,129,0.6)' }}>
+              Ver todos los productos <ArrowRight size={16} className="transition-transform group-hover:translate-x-0.5" />
+            </a>
+          </div>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5 mt-12">
-            {/* feature destacado */}
-            <div className="sm:col-span-2 lg:col-span-2 rounded-2xl p-8 relative overflow-hidden" style={{ background: SURFACE, border: `1px solid ${BORDER}` }}>
-              <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(50% 60% at 85% 20%, rgba(16,185,129,0.14), transparent 70%)' }} />
-              <div className="relative">
-                <IconBox><Zap size={22} style={{ color: GREEN_BRIGHT }} strokeWidth={1.75} /></IconBox>
-                <h4 style={{ fontFamily: DISPLAY }} className="text-[20px] font-bold mt-5">Emisión instantánea, individual o en lote</h4>
-                <p className="text-[14px] leading-relaxed mt-2 max-w-md" style={{ color: MUTED }}>
-                  Genera certificados en PDF al momento con la plantilla de cada empresa. Cientos en un clic.
-                </p>
-              </div>
-            </div>
+          <div className="grid sm:grid-cols-2 gap-5">
             {[
-              { Icon: QrCode, t: 'Validación pública', d: 'Verificación por QR, sin cuentas.' },
-              { Icon: Layers, t: 'Multi-empresa', d: 'Portal, marca y datos aislados.' },
-              { Icon: Shield, t: 'Seguro por diseño', d: 'Aislamiento y accesos por servidor.' },
-              { Icon: Clock, t: 'Implementación rápida', d: 'En marcha en días, no en meses.' },
-            ].map(({ Icon, t, d }) => (
-              <div key={t} className="rounded-2xl p-7" style={{ background: SURFACE, border: `1px solid ${BORDER}` }}>
-                <IconBox><Icon size={20} style={{ color: GREEN_BRIGHT }} strokeWidth={1.75} /></IconBox>
-                <h4 style={{ fontFamily: DISPLAY }} className="text-[16px] font-bold mt-4">{t}</h4>
-                <p className="text-[13.5px] leading-relaxed mt-1.5" style={{ color: MUTED }}>{d}</p>
-              </div>
+              { Icon: FileBadge, t: 'Certificados', s: 'Emisión y validación digital', d: 'Nuestro producto principal: emite en lote con validación pública por QR.', principal: true },
+              { Icon: FileText, t: 'Historias Clínicas', s: 'Gestión clínica electrónica', d: 'Registro clínico completo, seguro y accesible desde cualquier lugar.' },
+              { Icon: Sparkles, t: 'Marca Personal', s: 'Identidad y presencia digital', d: 'Creamos tu logo, identidad visual y presencia digital como profesional.' },
+              { Icon: Layers, t: 'Más soluciones', s: 'Inscripciones, reportes, web y Vaxa ID', d: 'Complementa tu institución con nuestras soluciones digitales a medida.' },
+            ].map(({ Icon, t, s, d, principal }, i) => (
+              <Reveal key={t} delay={i * 90}>
+              <a href="#contacto" className="group block rounded-2xl p-7 relative overflow-hidden transition-transform duration-300 hover:-translate-y-1 h-full"
+                style={{ background: SURFACE, border: `1px solid ${BORDER}` }}>
+                <div className="absolute inset-0 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity" style={{ background: 'radial-gradient(60% 60% at 80% 0%, rgba(16,185,129,0.14), transparent 70%)' }} />
+                <div className="relative">
+                  <div className="flex items-center justify-between">
+                    <IconBox><Icon size={22} style={{ color: GREEN_BRIGHT }} strokeWidth={1.75} /></IconBox>
+                    {principal && (
+                      <span className="text-[10px] font-semibold tracking-widest px-2.5 py-1 rounded-full" style={{ fontFamily: MONO, background: 'rgba(16,185,129,0.16)', color: GREEN_BRIGHT }}>PRINCIPAL</span>
+                    )}
+                  </div>
+                  <h3 style={{ fontFamily: DISPLAY }} className="text-[19px] font-bold mt-5">{t}</h3>
+                  <p className="text-[13px] font-medium mt-0.5" style={{ color: GREEN_BRIGHT }}>{s}</p>
+                  <p className="text-[13.5px] leading-relaxed mt-3" style={{ color: MUTED }}>{d}</p>
+                  <span className="inline-flex items-center gap-1.5 mt-5 text-[13px] font-semibold" style={{ color: TEXT }}>
+                    <ArrowRight size={15} style={{ color: GREEN_BRIGHT }} className="transition-transform group-hover:translate-x-1" />
+                  </span>
+                </div>
+              </a>
+              </Reveal>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ── Estudio ─────────────────────────────────────────── */}
+      {/* ── ¿Por qué elegir Vaxa? ───────────────────────────── */}
       <section id="nosotros" style={{ borderTop: `1px solid ${BORDER}` }}>
         <div className="max-w-[1200px] mx-auto px-6 sm:px-10 py-20 sm:py-28 grid lg:grid-cols-2 gap-14 items-center">
           <div>
-            <Eyebrow num="03" label="El estudio" />
+            <Eyebrow label="¿Por qué elegir Vaxa?" />
             <h2 style={{ fontFamily: DISPLAY }} className="text-[30px] sm:text-[42px] font-bold leading-[1.08] tracking-[-0.025em] mt-5">
-              Años construyendo software que las instituciones confían.
+              Tecnología que entiende<br className="hidden sm:block" /> tu realidad
             </h2>
-            <div className="mt-8 space-y-0">
+            <div className="grid sm:grid-cols-2 gap-x-8 gap-y-8 mt-10">
               {[
-                { Icon: Users, t: 'Cercanía real', d: 'Hablas con quienes construyen el sistema.' },
-                { Icon: Shield, t: 'Seguridad primero', d: 'Tus datos protegidos en cada capa.' },
-                { Icon: Clock, t: 'Rápido de implementar', d: 'En marcha en días, no en meses.' },
+                { Icon: Award, t: 'Especializados en certificación', d: 'Soluciones diseñadas según tus procesos y necesidades reales.' },
+                { Icon: MousePointerClick, t: 'Fácil de usar', d: 'Interfaz intuitiva para todo tu equipo.' },
+                { Icon: Zap, t: 'Implementación rápida', d: 'Comienza a trabajar en pocos días con nuestro acompañamiento.' },
+                { Icon: MessageCircle, t: 'Soporte en Perú', d: 'Atención personalizada y continua por nuestro equipo local.' },
               ].map(({ Icon, t, d }, i) => (
-                <div key={t} className="flex items-start gap-4 py-5" style={{ borderTop: i === 0 ? 'none' : `1px solid ${BORDER}` }}>
-                  <Icon size={19} style={{ color: GREEN_BRIGHT, flexShrink: 0, marginTop: 2 }} strokeWidth={1.75} />
-                  <div>
-                    <h4 className="text-[15.5px] font-semibold">{t}</h4>
-                    <p className="text-[14px] mt-0.5" style={{ color: MUTED }}>{d}</p>
-                  </div>
-                </div>
+                <Reveal key={t} delay={i * 90}>
+                  <IconBox><Icon size={20} style={{ color: GREEN_BRIGHT }} strokeWidth={1.75} /></IconBox>
+                  <h4 className="text-[15.5px] font-semibold mt-4">{t}</h4>
+                  <p className="text-[13.5px] leading-relaxed mt-1.5" style={{ color: MUTED }}>{d}</p>
+                </Reveal>
               ))}
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-px rounded-2xl overflow-hidden" style={{ background: BORDER }}>
-            {[{ n: '+5', l: 'años de experiencia' }, { n: '100%', l: 'enfoque institucional' }, { n: 'QR', l: 'validación verificable' }, { n: '24/7', l: 'disponibilidad' }].map((s) => (
-              <div key={s.l} className="p-8 sm:p-9" style={{ background: BG }}>
-                <p style={{ fontFamily: DISPLAY, color: GREEN_BRIGHT }} className="text-[42px] font-bold leading-none">{s.n}</p>
-                <p className="text-[13px] mt-3" style={{ color: MUTED }}>{s.l}</p>
-              </div>
+          <Reveal delay={120} className="relative"><EficienciaVisual /></Reveal>
+        </div>
+      </section>
+
+      {/* ── Soluciones por tipo de institución ──────────────── */}
+      <section id="soluciones" style={{ borderTop: `1px solid ${BORDER}` }}>
+        <div className="max-w-[1200px] mx-auto px-6 sm:px-10 py-20 sm:py-28">
+          <Reveal>
+            <p className="text-center text-[11px] uppercase tracking-[0.22em] font-medium" style={{ fontFamily: MONO, color: MUTED }}>
+              <span style={{ color: GREEN }}>//</span> para quién es vaxa
+            </p>
+            <h2 style={{ fontFamily: DISPLAY }} className="text-center text-[28px] sm:text-[40px] font-bold leading-[1.08] tracking-[-0.025em] mt-4">
+              Soluciones para cada tipo de institución
+            </h2>
+          </Reveal>
+
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5 mt-12">
+            {[
+              { Icon: GraduationCap, t: 'Institutos y academias', d: 'Cursos, diplomados y programas con certificado.', img: '/landing/sol-institutos.jpg' },
+              { Icon: Building2, t: 'Instituciones educativas', d: 'Certificación de estudiantes y egresados.', img: '/landing/sol-educativas.jpg' },
+              { Icon: Sparkles, t: 'Empresas capacitadoras', d: 'Capacitaciones y talleres corporativos.', img: '/landing/sol-capacitadoras.jpg' },
+              { Icon: Users, t: 'Organizaciones y eventos', d: 'Congresos, seminarios y reconocimientos.', img: '/landing/sol-eventos.jpg' },
+            ].map(({ Icon, t, d, img }, i) => (
+              <Reveal key={t} delay={i * 90}>
+              <a href="#contacto" className="group block rounded-2xl overflow-hidden transition-transform duration-300 hover:-translate-y-1 h-full" style={{ background: SURFACE, border: `1px solid ${BORDER}` }}>
+                <div className="h-44 relative overflow-hidden">
+                  <Shot src={img} alt={t} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105">
+                    <div className="h-full w-full relative flex items-center justify-center" style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.16), rgba(16,185,129,0.02))' }}>
+                      <div className="absolute inset-0 opacity-[0.12]" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.6) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.6) 1px,transparent 1px)', backgroundSize: '22px 22px' }} />
+                      <div className="relative w-14 h-14 rounded-2xl flex items-center justify-center" style={{ background: 'rgba(7,11,10,0.6)', border: '1px solid rgba(16,185,129,0.3)', backdropFilter: 'blur(4px)' }}>
+                        <Icon size={26} style={{ color: GREEN_BRIGHT }} strokeWidth={1.6} />
+                      </div>
+                    </div>
+                  </Shot>
+                  <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(180deg, transparent 40%, rgba(7,11,10,0.55))' }} />
+                </div>
+                <div className="p-6">
+                  <h3 className="text-[16px] font-bold flex items-center justify-between" style={{ fontFamily: DISPLAY }}>
+                    {t} <ArrowRight size={16} style={{ color: GREEN_BRIGHT }} className="transition-transform group-hover:translate-x-1" />
+                  </h3>
+                  <p className="text-[13px] leading-relaxed mt-2" style={{ color: MUTED }}>{d}</p>
+                </div>
+              </a>
+              </Reveal>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ── CTA ─────────────────────────────────────────────── */}
-      <section id="contacto" className="px-6 sm:px-10 py-24 sm:py-32">
-        <div className="max-w-[1100px] mx-auto rounded-3xl px-8 sm:px-16 py-16 sm:py-20 text-center relative overflow-hidden"
-          style={{ background: 'linear-gradient(180deg, rgba(16,185,129,0.08), rgba(255,255,255,0.02))', border: `1px solid ${BORDER}` }}>
-          <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(50% 80% at 50% 0%, rgba(16,185,129,0.18), transparent 70%)' }} />
-          <div className="relative">
-            <h2 style={{ fontFamily: DISPLAY }} className="text-[32px] sm:text-[50px] font-bold leading-[1.05] tracking-[-0.025em]">
-              Construyamos el sistema<br />de tu institución.
-            </h2>
-            <p className="text-[16px] mt-5 max-w-md mx-auto" style={{ color: MUTED }}>
-              Cuéntanos qué necesitas y te mostramos cómo Vaxa puede ayudarte. Sin compromiso.
-            </p>
-            <div className="mt-9 flex flex-col sm:flex-row items-center justify-center gap-3">
-              <a href={WA_LINK} target="_blank" rel="noreferrer"
-                className="group inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-[15px] font-semibold transition-transform hover:-translate-y-0.5"
-                style={{ fontFamily: MONO, background: '#25D366', color: '#04110C', boxShadow: '0 16px 50px -12px rgba(37,211,102,0.6)' }}>
-                <MessageCircle size={18} /> WhatsApp · +51 924 600 490
-              </a>
-              <a href={`mailto:${EMAIL}?subject=Quiero%20una%20demo%20de%20Vaxa`}
-                className="group inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-[15px] font-semibold transition-transform hover:-translate-y-0.5"
-                style={{ fontFamily: MONO, background: SURFACE, color: TEXT, border: `1px solid ${BORDER}` }}>
-                {EMAIL} <ArrowUpRight size={16} className="transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-              </a>
+      {/* ── Proceso ─────────────────────────────────────────── */}
+      <section style={{ borderTop: `1px solid ${BORDER}` }}>
+        <div className="max-w-[1200px] mx-auto px-6 sm:px-10 py-20 sm:py-28">
+          <div className="grid lg:grid-cols-[0.9fr_1.1fr] gap-12 items-start">
+            <div>
+              <Eyebrow label="Un proceso simple" />
+              <h2 style={{ fontFamily: DISPLAY }} className="text-[30px] sm:text-[42px] font-bold leading-[1.08] tracking-[-0.025em] mt-5">
+                De la implementación<br className="hidden sm:block" /> a los resultados
+              </h2>
+            </div>
+            <div className="grid sm:grid-cols-3 gap-8">
+              {[
+                { n: '01', t: 'Te escuchamos', d: 'Conocemos tus necesidades y te asesoramos.', Icon: MessageCircle },
+                { n: '02', t: 'Implementamos', d: 'Configuramos la plataforma y capacitamos a tu equipo.', Icon: Zap },
+                { n: '03', t: 'Te acompañamos', d: 'Soporte continuo para que obtengas el máximo beneficio.', Icon: TrendingUp },
+              ].map(({ n, t, d, Icon }, i) => (
+                <Reveal key={n} delay={i * 120}>
+                  <div className="flex items-center gap-3 mb-4">
+                    <span style={{ fontFamily: DISPLAY, color: GREEN_BRIGHT }} className="text-[15px] font-bold">{n}</span>
+                    <IconBox><Icon size={18} style={{ color: GREEN_BRIGHT }} strokeWidth={1.75} /></IconBox>
+                  </div>
+                  <h4 className="text-[16px] font-bold" style={{ fontFamily: DISPLAY }}>{t}</h4>
+                  <p className="text-[13.5px] leading-relaxed mt-2" style={{ color: MUTED }}>{d}</p>
+                </Reveal>
+              ))}
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* ── Testimonios ─────────────────────────────────────── */}
+      <section style={{ borderTop: `1px solid ${BORDER}` }}>
+        <div className="max-w-[1200px] mx-auto px-6 sm:px-10 py-20 sm:py-28 grid lg:grid-cols-[0.8fr_1.2fr] gap-12 items-start">
+          <div>
+            <Eyebrow label="Testimonios" />
+            <h2 style={{ fontFamily: DISPLAY }} className="text-[30px] sm:text-[42px] font-bold leading-[1.08] tracking-[-0.025em] mt-5">
+              Lo que dicen<br className="hidden sm:block" /> nuestros clientes
+            </h2>
+            <p className="text-[14.5px] leading-relaxed mt-5 max-w-sm" style={{ color: MUTED }}>
+              Instituciones que ya están transformando su gestión con Vaxa.
+            </p>
+          </div>
+          <div className="grid sm:grid-cols-2 gap-5">
+            {[
+              { q: 'Vaxa nos permite emitir y validar nuestros certificados en segundos, con el respaldo del QR público. Ha mejorado mucho nuestro trabajo diario.', a: 'Jesús Yactayo', r: 'CEO · Centro de Terapias Crecemos' },
+              { q: 'La plataforma es intuitiva, segura y se adapta a nuestras necesidades. El soporte siempre ha sido excelente.', a: 'Comité Organizador', r: 'SIEFO Perú' },
+            ].map((t, i) => (
+              <Reveal key={t.a} delay={i * 120} className="h-full">
+              <div className="rounded-2xl p-7 flex flex-col h-full transition-transform duration-300 hover:-translate-y-1" style={{ background: SURFACE, border: `1px solid ${BORDER}` }}>
+                <div className="flex gap-1 mb-4">{[0, 1, 2, 3, 4].map((s) => <Star key={s} size={15} style={{ color: GREEN_BRIGHT, fill: GREEN_BRIGHT }} />)}</div>
+                <p className="text-[14.5px] leading-relaxed flex-1" style={{ color: TEXT }}>“{t.q}”</p>
+                <div className="mt-6 pt-5" style={{ borderTop: `1px solid ${BORDER}` }}>
+                  <p className="text-[14px] font-semibold" style={{ fontFamily: DISPLAY }}>{t.a}</p>
+                  <p className="text-[12.5px] mt-0.5" style={{ color: MUTED }}>{t.r}</p>
+                </div>
+              </div>
+              </Reveal>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── CTA final ───────────────────────────────────────── */}
+      <section id="contacto" className="px-6 sm:px-10 py-16 sm:py-24">
+        <div className="max-w-[1150px] mx-auto rounded-3xl px-8 sm:px-14 py-14 sm:py-16 relative overflow-hidden grid lg:grid-cols-2 gap-12 items-center"
+          style={{ background: 'linear-gradient(150deg, rgba(16,185,129,0.1), rgba(255,255,255,0.02))', border: `1px solid ${BORDER}` }}>
+          <Aurora />
+          <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(50% 80% at 20% 10%, rgba(16,185,129,0.18), transparent 70%)' }} />
+          <Reveal className="relative">
+            <h2 style={{ fontFamily: DISPLAY }} className="text-[30px] sm:text-[44px] font-bold leading-[1.06] tracking-[-0.025em]">
+              Llevemos tu institución<br />al siguiente nivel
+            </h2>
+            <p className="text-[15.5px] mt-5 max-w-md leading-relaxed" style={{ color: MUTED }}>
+              Solicita una demostración y conoce cómo Vaxa puede ayudarte a optimizar tu certificación.
+            </p>
+            <div className="mt-8 flex flex-col sm:flex-row gap-3">
+              <a href={WA_LINK} target="_blank" rel="noreferrer"
+                className="group inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl text-[15px] font-semibold transition-transform hover:-translate-y-0.5"
+                style={{ background: GREEN, color: '#04110C', boxShadow: '0 14px 40px -10px rgba(16,185,129,0.6)' }}>
+                Solicitar demo <ArrowRight size={16} className="transition-transform group-hover:translate-x-0.5" />
+              </a>
+              <a href={`mailto:${EMAIL}?subject=Quiero%20una%20demo%20de%20Vaxa`}
+                className="inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl text-[15px] font-semibold"
+                style={{ background: SURFACE, color: TEXT, border: `1px solid ${BORDER}` }}>
+                Contáctanos
+              </a>
+            </div>
+          </Reveal>
+          <Reveal delay={120} className="relative">
+            <Shot src="/landing/cta.png" alt="Panel de reportes de Vaxa"
+              className="w-full h-auto rounded-2xl"
+              style={{ border: `1px solid ${BORDER}`, boxShadow: '0 40px 90px -30px rgba(0,0,0,0.8)' }}>
+              <CtaDashboard />
+            </Shot>
+          </Reveal>
         </div>
       </section>
 
       {/* ── Footer ──────────────────────────────────────────── */}
       <footer style={{ borderTop: `1px solid ${BORDER}` }}>
-        <div className="max-w-[1200px] mx-auto px-6 sm:px-10 py-10 flex flex-col sm:flex-row items-center justify-between gap-5">
-          <div className="flex items-center gap-2.5">
-            <Logo />
+        <div className="max-w-[1200px] mx-auto px-6 sm:px-10 py-14">
+          <div className="grid gap-10 lg:grid-cols-[1.4fr_1fr_1fr_1.2fr]">
+            <div>
+              <Logo />
+              <p className="text-[14px] leading-relaxed mt-4 max-w-[220px]" style={{ color: MUTED }}>
+                Digitalizamos tu gestión, potenciamos tu atención.
+              </p>
+              {socials.length > 0 && (
+                <div className="flex items-center gap-2.5 mt-6">
+                  {socials.map(({ key, href, Icon, label }) => (
+                    <a key={key} href={href} target="_blank" rel="noreferrer" title={label} aria-label={label}
+                      className="w-9 h-9 rounded-lg flex items-center justify-center transition-all hover:-translate-y-0.5"
+                      style={{ background: SURFACE, border: `1px solid ${BORDER}`, color: TEXT }}>
+                      <Icon size={16} />
+                    </a>
+                  ))}
+                </div>
+              )}
+            </div>
 
-          </div>
-          <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
-            {/* Redes sociales (editables desde sistemas-vaxa) */}
-            {socials.length > 0 && (
-              <div className="flex items-center gap-2.5">
-                {socials.map(({ key, href, Icon, label }) => (
-                  <a key={key} href={href} target="_blank" rel="noreferrer" title={label} aria-label={label}
-                    className="w-9 h-9 rounded-lg flex items-center justify-center transition-all hover:-translate-y-0.5"
-                    style={{ background: SURFACE, border: `1px solid ${BORDER}`, color: TEXT }}>
-                    <Icon size={16} />
-                  </a>
+            <FooterCol title="Productos" links={['Certificados QR', 'Historias Clínicas', 'Marca Personal', 'Reportes', 'Vaxa ID', 'Web y proyectos a medida']} />
+            <FooterCol title="Empresa" links={['Nosotros', 'Clientes', 'Blog', 'Contacto']} />
+
+            <div>
+              <h4 className="text-[12px] uppercase tracking-[0.16em] font-semibold" style={{ fontFamily: MONO, color: MUTED }}>Soporte</h4>
+              <ul className="mt-5 space-y-3">
+                {['Preguntas frecuentes', 'Centro de ayuda'].map((l) => (
+                  <li key={l}><a href="#contacto" className="text-[14px] transition-colors hover:text-white" style={{ color: MUTED }}>{l}</a></li>
                 ))}
+              </ul>
+              <a href="#contacto" className="inline-flex items-center gap-1.5 mt-6 text-[13px] font-semibold px-4 py-2.5 rounded-lg"
+                style={{ background: GREEN, color: '#04110C' }}>Solicitar demo <ArrowUpRight size={14} /></a>
+              <div className="mt-5 space-y-2">
+                <a href={`tel:${TEL.replace(/\s/g, '')}`} className="flex items-center gap-2 text-[13.5px]" style={{ color: MUTED }}><Phone size={14} style={{ color: GREEN_BRIGHT }} /> {TEL}</a>
+                <a href={`mailto:${EMAIL}`} className="flex items-center gap-2 text-[13.5px]" style={{ color: MUTED }}><Mail size={14} style={{ color: GREEN_BRIGHT }} /> {EMAIL}</a>
               </div>
-            )}
-            <a href={libroReclamacionesUrl()} title="Libro de Reclamaciones"
-              className="inline-flex items-center rounded-lg overflow-hidden transition-transform hover:-translate-y-0.5"
-              style={{ background: '#fff', padding: '6px 10px' }}>
-              <img src="/libro-reclamaciones.webp" alt="Libro de Reclamaciones"
-                style={{ height: 46, width: 'auto', display: 'block' }} />
-            </a>
-            <p className="text-[12px]" style={{ fontFamily: MONO, color: '#4F5B57' }}>© {new Date().getFullYear()} Vaxa — software para instituciones</p>
+            </div>
+          </div>
+
+          <div className="mt-12 pt-6 flex flex-col sm:flex-row items-center justify-between gap-4" style={{ borderTop: `1px solid ${BORDER}` }}>
+            <p className="text-[12px]" style={{ fontFamily: MONO, color: '#4F5B57' }}>
+              © {new Date().getFullYear()} VAXA SYSTEMS S.A.C. · RUC: 20615047954 · Lima, Perú
+            </p>
+            <div className="flex items-center gap-5">
+              <a href="#" className="text-[12px] transition-colors hover:text-white" style={{ color: '#4F5B57' }}>Términos y condiciones</a>
+              <a href="#" className="text-[12px] transition-colors hover:text-white" style={{ color: '#4F5B57' }}>Política de privacidad</a>
+              <a href={libroReclamacionesUrl()} title="Libro de Reclamaciones"
+                className="inline-flex items-center rounded-lg overflow-hidden transition-transform hover:-translate-y-0.5"
+                style={{ background: '#fff', padding: '5px 8px' }}>
+                <img src="/libro-reclamaciones.webp" alt="Libro de Reclamaciones" style={{ height: 38, width: 'auto', display: 'block' }} />
+              </a>
+            </div>
           </div>
         </div>
       </footer>
 
       {/* ── Botón flotante de WhatsApp (siempre visible) ─────── */}
-      <a
-        href={WA_LINK}
-        target="_blank"
-        rel="noreferrer"
-        aria-label="Escríbenos por WhatsApp"
-        title="Escríbenos por WhatsApp"
+      <a href={WA_LINK} target="_blank" rel="noreferrer"
+        aria-label="Escríbenos por WhatsApp" title="Escríbenos por WhatsApp"
         className="group fixed bottom-5 right-5 sm:bottom-7 sm:right-7 z-50 inline-flex items-center justify-center rounded-full transition-transform hover:-translate-y-0.5"
-        style={{
-          width: 58,
-          height: 58,
-          background: '#25D366',
-          boxShadow: '0 12px 30px -6px rgba(37,211,102,0.65), 0 0 0 6px rgba(37,211,102,0.15)',
-        }}
-      >
+        style={{ width: 58, height: 58, background: '#25D366', boxShadow: '0 12px 30px -6px rgba(37,211,102,0.65), 0 0 0 6px rgba(37,211,102,0.15)' }}>
         <span className="absolute inset-0 rounded-full animate-ping" style={{ background: 'rgba(37,211,102,0.35)' }} />
         <WhatsAppIcon size={30} />
       </a>
@@ -415,54 +519,129 @@ function Logo() {
   return <img src="/vaxa-logo-white.png" alt="Vaxa" className="w-20 h-8 rounded-[9px] object-contain" />;
 }
 
-/** Un logo de aliado dentro de una pastilla de vidrio esmerilado (glass), a color. */
-function AlianzaChip({ a }: { a: Alianza }) {
-  if (!a.logo_url) {
-    const txt = <span className="text-[14px] font-semibold whitespace-nowrap" style={{ color: MUTED }}>{a.nombre}</span>;
-    return a.link ? <a href={a.link} target="_blank" rel="noreferrer">{txt}</a> : txt;
-  }
-  const chip = (
-    <span className="inline-flex items-center justify-center rounded-2xl px-6 py-4" style={{
-      background: 'linear-gradient(180deg, rgba(255,255,255,0.94), rgba(244,246,249,0.86))',
-      border: '1px solid rgba(255,255,255,0.7)',
-      backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)',
-      boxShadow: '0 14px 36px -14px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.9)',
-    }}>
-      <img src={imgUrl(a.logo_url)} alt={a.nombre} title={a.nombre} style={{ height: 64, width: 'auto', maxWidth: 210, objectFit: 'contain' }} />
-    </span>
+/**
+ * Muestra una IMAGEN REAL si el archivo existe en /public; si no carga (404),
+ * cae automáticamente en la maqueta CSS (children). Así puedes subir los
+ * screenshots/fotos reales del mockup sin tocar el código.
+ */
+function Shot({ src, alt, className, style, children }: {
+  src: string; alt: string; className?: string; style?: React.CSSProperties; children: React.ReactNode;
+}) {
+  const [ok, setOk] = useState(true);
+  if (ok) return <img src={src} alt={alt} onError={() => setOk(false)} className={className} style={style} />;
+  return <>{children}</>;
+}
+
+function FooterCol({ title, links }: { title: string; links: string[] }) {
+  return (
+    <div>
+      <h4 className="text-[12px] uppercase tracking-[0.16em] font-semibold" style={{ fontFamily: MONO, color: MUTED }}>{title}</h4>
+      <ul className="mt-5 space-y-3">
+        {links.map((l) => (
+          <li key={l}><a href="#productos" className="text-[14px] transition-colors hover:text-white" style={{ color: MUTED }}>{l}</a></li>
+        ))}
+      </ul>
+    </div>
   );
-  return a.link
-    ? <a href={a.link} target="_blank" rel="noreferrer" className="inline-flex items-center transition-transform hover:-translate-y-0.5">{chip}</a>
-    : <span className="inline-flex items-center transition-transform hover:-translate-y-0.5">{chip}</span>;
+}
+
+/** Tarjeta de cliente: tarjeta OSCURA (como el mockup, sin fondo blanco) con el logo dentro. */
+function ClienteCard({ a }: { a: Alianza }) {
+  const inner = a.logo_url
+    ? <img src={imgUrl(a.logo_url)} alt={a.nombre} title={a.nombre} style={{ maxHeight: 92, maxWidth: '90%', width: 'auto', objectFit: 'contain' }} />
+    : <span className="text-[18px] font-semibold text-center px-2" style={{ color: MUTED }}>{a.nombre}</span>;
+  const card = (
+    <div className="group rounded-2xl flex items-center justify-center transition-all hover:-translate-y-1 h-full"
+      style={{ background: SURFACE, border: `1px solid ${BORDER}`, minHeight: 168, padding: '28px 22px' }}>
+      {inner}
+    </div>
+  );
+  return a.link ? <a href={a.link} target="_blank" rel="noreferrer" className="block h-full">{card}</a> : card;
 }
 
 /**
- * Carrusel de logos que se desplaza solo (marquee infinito). Duplica la lista
- * para que el bucle sea continuo; se pausa al pasar el mouse.
+ * Carrusel de clientes con flechas y puntitos (páginas de 4 en escritorio).
+ * Si no hay alianzas cargadas, muestra tarjetas de ejemplo con el nombre.
  */
-function AlianzasCarrusel({ alianzas }: { alianzas: Alianza[] }) {
-  // Carrusel infinito. Cada logo ocupa 1/6 del ancho → a simple vista se ven ~6 a la
-  // vez (menos en pantallas chicas). La lista va UNA sola vez y se duplica solo para
-  // cerrar el bucle; como solo 6 caben en pantalla, la copia queda fuera y no se ve
-  // repetido. Se pausa al pasar el mouse.
-  const dur = Math.max(24, alianzas.length * 4.5); // seg. por vuelta: más lento = más suave
+function ClientesCarrusel({ alianzas }: { alianzas: Alianza[] }) {
+  const [page, setPage] = useState(0);
+  const items: Alianza[] = alianzas.length > 0
+    ? alianzas
+    : ['SIEFO Perú', 'Centro Fonoaudiológico', 'SYNAP', 'Crecemos'].map((n, i) => ({ id: -(i + 1), nombre: n }));
+
+  const perPage = 4;
+  const pages = Math.max(1, Math.ceil(items.length / perPage));
+  const go = (d: number) => setPage((p) => (p + d + pages) % pages);
+  const slice = items.slice(page * perPage, page * perPage + perPage);
+
   return (
-    <div className="alianzas-marquee">
-      <style>{`
-        @keyframes alianzas-scroll { from { transform: translate3d(0,0,0); } to { transform: translate3d(-50%,0,0); } }
-        .alianzas-marquee { overflow: hidden; -webkit-mask-image: linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent); mask-image: linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent); }
-        .alianzas-marquee-track { display: flex; width: max-content; will-change: transform; backface-visibility: hidden; animation: alianzas-scroll ${dur}s linear infinite; }
-        .alianzas-marquee:hover .alianzas-marquee-track { animation-play-state: paused; }
-        .alianzas-slide { flex: 0 0 calc(100vw / 6); display: flex; align-items: center; justify-content: center; padding: 0 14px; }
-        @media (max-width: 1024px) { .alianzas-slide { flex-basis: calc(100vw / 4); } }
-        @media (max-width: 640px)  { .alianzas-slide { flex-basis: calc(100vw / 2.4); } }
-        @media (prefers-reduced-motion: reduce) { .alianzas-marquee-track { animation: none; } }
-      `}</style>
-      <div className="alianzas-marquee-track">
-        {[...alianzas, ...alianzas].map((a, i) => (
-          <div className="alianzas-slide" key={`${a.id}-${i}`}><AlianzaChip a={a} /></div>
-        ))}
+    <div>
+      <div className="flex items-center gap-4 sm:gap-6">
+        <button onClick={() => go(-1)} aria-label="Anterior"
+          className="hidden sm:flex flex-shrink-0 w-11 h-11 rounded-full items-center justify-center transition-transform hover:-translate-y-0.5"
+          style={{ background: SURFACE, border: `1px solid ${BORDER}`, color: TEXT }}>
+          <ChevronLeft size={18} />
+        </button>
+
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 flex-1">
+          {slice.map((a) => (
+            <ClienteCard key={a.id} a={a} />
+          ))}
+        </div>
+
+        <button onClick={() => go(1)} aria-label="Siguiente"
+          className="hidden sm:flex flex-shrink-0 w-11 h-11 rounded-full items-center justify-center transition-transform hover:-translate-y-0.5"
+          style={{ background: SURFACE, border: `1px solid ${BORDER}`, color: TEXT }}>
+          <ChevronRight size={18} />
+        </button>
       </div>
+
+      {pages > 1 && (
+        <div className="flex items-center justify-center gap-2 mt-8">
+          {Array.from({ length: pages }).map((_, i) => (
+            <button key={i} onClick={() => setPage(i)} aria-label={`Página ${i + 1}`}
+              className="rounded-full transition-all" style={{
+                width: i === page ? 22 : 7, height: 7,
+                background: i === page ? GREEN_BRIGHT : 'rgba(255,255,255,0.2)',
+              }} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Envuelve contenido para que aparezca (fade-up) cuando entra en pantalla. */
+function Reveal({ children, delay = 0, className = '' }: { children: React.ReactNode; delay?: number; className?: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [show, setShow] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const io = new IntersectionObserver(([e]) => {
+      if (e.isIntersecting) { setShow(true); io.disconnect(); }
+    }, { threshold: 0.12, rootMargin: '0px 0px -8% 0px' });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+  return (
+    <div ref={ref} className={`reveal ${show ? 'reveal-in' : ''} ${className}`} style={{ transitionDelay: `${delay}ms` }}>
+      {children}
+    </div>
+  );
+}
+
+/** Aurora: manchas verdes borrosas que flotan suavemente (efecto del mockup). */
+function Aurora({ className = '' }: { className?: string }) {
+  return (
+    <div className={`absolute inset-0 overflow-hidden pointer-events-none ${className}`} aria-hidden="true">
+      <style>{`
+        @keyframes aurora-a { 0%,100% { transform: translate3d(-10%, -8%, 0) scale(1); } 50% { transform: translate3d(8%, 6%, 0) scale(1.15); } }
+        @keyframes aurora-b { 0%,100% { transform: translate3d(10%, 6%, 0) scale(1.1); } 50% { transform: translate3d(-8%, -6%, 0) scale(0.95); } }
+        @media (prefers-reduced-motion: reduce) { .aurora-blob { animation: none !important; } }
+      `}</style>
+      <div className="aurora-blob absolute rounded-full" style={{ width: '48%', height: '120%', left: '-6%', top: '-30%', background: 'radial-gradient(circle, rgba(16,185,129,0.32), transparent 62%)', filter: 'blur(70px)', animation: 'aurora-a 16s ease-in-out infinite' }} />
+      <div className="aurora-blob absolute rounded-full" style={{ width: '44%', height: '110%', right: '-8%', top: '-20%', background: 'radial-gradient(circle, rgba(52,211,153,0.24), transparent 62%)', filter: 'blur(80px)', animation: 'aurora-b 20s ease-in-out infinite' }} />
     </div>
   );
 }
@@ -470,6 +649,7 @@ function AlianzasCarrusel({ alianzas }: { alianzas: Alianza[] }) {
 function GridGlow() {
   return (
     <>
+      <Aurora />
       <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(50% 45% at 72% 8%, rgba(16,185,129,0.16), transparent 70%)' }} />
       <div className="absolute inset-0 pointer-events-none opacity-[0.05]"
         style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.7) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.7) 1px,transparent 1px)', backgroundSize: '40px 40px', maskImage: 'radial-gradient(70% 60% at 50% 0%, #000, transparent 75%)', WebkitMaskImage: 'radial-gradient(70% 60% at 50% 0%, #000, transparent 75%)' }} />
@@ -477,22 +657,12 @@ function GridGlow() {
   );
 }
 
-function Eyebrow({ num, label }: { num: string; label: string }) {
+function Eyebrow({ label }: { label: string }) {
   return (
     <div className="flex items-center gap-3" style={{ fontFamily: MONO }}>
-      <span className="text-[12px] font-medium" style={{ color: GREEN }}>{num}</span>
       <span className="w-6 h-px" style={{ background: 'rgba(16,185,129,0.5)' }} />
-      <span className="text-[11.5px] uppercase tracking-[0.2em]" style={{ color: MUTED }}>{label}</span>
+      <span className="text-[11.5px] uppercase tracking-[0.2em]" style={{ color: GREEN_BRIGHT }}>{label}</span>
     </div>
-  );
-}
-
-function Card({ children, glow, className = '' }: { children: React.ReactNode; glow?: boolean; className?: string }) {
-  return (
-    <article className={`rounded-2xl p-8 sm:p-9 relative overflow-hidden ${className}`} style={{ background: SURFACE, border: `1px solid ${BORDER}` }}>
-      {glow && <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(55% 45% at 90% 0%, rgba(16,185,129,0.16), transparent 70%)' }} />}
-      <div className="relative">{children}</div>
-    </article>
   );
 }
 
@@ -500,62 +670,153 @@ function IconBox({ children }: { children: React.ReactNode }) {
   return <div className="rounded-xl flex items-center justify-center" style={{ width: 46, height: 46, background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.22)' }}>{children}</div>;
 }
 
-function Tag({ children, muted }: { children: React.ReactNode; muted?: boolean }) {
+/* ── Hero visual: mockup de dashboard (agenda + próxima sesión + reporte) ── */
+function HeroDashboard() {
   return (
-    <span className="text-[10.5px] font-semibold tracking-widest px-2.5 py-1 rounded-full" style={{ fontFamily: MONO, background: muted ? 'rgba(255,255,255,0.06)' : 'rgba(16,185,129,0.16)', color: muted ? MUTED : GREEN_BRIGHT }}>
-      {children}
-    </span>
-  );
-}
-
-function CardLink({ children }: { children: React.ReactNode }) {
-  return (
-    <a href="#contacto" className="group inline-flex items-center gap-2 mt-8 text-[14px] font-semibold" style={{ color: GREEN_BRIGHT }}>
-      {children} <ArrowUpRight size={16} className="transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-    </a>
-  );
-}
-
-/* ── Hero visual: certificado glass + glow ───────────────────── */
-function HeroVisual() {
-  return (
-    <div className="relative mx-auto w-full max-w-[430px]">
-      <div className="rounded-2xl p-7 relative overflow-hidden" style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${BORDER}`, backdropFilter: 'blur(8px)', boxShadow: '0 40px 90px -30px rgba(0,0,0,0.8)' }}>
-        <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(60% 50% at 80% 0%, rgba(16,185,129,0.18), transparent 70%)' }} />
+    <div className="relative mx-auto w-full max-w-[600px]">
+      {/* Panel principal: agenda de hoy */}
+      <div className="rounded-2xl p-6 relative overflow-hidden" style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${BORDER}`, backdropFilter: 'blur(8px)', boxShadow: '0 40px 90px -30px rgba(0,0,0,0.8)' }}>
+        <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(60% 50% at 85% 0%, rgba(16,185,129,0.16), transparent 70%)' }} />
         <div className="relative">
           <div className="flex items-center justify-between mb-5">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'rgba(16,185,129,0.14)', border: '1px solid rgba(16,185,129,0.25)' }}>
-                <Award size={15} style={{ color: GREEN_BRIGHT }} strokeWidth={1.75} />
-              </div>
-              <span className="text-[13px] font-semibold" style={{ fontFamily: DISPLAY }}>Certificado</span>
+            <div className="flex items-center gap-2">
+              <Logo />
             </div>
-            <span className="text-[10px] font-semibold tracking-widest px-2.5 py-1 rounded-full" style={{ fontFamily: MONO, background: 'rgba(16,185,129,0.16)', color: GREEN_BRIGHT }}>VÁLIDO</span>
+            <span className="text-[10.5px]" style={{ fontFamily: MONO, color: MUTED }}>Lunes, 25 de septiembre</span>
           </div>
-          <div className="h-px mb-5" style={{ background: BORDER }} />
-          <p className="text-[10px] uppercase tracking-widest" style={{ fontFamily: MONO, color: MUTED }}>Se certifica a</p>
-          <p style={{ fontFamily: DISPLAY }} className="text-[22px] font-bold mt-1.5 leading-tight">María Gonzáles Ríos</p>
-          <p className="text-[13px] mt-2" style={{ color: MUTED }}>Especialización Profesional · 120 horas</p>
-          <div className="flex items-end justify-between mt-7">
-            <div>
-              <p className="text-[10px] uppercase tracking-widest" style={{ fontFamily: MONO, color: MUTED }}>Código</p>
-              <p className="text-[13px] font-semibold mt-1" style={{ fontFamily: MONO, color: TEXT }}>VX-7K2D-9QFA</p>
-            </div>
-            <div className="w-14 h-14 rounded-xl grid grid-cols-3 grid-rows-3 gap-1 p-2" style={{ background: 'rgba(255,255,255,0.06)', border: `1px solid ${BORDER}` }}>
-              {[1, 0, 1, 0, 1, 1, 1, 1, 0].map((on, i) => (<div key={i} style={{ background: on ? GREEN_BRIGHT : 'transparent', borderRadius: 1 }} />))}
-            </div>
+          <p className="text-[13px] font-semibold mb-3" style={{ fontFamily: DISPLAY }}>Emisión de hoy</p>
+          <div className="space-y-2">
+            {[
+              { c: 'VX-7K2D', n: 'Ana Herrera', e: 'Emitido', ok: true },
+              { c: 'VX-9QFA', n: 'Luis Ramos', e: 'Emitido', ok: true },
+              { c: 'VX-3M1P', n: 'María Gonzáles', e: 'En cola', ok: false },
+            ].map((r) => (
+              <div key={r.c} className="flex items-center gap-3 rounded-xl px-3 py-2.5" style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${BORDER}` }}>
+                <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold" style={{ background: 'rgba(16,185,129,0.14)', color: GREEN_BRIGHT }}>{r.n[0]}</div>
+                <div className="flex-1 min-w-0">
+                  <span className="text-[12.5px] block truncate">{r.n}</span>
+                  <span className="text-[9.5px]" style={{ fontFamily: MONO, color: MUTED }}>{r.c}</span>
+                </div>
+                <span className="text-[10px] font-semibold px-2 py-1 rounded-full" style={{ fontFamily: MONO, background: r.ok ? 'rgba(16,185,129,0.16)' : 'rgba(255,255,255,0.06)', color: r.ok ? GREEN_BRIGHT : MUTED }}>{r.e}</span>
+              </div>
+            ))}
           </div>
         </div>
       </div>
 
-      <div className="absolute -bottom-5 -left-4 sm:-left-7 rounded-xl px-4 py-3 flex items-center gap-3"
-        style={{ background: 'rgba(10,15,13,0.9)', border: `1px solid ${BORDER}`, backdropFilter: 'blur(8px)', boxShadow: '0 24px 50px -16px rgba(0,0,0,0.8)' }}>
-        <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: GREEN, boxShadow: '0 0 16px -2px rgba(16,185,129,0.8)' }}>
-          <QrCode size={17} style={{ color: '#04110C' }} strokeWidth={2} />
+      {/* Card flotante: validación por QR */}
+      <div className="floaty absolute -top-4 -right-3 sm:-right-6 rounded-xl px-4 py-3 flex items-center gap-3"
+        style={{ background: 'rgba(10,15,13,0.92)', border: `1px solid ${BORDER}`, backdropFilter: 'blur(8px)', boxShadow: '0 24px 50px -16px rgba(0,0,0,0.8)' }}>
+        <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: GREEN, boxShadow: '0 0 16px -2px rgba(16,185,129,0.8)' }}>
+          <QrCode size={18} style={{ color: '#04110C' }} strokeWidth={2} />
         </div>
         <div>
-          <p className="text-[13px] font-semibold leading-tight">Verificado</p>
-          <p className="text-[11px]" style={{ fontFamily: MONO, color: MUTED }}>por QR público</p>
+          <p className="text-[10px] uppercase tracking-widest" style={{ fontFamily: MONO, color: MUTED }}>Validación QR</p>
+          <p className="text-[13px] font-semibold leading-tight mt-0.5 flex items-center gap-1.5"><BadgeCheck size={14} style={{ color: GREEN_BRIGHT }} /> Certificado válido</p>
+        </div>
+      </div>
+
+      {/* Card flotante: certificado */}
+      <div className="floaty-2 absolute -bottom-6 -left-3 sm:-left-6 rounded-xl px-4 py-3 flex items-center gap-3 max-w-[250px]"
+        style={{ background: 'rgba(10,15,13,0.92)', border: `1px solid ${BORDER}`, backdropFilter: 'blur(8px)', boxShadow: '0 24px 50px -16px rgba(0,0,0,0.8)' }}>
+        <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(16,185,129,0.14)', border: '1px solid rgba(16,185,129,0.25)' }}>
+          <FileBadge size={18} style={{ color: GREEN_BRIGHT }} strokeWidth={1.75} />
+        </div>
+        <div>
+          <p className="text-[10px] uppercase tracking-widest" style={{ fontFamily: MONO, color: MUTED }}>Certificado</p>
+          <p className="text-[13px] font-semibold leading-tight mt-0.5">María Gonzáles Ríos</p>
+          <p className="text-[11px]" style={{ color: MUTED }}>Especialización · 120 h</p>
+        </div>
+      </div>
+
+      {/* Card flotante: reporte mensual */}
+      <div className="floaty-3 absolute bottom-8 -right-2 sm:-right-8 rounded-xl px-4 py-3"
+        style={{ background: 'rgba(10,15,13,0.92)', border: `1px solid ${BORDER}`, backdropFilter: 'blur(8px)', boxShadow: '0 24px 50px -16px rgba(0,0,0,0.8)' }}>
+        <p className="text-[10px] uppercase tracking-widest" style={{ fontFamily: MONO, color: MUTED }}>Reporte mensual</p>
+        <div className="flex items-end gap-2 mt-1">
+          <p style={{ fontFamily: DISPLAY }} className="text-[26px] font-bold leading-none">124</p>
+          <span className="text-[11px] font-semibold mb-0.5" style={{ color: GREEN_BRIGHT }}>+12%</span>
+        </div>
+        <p className="text-[10.5px] mb-2" style={{ color: MUTED }}>Certificados emitidos</p>
+        <div className="flex items-end gap-1 h-8">
+          {[40, 55, 45, 70, 60, 85, 100].map((h, i) => (
+            <span key={i} className="bar w-2 rounded-sm" style={{ height: `${h}%`, background: i === 6 ? GREEN_BRIGHT : 'rgba(16,185,129,0.4)', animationDelay: `${0.3 + i * 0.08}s` }} />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Visual "por qué elegir Vaxa": eficiencia + checklist ─────── */
+function EficienciaVisual() {
+  return (
+    <div className="relative mx-auto w-full max-w-[480px]">
+      {/* Foto real (o degradado de respaldo) */}
+      <div className="rounded-2xl overflow-hidden relative" style={{ border: `1px solid ${BORDER}`, boxShadow: '0 40px 90px -30px rgba(0,0,0,0.8)' }}>
+        <Shot src="/landing/porque.jpg" alt="Equipo Vaxa" className="w-full h-80 sm:h-[26rem] object-cover">
+          <div className="h-80 sm:h-[26rem] relative" style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.22), rgba(7,11,10,0.9))' }}>
+            <div className="absolute inset-0 opacity-[0.1]" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.7) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.7) 1px,transparent 1px)', backgroundSize: '28px 28px' }} />
+          </div>
+        </Shot>
+        <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(180deg, transparent 30%, rgba(7,11,10,0.6))' }} />
+      </div>
+
+      {/* Card flotante: +40% (sobre la foto, como el mockup) */}
+      <div className="floaty absolute -top-5 -right-3 sm:-right-6 rounded-xl px-5 py-4 text-center"
+        style={{ background: 'rgba(10,15,13,0.94)', border: '1px solid rgba(16,185,129,0.3)', backdropFilter: 'blur(8px)', boxShadow: '0 24px 50px -16px rgba(0,0,0,0.85)' }}>
+        <p className="text-[11.5px]" style={{ color: MUTED }}>Mejora la eficiencia<br />de tu institución</p>
+        <p style={{ fontFamily: DISPLAY, background: `linear-gradient(100deg, ${GREEN_BRIGHT}, ${GREEN})`, WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' }} className="text-[40px] font-bold leading-none mt-1.5">+40%</p>
+        <p className="text-[11px] mt-1" style={{ color: MUTED }}>en gestión administrativa</p>
+      </div>
+
+      {/* Card flotante: beneficios */}
+      <div className="floaty-2 absolute -bottom-6 -left-3 sm:-left-8 rounded-xl px-5 py-4"
+        style={{ background: 'rgba(10,15,13,0.94)', border: `1px solid ${BORDER}`, backdropFilter: 'blur(8px)', boxShadow: '0 24px 50px -16px rgba(0,0,0,0.85)' }}>
+        <p className="text-[12px] font-semibold mb-3" style={{ fontFamily: DISPLAY }}>Más tiempo para lo que importa</p>
+        <ul className="space-y-2">
+          {['Gestión simple', 'Información segura', 'Clientes más satisfechos'].map((t) => (
+            <li key={t} className="flex items-center gap-2 text-[12.5px]" style={{ color: MUTED }}>
+              <span className="w-4 h-4 rounded-full flex items-center justify-center" style={{ background: 'rgba(16,185,129,0.18)' }}><Check size={10} style={{ color: GREEN_BRIGHT }} /></span>
+              {t}
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+/* ── CTA visual: mini dashboard con métricas + gráficos ──────── */
+function CtaDashboard() {
+  return (
+    <div className="rounded-2xl p-5 relative overflow-hidden" style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${BORDER}`, backdropFilter: 'blur(8px)', boxShadow: '0 40px 90px -30px rgba(0,0,0,0.8)' }}>
+      <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(60% 50% at 85% 0%, rgba(16,185,129,0.14), transparent 70%)' }} />
+      <div className="relative">
+        <div className="grid grid-cols-3 gap-3 mb-4">
+          {[{ n: '124', l: 'Certificados del mes', d: '+10%' }, { n: '386', l: 'Validaciones QR', d: '+8%' }, { n: '98%', l: 'Tasa de entrega', d: '+3%' }].map((s) => (
+            <div key={s.l} className="rounded-xl px-3 py-3" style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${BORDER}` }}>
+              <p style={{ fontFamily: DISPLAY }} className="text-[20px] font-bold leading-none">{s.n}</p>
+              <p className="text-[9.5px] mt-1.5 leading-tight" style={{ color: MUTED }}>{s.l}</p>
+              <p className="text-[9.5px] font-semibold" style={{ color: GREEN_BRIGHT }}>{s.d}</p>
+            </div>
+          ))}
+        </div>
+        <div className="grid grid-cols-[1.5fr_1fr] gap-3">
+          <div className="rounded-xl px-3 py-3" style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${BORDER}` }}>
+            <p className="text-[10px] mb-3" style={{ fontFamily: MONO, color: MUTED }}>Evolución de emisiones</p>
+            <div className="flex items-end gap-1.5 h-16">
+              {[35, 50, 42, 65, 58, 78, 70, 90].map((h, i) => (
+                <span key={i} className="bar flex-1 rounded-sm" style={{ height: `${h}%`, background: i >= 6 ? GREEN_BRIGHT : 'rgba(16,185,129,0.4)', animationDelay: `${0.2 + i * 0.07}s` }} />
+              ))}
+            </div>
+          </div>
+          <div className="rounded-xl px-3 py-3 flex flex-col items-center justify-center" style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${BORDER}` }}>
+            <p className="text-[10px] mb-2 self-start" style={{ fontFamily: MONO, color: MUTED }}>Por programa</p>
+            <div className="w-16 h-16 rounded-full" style={{ background: `conic-gradient(${GREEN_BRIGHT} 0% 45%, ${GREEN} 45% 72%, rgba(16,185,129,0.4) 72% 100%)` }}>
+              <div className="w-full h-full rounded-full flex items-center justify-center" style={{ transform: 'scale(0.55)', background: BG }} />
+            </div>
+          </div>
         </div>
       </div>
     </div>

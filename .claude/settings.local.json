@@ -335,7 +335,13 @@
       "Bash(grep -ioE 'CREATE TABLE `[a-z_]*\\(grupo|aula|programa\\)[a-z_]*`' /c/Users/Lucero/Downloads/vaxasysc_crecemos_vaxa_LIMPIO.sql)",
       "Bash(grep -iE 'grupo_id.*REFERENCES|REFERENCES `grupo' /c/Users/Lucero/Downloads/vaxasysc_crecemos_vaxa_LIMPIO.sql)",
       "Bash(grep -A15 'CREATE TABLE `grupos_programas`' /c/Users/Lucero/Downloads/vaxasysc_crecemos_vaxa_LIMPIO.sql)",
-      "Bash(grep -iE \"\\\\`id\\\\`|programa|empresa|nombre\")"
+      "Bash(grep -iE \"\\\\`id\\\\`|programa|empresa|nombre\")",
+      "Bash(find . -path ./node_modules -prune -o -iname \"*icon*\" -print)",
+      "Bash(ls components/ui/)",
+      "Bash(ls src/lib/)",
+      "Bash(mkdir -p public/landing)",
+      "Bash(ls -la public/vaxa-logo-white.png)",
+      "Bash(echo \"TSC EXIT: $?\")"
     ],
     "deny": [],
     "ask": []

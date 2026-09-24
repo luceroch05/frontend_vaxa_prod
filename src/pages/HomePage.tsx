@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import {
   Shield, Zap, ArrowRight, ArrowUpRight, Users, FileText,
   BarChart3, Layers, Menu, X, Check, MessageCircle, Sparkles, Award,
-  Phone, Mail, MapPin, ChevronLeft, ChevronRight, GraduationCap,
+  Phone, Mail, MapPin, GraduationCap,
   Building2, Star, MousePointerClick, TrendingUp,
   FileBadge, QrCode, UserPlus, BadgeCheck,
   Facebook, Instagram, Youtube, Linkedin, Music2,
@@ -19,6 +19,19 @@ interface Redes {
 
 /** Alianza/convenio (logos editables desde sistemas-vaxa). */
 interface Alianza { id: number; nombre: string; logo_url?: string | null; link?: string | null; }
+
+/** Testimonio real de cliente (editable desde sistemas-vaxa). Reutiliza el logo de una alianza. */
+interface Testimonio {
+  id: number; comentario: string; autor: string;
+  cargo?: string | null; empresa?: string | null;
+  alianza_id?: number | null; logo_url?: string | null; calificacion?: number;
+}
+/** Testimonios por defecto (si aún no hay ninguno cargado desde el admin). */
+const DEFAULT_TESTIMONIOS: Testimonio[] = [
+  { id: -1, comentario: 'Vaxa nos permite emitir y validar nuestros certificados en segundos, con el respaldo del QR público. Ha mejorado mucho nuestro trabajo diario.', autor: 'Jesús Yactayo', cargo: 'CEO', empresa: 'Centro de Terapias Crecemos', calificacion: 5 },
+  { id: -2, comentario: 'La plataforma es intuitiva, segura y se adapta a nuestras necesidades. El soporte siempre ha sido excelente.', autor: 'Comité Organizador', cargo: '', empresa: 'SIEFO Perú', calificacion: 5 },
+];
+
 const WA_DEFAULT = '51924600490';
 const EMAIL_DEFAULT = 'info@vaxa.com.pe';
 const TEL_DEFAULT = '+51 924 600 490';
@@ -52,9 +65,11 @@ export default function HomePage() {
   const [open, setOpen] = useState(false);
   const [redes, setRedes] = useState<Redes>({});
   const [alianzas, setAlianzas] = useState<Alianza[]>([]);
+  const [testimonios, setTestimonios] = useState<Testimonio[]>([]);
   useEffect(() => {
     api.get<Redes>('/public/vaxa-landing').then(setRedes).catch(() => {});
     api.get<Alianza[]>('/public/vaxa-alianzas').then((a) => setAlianzas(Array.isArray(a) ? a : [])).catch(() => {});
+    api.get<Testimonio[]>('/public/vaxa-testimonios').then((t) => setTestimonios(Array.isArray(t) ? t : [])).catch(() => {});
   }, []);
   const WA_LINK = waLink(redes.whatsapp);
   const EMAIL = redes.email || EMAIL_DEFAULT;
@@ -69,6 +84,15 @@ export default function HomePage() {
     redes.linkedin  && { key: 'in', href: redes.linkedin,  Icon: Linkedin,  label: 'LinkedIn' },
     { key: 'mail', href: `mailto:${EMAIL}`, Icon: Mail, label: 'Correo' },
   ].filter(Boolean) as { key: string; href: string; Icon: typeof Facebook; label: string }[];
+
+  // Testimonios: usa los reales (editables) o unos por defecto. Reutiliza el logo
+  // de la alianza (por id, o por nombre de empresa) — el testimonio no lleva foto.
+  const testimoniosView = (testimonios.length > 0 ? testimonios : DEFAULT_TESTIMONIOS).map((t) => {
+    const al = t.alianza_id
+      ? alianzas.find((a) => a.id === t.alianza_id)
+      : alianzas.find((a) => (a.nombre ?? '').toLowerCase() === (t.empresa ?? '').toLowerCase());
+    return { ...t, logo_url: t.logo_url || al?.logo_url || null, empresa: t.empresa || al?.nombre || null };
+  });
 
   return (
     <div style={{ background: BG, color: TEXT, fontFamily: SANS }} className="min-h-screen overflow-x-hidden">
@@ -184,7 +208,7 @@ export default function HomePage() {
               style={{ fontFamily: SCRIPT, color: GREEN_BRIGHT, textShadow: '0 0 20px rgba(52,211,153,0.45)', maxWidth: 210 }}>
               Certificación que<br />genera confianza
             </span>
-            <Shot src="/landing/hero.png" alt="Panel de Vaxa"
+            <Shot src="/landing-media/hero.png" alt="Panel de Vaxa"
               className="w-full h-auto rounded-2xl"
               style={{ border: `1px solid ${BORDER}`, boxShadow: '0 40px 90px -30px rgba(0,0,0,0.8)' }}>
               <HeroDashboard />
@@ -380,21 +404,35 @@ export default function HomePage() {
             </p>
           </div>
           <div className="grid sm:grid-cols-2 gap-5">
-            {[
-              { q: 'Vaxa nos permite emitir y validar nuestros certificados en segundos, con el respaldo del QR público. Ha mejorado mucho nuestro trabajo diario.', a: 'Jesús Yactayo', r: 'CEO · Centro de Terapias Crecemos' },
-              { q: 'La plataforma es intuitiva, segura y se adapta a nuestras necesidades. El soporte siempre ha sido excelente.', a: 'Comité Organizador', r: 'SIEFO Perú' },
-            ].map((t, i) => (
-              <Reveal key={t.a} delay={i * 120} className="h-full">
-              <div className="rounded-2xl p-7 flex flex-col h-full transition-transform duration-300 hover:-translate-y-1" style={{ background: SURFACE, border: `1px solid ${BORDER}` }}>
-                <div className="flex gap-1 mb-4">{[0, 1, 2, 3, 4].map((s) => <Star key={s} size={15} style={{ color: GREEN_BRIGHT, fill: GREEN_BRIGHT }} />)}</div>
-                <p className="text-[14.5px] leading-relaxed flex-1" style={{ color: TEXT }}>“{t.q}”</p>
-                <div className="mt-6 pt-5" style={{ borderTop: `1px solid ${BORDER}` }}>
-                  <p className="text-[14px] font-semibold" style={{ fontFamily: DISPLAY }}>{t.a}</p>
-                  <p className="text-[12.5px] mt-0.5" style={{ color: MUTED }}>{t.r}</p>
+            {testimoniosView.map((t, i) => {
+              const estrellas = Math.max(1, Math.min(5, t.calificacion ?? 5));
+              return (
+                <Reveal key={t.id} delay={i * 120} className="h-full">
+                <div className="rounded-2xl p-7 flex flex-col h-full transition-transform duration-300 hover:-translate-y-1" style={{ background: SURFACE, border: `1px solid ${BORDER}` }}>
+                  <div className="flex gap-1 mb-4">{Array.from({ length: estrellas }).map((_, s) => <Star key={s} size={15} style={{ color: GREEN_BRIGHT, fill: GREEN_BRIGHT }} />)}</div>
+                  <p className="text-[14.5px] leading-relaxed flex-1" style={{ color: TEXT }}>“{t.comentario}”</p>
+                  <div className="mt-6 pt-5 flex items-center gap-3" style={{ borderTop: `1px solid ${BORDER}` }}>
+                    {/* Logo de la empresa (reutilizado de la alianza) en vez de foto de la persona */}
+                    {t.logo_url ? (
+                      <span className="inline-flex items-center justify-center rounded-xl flex-shrink-0" style={{ background: '#fff', width: 46, height: 46, padding: 6 }}>
+                        <img src={imgUrl(t.logo_url)} alt={t.empresa ?? ''} style={{ maxHeight: '100%', maxWidth: '100%', objectFit: 'contain' }} />
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center justify-center rounded-xl flex-shrink-0 text-[16px] font-bold" style={{ width: 46, height: 46, background: 'rgba(16,185,129,0.14)', color: GREEN_BRIGHT }}>
+                        {(t.empresa || t.autor)?.[0]}
+                      </span>
+                    )}
+                    <div className="min-w-0">
+                      <p className="text-[14px] font-semibold truncate" style={{ fontFamily: DISPLAY }}>{t.autor}</p>
+                      <p className="text-[12.5px] mt-0.5 truncate" style={{ color: MUTED }}>
+                        {[t.cargo, t.empresa].filter(Boolean).join(' · ')}
+                      </p>
+                    </div>
+                  </div>
                 </div>
-              </div>
-              </Reveal>
-            ))}
+                </Reveal>
+              );
+            })}
           </div>
         </div>
       </section>
@@ -426,7 +464,7 @@ export default function HomePage() {
             </div>
           </Reveal>
           <Reveal delay={120} className="relative">
-            <Shot src="/landing/cta.png" alt="Panel de reportes de Vaxa"
+            <Shot src="/landing-media/cta.png" alt="Panel de reportes de Vaxa"
               className="w-full h-auto rounded-2xl"
               style={{ border: `1px solid ${BORDER}`, boxShadow: '0 40px 90px -30px rgba(0,0,0,0.8)' }}>
               <CtaDashboard />
@@ -457,7 +495,7 @@ export default function HomePage() {
               )}
             </div>
 
-            <FooterCol title="Productos" links={['Certificados QR', 'Historias Clínicas', 'Marca Personal', 'Reportes', 'Vaxa ID', 'Web y proyectos a medida']} />
+            <FooterCol title="Productos" links={['Certificados QR', 'Historias Clínicas', 'Marca Personal', 'Reportes', 'Web y proyectos a medida']} />
             <FooterCol title="Empresa" links={['Nosotros', 'Clientes', 'Blog', 'Contacto']} />
 
             <div>
@@ -545,68 +583,72 @@ function FooterCol({ title, links }: { title: string; links: string[] }) {
   );
 }
 
-/** Tarjeta de cliente: tarjeta OSCURA (como el mockup, sin fondo blanco) con el logo dentro. */
+/** Tarjeta de cliente: tarjeta OSCURA (como el mockup, sin fondo blanco) con el logo dentro.
+ *  El logo PNG lleva un "aura" blanca suave para que lea bien sobre el fondo oscuro. */
 function ClienteCard({ a }: { a: Alianza }) {
-  const inner = a.logo_url
-    ? <img src={imgUrl(a.logo_url)} alt={a.nombre} title={a.nombre} style={{ maxHeight: 92, maxWidth: '90%', width: 'auto', objectFit: 'contain' }} />
-    : <span className="text-[18px] font-semibold text-center px-2" style={{ color: MUTED }}>{a.nombre}</span>;
+  const inner = a.logo_url ? (
+    // Logo NORMAL a color, sobre tarjeta glass (transparente). Opacidad al hover.
+    <img src={imgUrl(a.logo_url)} alt={a.nombre} title={a.nombre}
+      className="opacity-90 transition-opacity duration-300 group-hover:opacity-100"
+      style={{ maxHeight: 96, maxWidth: '92%', width: 'auto', objectFit: 'contain' }} />
+  ) : (
+    <span className="text-[16px] font-semibold text-center px-2" style={{ color: MUTED }}>{a.nombre}</span>
+  );
   const card = (
-    <div className="group rounded-2xl flex items-center justify-center transition-all hover:-translate-y-1 h-full"
-      style={{ background: SURFACE, border: `1px solid ${BORDER}`, minHeight: 168, padding: '28px 22px' }}>
+    <div className="group flex items-center justify-center transition-transform hover:-translate-y-1 h-full"
+      style={{ minHeight: 140, padding: '16px' }}>
       {inner}
     </div>
   );
   return a.link ? <a href={a.link} target="_blank" rel="noreferrer" className="block h-full">{card}</a> : card;
 }
 
+/** Una fila del marquee. `dir` = sentido (left/right). Se pausa al pasar el mouse. */
+function MarqueeRow({ items, dir, dur }: { items: Alianza[]; dir: 'left' | 'right'; dur: number }) {
+  // Rellena hasta tener suficientes para que el bucle no se vea vacío.
+  let base = items;
+  if (base.length === 0) return null;
+  while (base.length < 6) base = [...base, ...items];
+  return (
+    <div className="clientes-marquee">
+      <div className="clientes-track" style={{ animationDuration: `${dur}s`, animationDirection: dir === 'right' ? 'reverse' : 'normal' }}>
+        {[...base, ...base].map((a, i) => (
+          <div className="clientes-slide" key={`${a.id}-${i}`}><ClienteCard a={a} /></div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /**
- * Carrusel de clientes con flechas y puntitos (páginas de 4 en escritorio).
- * Si no hay alianzas cargadas, muestra tarjetas de ejemplo con el nombre.
+ * Carrusel de clientes: marquee infinito que se mueve SOLO. Con varios logos se
+ * parte en DOS filas que corren en sentido CONTRARIO. Se pausa al pasar el mouse.
  */
 function ClientesCarrusel({ alianzas }: { alianzas: Alianza[] }) {
-  const [page, setPage] = useState(0);
   const items: Alianza[] = alianzas.length > 0
     ? alianzas
     : ['SIEFO Perú', 'Centro Fonoaudiológico', 'SYNAP', 'Crecemos'].map((n, i) => ({ id: -(i + 1), nombre: n }));
 
-  const perPage = 4;
-  const pages = Math.max(1, Math.ceil(items.length / perPage));
-  const go = (d: number) => setPage((p) => (p + d + pages) % pages);
-  const slice = items.slice(page * perPage, page * perPage + perPage);
+  const dosFilas = items.length >= 18;
+  const mid = Math.ceil(items.length / 2);
+  const fila1 = dosFilas ? items.slice(0, mid) : items;
+  const fila2 = dosFilas ? items.slice(mid) : [];
+  const dur = Math.max(26, items.length * 3.2);
 
   return (
-    <div>
-      <div className="flex items-center gap-4 sm:gap-6">
-        <button onClick={() => go(-1)} aria-label="Anterior"
-          className="hidden sm:flex flex-shrink-0 w-11 h-11 rounded-full items-center justify-center transition-transform hover:-translate-y-0.5"
-          style={{ background: SURFACE, border: `1px solid ${BORDER}`, color: TEXT }}>
-          <ChevronLeft size={18} />
-        </button>
-
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 flex-1">
-          {slice.map((a) => (
-            <ClienteCard key={a.id} a={a} />
-          ))}
-        </div>
-
-        <button onClick={() => go(1)} aria-label="Siguiente"
-          className="hidden sm:flex flex-shrink-0 w-11 h-11 rounded-full items-center justify-center transition-transform hover:-translate-y-0.5"
-          style={{ background: SURFACE, border: `1px solid ${BORDER}`, color: TEXT }}>
-          <ChevronRight size={18} />
-        </button>
-      </div>
-
-      {pages > 1 && (
-        <div className="flex items-center justify-center gap-2 mt-8">
-          {Array.from({ length: pages }).map((_, i) => (
-            <button key={i} onClick={() => setPage(i)} aria-label={`Página ${i + 1}`}
-              className="rounded-full transition-all" style={{
-                width: i === page ? 22 : 7, height: 7,
-                background: i === page ? GREEN_BRIGHT : 'rgba(255,255,255,0.2)',
-              }} />
-          ))}
-        </div>
-      )}
+    <div className="space-y-5">
+      <style>{`
+        @keyframes clientes-scroll { from { transform: translate3d(0,0,0); } to { transform: translate3d(-50%,0,0); } }
+        .clientes-marquee { overflow: hidden; -webkit-mask-image: linear-gradient(90deg, transparent, #000 5%, #000 95%, transparent); mask-image: linear-gradient(90deg, transparent, #000 5%, #000 95%, transparent); }
+        .clientes-track { display: flex; width: max-content; will-change: transform; animation-name: clientes-scroll; animation-timing-function: linear; animation-iteration-count: infinite; }
+        .clientes-marquee:hover .clientes-track { animation-play-state: paused; }
+        .clientes-slide { flex: 0 0 280px; padding: 0 10px; }
+        @media (max-width: 1024px) { .clientes-slide { flex-basis: 240px; } }
+        @media (max-width: 640px)  { .clientes-slide { flex-basis: 200px; } }
+        @media (prefers-reduced-motion: reduce) { .clientes-track { animation: none; } }
+      `}</style>
+      <MarqueeRow items={fila1} dir="left" dur={dur} />
+      {dosFilas && fila2.length > 0 && <MarqueeRow items={fila2} dir="right" dur={dur} />}
     </div>
   );
 }
@@ -754,7 +796,7 @@ function EficienciaVisual() {
     <div className="relative mx-auto w-full max-w-[480px]">
       {/* Foto real (o degradado de respaldo) */}
       <div className="rounded-2xl overflow-hidden relative" style={{ border: `1px solid ${BORDER}`, boxShadow: '0 40px 90px -30px rgba(0,0,0,0.8)' }}>
-        <Shot src="/landing/porque.jpg" alt="Equipo Vaxa" className="w-full h-80 sm:h-[26rem] object-cover">
+        <Shot src="/landing-media/porque.jpg" alt="Equipo Vaxa" className="w-full h-80 sm:h-[26rem] object-cover">
           <div className="h-80 sm:h-[26rem] relative" style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.22), rgba(7,11,10,0.9))' }}>
             <div className="absolute inset-0 opacity-[0.1]" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.7) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.7) 1px,transparent 1px)', backgroundSize: '28px 28px' }} />
           </div>

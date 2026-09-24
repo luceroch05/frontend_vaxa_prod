@@ -2,6 +2,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { LogOut, Package, Users, Menu, X } from 'lucide-react';
 import { useState } from 'react';
 import { tenantPath } from '@/lib/paths';
+import NotificacionesBell from './NotificacionesBell';
 
 interface HeaderSistemasVaxaProps {
   tenantId: string;
@@ -97,6 +98,7 @@ export default function HeaderSistemasVaxa({ tenantId, usuario, config }: Header
 
             {/* Usuario */}
             <div className="flex items-center gap-3">
+              <NotificacionesBell tenantId={tenantId} />
               <div className="hidden md:block relative">
                 <button
                   onClick={() => setShowUserMenu(!showUserMenu)}

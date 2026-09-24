@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+import type { PrefillCobro } from '../../shared/api/infra.admin.api';
 import { TenantConfig } from '@/lib/tenants';
 import { tenantPath } from '@/lib/paths';
 import {
@@ -39,6 +40,8 @@ const ESTADOS: EstadoCotizacion[] = ['BORRADOR', 'ENVIADA', 'ACEPTADA', 'RECHAZA
 
 export default function CotizacionesCertificaciones({ tenantId }: Props) {
   const navigate = useNavigate();
+  const location = useLocation();
+  const [prefill, setPrefill] = useState<PrefillCobro | null>(null);
   const [usuario, setUsuario] = useState<Usuario | null>(null);
   const [filas, setFilas] = useState<Cotizacion[]>([]);
   const [empresas, setEmpresas] = useState<EmpresaCreditos[]>([]);
@@ -68,6 +71,16 @@ export default function CotizacionesCertificaciones({ tenantId }: Props) {
     try { setUsuario(JSON.parse(localStorage.getItem(`auth_user_${tenantId}`) ?? 'null')); } catch { /* noop */ }
     cargar();
   }, [tenantId, navigate, cargar]);
+
+  // Prefill desde una notificación de cobro: abre el modal "Nueva cotización" ya llenado.
+  useEffect(() => {
+    const p = (location.state as { prefillCobro?: PrefillCobro } | null)?.prefillCobro;
+    if (p) {
+      setPrefill(p);
+      setModal(true);
+      navigate(location.pathname, { replace: true, state: {} }); // limpia el state para no reabrirlo
+    }
+  }, [location.state, location.pathname, navigate]);
 
   const [pdfCargando, setPdfCargando] = useState<number | null>(null);
 
@@ -251,9 +264,9 @@ export default function CotizacionesCertificaciones({ tenantId }: Props) {
       </main>
 
       {(modal || editando) && (
-        <NuevaCotizacionModal empresas={empresas} editar={editando}
-          onClose={() => { setModal(false); setEditando(null); }}
-          onDone={() => { setModal(false); setEditando(null); cargar(); }} />
+        <NuevaCotizacionModal empresas={empresas} editar={editando} prefill={editando ? null : prefill}
+          onClose={() => { setModal(false); setEditando(null); setPrefill(null); }}
+          onDone={() => { setModal(false); setEditando(null); setPrefill(null); cargar(); }} />
       )}
       {convertir && (
         <ConvertirModal cotizacion={convertir} onClose={() => setConvertir(null)} onDone={() => { setConvertir(null); cargar(); }} />
@@ -385,12 +398,14 @@ function ClienteCombo({ empresas, value, onChange }: {
 }
 
 /** Modal "Nueva cotización" (o edición) = constructor de líneas (empresa o prospecto). */
-function NuevaCotizacionModal({ empresas, editar, onClose, onDone }: {
-  empresas: EmpresaCreditos[]; editar?: CotizacionConDetalle | null; onClose: () => void; onDone: () => void;
+function NuevaCotizacionModal({ empresas, editar, prefill, onClose, onDone }: {
+  empresas: EmpresaCreditos[]; editar?: CotizacionConDetalle | null; prefill?: PrefillCobro | null; onClose: () => void; onDone: () => void;
 }) {
   const esEdicion = !!editar;
-  const [clienteModo, setClienteModo] = useState<'empresa' | 'prospecto'>(editar ? (editar.empresa_id ? 'empresa' : 'prospecto') : 'empresa');
-  const [empresaId, setEmpresaId] = useState<number>(editar?.empresa_id ?? empresas[0]?.id ?? 0);
+  const [clienteModo, setClienteModo] = useState<'empresa' | 'prospecto'>(
+    editar ? (editar.empresa_id ? 'empresa' : 'prospecto') : (prefill ? (prefill.empresa_id ? 'empresa' : 'prospecto') : 'empresa'),
+  );
+  const [empresaId, setEmpresaId] = useState<number>(editar?.empresa_id ?? prefill?.empresa_id ?? empresas[0]?.id ?? 0);
   const [planInfo, setPlanInfo] = useState('');
   const [planesCat, setPlanesCat] = useState<PlanCatalogo[]>([]);       // TODOS los planes (para cotizar migraciones)
   const [planActualSlug, setPlanActualSlug] = useState<string | null>(null);
@@ -399,7 +414,9 @@ function NuevaCotizacionModal({ empresas, editar, onClose, onDone }: {
   // Prospecto (si se edita un prospecto, se pre-cargan sus datos)
   const [docTipo, setDocTipo] = useState(editar && !editar.empresa_id ? editar.cliente_tipo_doc : '6');   // cat.06: 6 RUC · 1 DNI · 4 CE · 0 sin doc
   const [numDoc, setNumDoc] = useState(editar && !editar.empresa_id && editar.cliente_num_doc !== '0' ? editar.cliente_num_doc : '');
-  const [nombreCli, setNombreCli] = useState(editar && !editar.empresa_id ? editar.cliente_razon_social : '');
+  const [nombreCli, setNombreCli] = useState(
+    editar && !editar.empresa_id ? editar.cliente_razon_social : (prefill && !prefill.empresa_id ? prefill.cliente : ''),
+  );
   const [emailCli, setEmailCli] = useState(editar?.cliente_email ?? '');
 
   const [lineas, setLineas] = useState<LineaCot[]>(
@@ -412,7 +429,9 @@ function NuevaCotizacionModal({ empresas, editar, onClose, onDone }: {
       renueva: d.renueva,
       descuentoTipo: d.descuento_tipo ?? 'pct',
       descuentoValor: d.descuento_valor > 0 ? d.descuento_valor : undefined,
-    })) : [],
+    })) : (prefill?.lineas.map(l => ({
+      descripcion: l.descripcion, cantidad: l.cantidad, precioUnitario: l.precioUnitario,
+    })) ?? []),
   );
 
   const [descTipo, setDescTipo] = useState<'monto' | 'pct'>(editar?.descuento_tipo ?? 'pct');

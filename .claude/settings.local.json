@@ -341,7 +341,9 @@
       "Bash(ls src/lib/)",
       "Bash(mkdir -p public/landing)",
       "Bash(ls -la public/vaxa-logo-white.png)",
-      "Bash(echo \"TSC EXIT: $?\")"
+      "Bash(echo \"TSC EXIT: $?\")",
+      "Bash(echo \"BACK TSC EXIT: $?\")",
+      "Bash(echo \"FRONT TSC EXIT: $?\")"
     ],
     "deny": [],
     "ask": []

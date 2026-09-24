@@ -9,6 +9,7 @@ import HeaderSistemasVaxa from '../../shared/components/HeaderSistemasVaxa';
 import { VAXA_CONFIG } from '../../shared/constants';
 import { landingAdminApi, type VaxaLanding } from '../../shared/api/landing.admin.api';
 import AlianzasPanel from './AlianzasPanel';
+import TestimoniosPanel from './TestimoniosPanel';
 
 interface Props { tenantId: string; tenant: TenantConfig; }
 interface Usuario { email: string; nombre: string; role: string; }
@@ -33,7 +34,7 @@ export default function LandingVaxa({ tenantId }: Props) {
   const [saving, setSaving] = useState(false);
   const [ok, setOk] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [tab, setTab] = useState<'redes' | 'alianzas'>('redes');
+  const [tab, setTab] = useState<'redes' | 'alianzas' | 'testimonios'>('redes');
 
   useEffect(() => {
     if (!tenantId) return;
@@ -73,7 +74,7 @@ export default function LandingVaxa({ tenantId }: Props) {
 
         {/* Tabs */}
         <div className="flex gap-1 mb-5 p-1 rounded-xl w-fit" style={{ background: '#ECECE7' }}>
-          {([['redes', 'Redes y contacto'], ['alianzas', 'Alianzas']] as const).map(([k, label]) => (
+          {([['redes', 'Redes y contacto'], ['alianzas', 'Alianzas'], ['testimonios', 'Testimonios']] as const).map(([k, label]) => (
             <button key={k} onClick={() => setTab(k)}
               className="px-4 py-1.5 rounded-lg text-[13px] font-semibold transition-colors"
               style={tab === k ? { background: '#fff', color: '#0D0E12', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' } : { color: '#7B8B89' }}>
@@ -84,6 +85,8 @@ export default function LandingVaxa({ tenantId }: Props) {
 
         {tab === 'alianzas' ? (
           <AlianzasPanel />
+        ) : tab === 'testimonios' ? (
+          <TestimoniosPanel />
         ) : loading ? (
           <div className="py-16 flex justify-center"><Loader2 className="w-6 h-6 animate-spin" style={{ color: '#059669' }} /></div>
         ) : (

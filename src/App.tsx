@@ -137,6 +137,7 @@ function tenantChildren() {
       <Route path="sistemas"    element={<LazyRoute module="Sistemas" />} />
       <Route path="usuarios"    element={<LazyRoute module="UsuariosSistemasVaxa" />} />
       <Route path="landing"     element={<LazyRoute module="LandingVaxa" />} />
+      <Route path="infraestructura" element={<LazyRoute module="InfraestructuraVaxa" />} />
       <Route path="certificaciones"                       element={<LazyRoute module="DashboardCertificaciones" />} />
       <Route path="certificaciones/empresas"              element={<LazyRoute module="EmpresasCertificaciones" />} />
       <Route path="certificaciones/cobranza"              element={<LazyRoute module="CobranzaCertificaciones" />} />

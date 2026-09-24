@@ -52,6 +52,7 @@ const tenants: Record<string, TenantConfig> = {
       'Sistemas',
       'UsuariosSistemasVaxa',
       'LandingVaxa',
+      'InfraestructuraVaxa',
       'DashboardCertificaciones',
       'EmpresasCertificaciones',
       'RegistrarEmpresaCertificaciones',

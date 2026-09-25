@@ -24,6 +24,7 @@ export interface InfraRecurso {
 export interface InfraAlquiler {
   id: number;
   cliente?: string | null;      // nombre libre
+  email?: string | null;        // correo del cliente (para el recordatorio)
   empresa_id?: number | null;   // o empresa del sistema
   recurso_id?: number | null;   // recurso enlazado (para el margen)
   descripcion?: string | null;
@@ -57,6 +58,30 @@ export const infraAlquileresApi = {
   remove: (id: number) => api.delete<void>(`/api/admin/infra-alquileres/${id}`, opts()),
   /** Registra el cobro y corre el próximo cobro al siguiente ciclo. */
   cobrar: (id: number) => api.post<InfraAlquiler>(`/api/admin/infra-alquileres/${id}/cobrar`, {}, opts()),
+  /** Envía al cliente (por su email) un recordatorio de pago. */
+  recordar: (id: number) => api.post<{ enviado: boolean; motivo?: string }>(`/api/admin/infra-alquileres/${id}/recordar`, {}, opts()),
+};
+
+/** Una fila del historial de cobros (no se borra nunca). */
+export interface InfraCobro {
+  id: number;
+  alquiler_id: number;
+  empresa_id?: number | null;
+  cliente?: string | null;
+  descripcion?: string | null;
+  monto: number;
+  moneda: string;
+  ciclo?: string | null;
+  fecha_cobro: string;
+  cubierto_hasta?: string | null;
+  user_id?: number | null;
+  created_at?: string | null;
+}
+
+export const infraCobrosApi = {
+  /** Historial completo o filtrado por alquiler. */
+  list: (alquilerId?: number) =>
+    api.get<InfraCobro[]>(`/api/admin/infra-cobros${alquilerId ? `?alquiler_id=${alquilerId}` : ''}`, opts()),
 };
 
 /** Empresa del sistema (para el combobox de cliente). */
@@ -114,6 +139,28 @@ export function parseProyectos(txt?: string | null): string[] {
 /** Costo/precio normalizado a mensual (para sumar totales). */
 export function aMensual(monto: number, ciclo: string): number {
   if (ciclo === 'anual') return monto / 12;
+  if (ciclo === 'semestral') return monto / 6;
+  if (ciclo === 'trimestral') return monto / 3;
   if (ciclo === 'unico') return 0;
   return monto;
+}
+
+/**
+ * Estado EFECTIVO del cobro combinando la fecha (proximo_cobro) con el pago.
+ * Resuelve la contradicción entre el badge manual y el semáforo:
+ *  - 'pagado' (pago único ya cobrado) → Pagado.
+ *  - próximo cobro en el futuro y ya hubo un cobro → Al día (cubierto este ciclo).
+ *  - vencido / por vencer según la fecha; si no, Pendiente.
+ */
+export function estadoEfectivo(a: {
+  estado_pago?: string; proximo_cobro?: string | null; ultimo_cobro?: string | null;
+}): { key: 'pagado' | 'al_dia' | 'vencido' | 'por_vencer' | 'pendiente'; label: string; c: string; bg: string } {
+  if (a.estado_pago === 'pagado' && !a.proximo_cobro)
+    return { key: 'pagado', label: 'Pagado', c: '#059669', bg: '#ECFDF5' };
+  const est = estadoVencimiento(a.proximo_cobro);
+  if (est === 'vencido')     return { key: 'vencido', label: 'Vencido', c: '#DC2626', bg: '#FEF2F2' };
+  if (est === 'por_vencer')  return { key: 'por_vencer', label: 'Por vencer', c: '#B45309', bg: '#FEF3C7' };
+  if (est === 'vigente' && a.ultimo_cobro)
+    return { key: 'al_dia', label: 'Al día', c: '#059669', bg: '#ECFDF5' };
+  return { key: 'pendiente', label: 'Pendiente', c: '#6B7280', bg: '#F1F4F3' };
 }

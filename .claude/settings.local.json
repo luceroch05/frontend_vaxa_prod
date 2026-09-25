@@ -343,7 +343,9 @@
       "Bash(ls -la public/vaxa-logo-white.png)",
       "Bash(echo \"TSC EXIT: $?\")",
       "Bash(echo \"BACK TSC EXIT: $?\")",
-      "Bash(echo \"FRONT TSC EXIT: $?\")"
+      "Bash(echo \"FRONT TSC EXIT: $?\")",
+      "Bash(echo \"tsc exit $?\")",
+      "Bash(grep -oE \"export \\\\{[^}]*\\\\}|as [A-Z][a-zA-Z]+|[A-Z][a-zA-Z]+,\" src/components/ui/icon.tsx)"
     ],
     "deny": [],
     "ask": []

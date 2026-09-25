@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { TenantConfig } from '@/lib/tenants';
 import { tenantPath } from '@/lib/paths';
 import {
@@ -21,6 +21,13 @@ import { PAQUETES_CREDITOS, USUARIO_EXTRA, WEB_PLANES, DOMINIOS, HOSTING, CERTIF
 
 interface Props { tenantId: string; tenant: TenantConfig; }
 interface Usuario { email: string; nombre: string; role: string; }
+
+/** Pre-llenado que llega desde otro módulo (p. ej. Infraestructura → Facturar). */
+export interface FacturaPrefill {
+  empresa_id: number | null;
+  cliente: string;
+  lineas: Array<{ descripcion: string; cantidad: number; precioUnitario: number }>;
+}
 
 const sol = (n: number) => `S/ ${n.toFixed(2)}`;
 const r2 = (n: number) => Math.round((Number(n) || 0) * 100) / 100;
@@ -46,11 +53,13 @@ const ESTADO: Record<EstadoComprobante, { bg: string; fg: string }> = {
 
 export default function FacturacionCertificaciones({ tenantId }: Props) {
   const navigate = useNavigate();
+  const location = useLocation();
   const [usuario, setUsuario] = useState<Usuario | null>(null);
   const [filas, setFilas] = useState<Comprobante[]>([]);
   const [empresas, setEmpresas] = useState<EmpresaCreditos[]>([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(false);
+  const [prefill, setPrefill] = useState<FacturaPrefill | null>(null);
   const [page, setPage] = useState(1);
 
   const cargar = useCallback(async () => {
@@ -72,6 +81,20 @@ export default function FacturacionCertificaciones({ tenantId }: Props) {
     try { setUsuario(JSON.parse(localStorage.getItem(`auth_user_${tenantId}`) ?? 'null')); } catch { /* noop */ }
     cargar();
   }, [tenantId, navigate, cargar]);
+
+  // Puente desde Infraestructura (u otro módulo): recibe el prefill por navigation state.
+  useEffect(() => {
+    const p = (location.state as { prefillFactura?: FacturaPrefill } | null)?.prefillFactura;
+    if (p) {
+      setPrefill(p);
+      navigate(location.pathname, { replace: true, state: {} }); // limpia el state para no reabrirlo
+    }
+  }, [location.state, location.pathname, navigate]);
+
+  // Abre el modal recién cuando ya cargaron las empresas (el modal las lee al montar).
+  useEffect(() => {
+    if (prefill && !loading) setModal(true);
+  }, [prefill, loading]);
 
   const [nota, setNota] = useState<Comprobante | null>(null);
 
@@ -213,7 +236,9 @@ export default function FacturacionCertificaciones({ tenantId }: Props) {
       </main>
 
       {modal && (
-        <EmitirModal empresas={empresas} onClose={() => setModal(false)} onDone={() => { setModal(false); cargar(); }} />
+        <EmitirModal empresas={empresas} prefill={prefill}
+          onClose={() => { setModal(false); setPrefill(null); }}
+          onDone={() => { setModal(false); setPrefill(null); cargar(); }} />
       )}
       {nota && (
         <NotaModal comprobante={nota} onClose={() => setNota(null)} onDone={() => { setNota(null); cargar(); }} />
@@ -347,13 +372,16 @@ function ClienteCombo({ empresas, value, onChange }: {
 }
 
 /** Modal "Emitir factura" = constructor de líneas (igual al del perfil) + selector de cliente. */
-function EmitirModal({ empresas, onClose, onDone }: {
-  empresas: EmpresaCreditos[]; onClose: () => void; onDone: () => void;
+function EmitirModal({ empresas, prefill, onClose, onDone }: {
+  empresas: EmpresaCreditos[]; prefill?: FacturaPrefill | null; onClose: () => void; onDone: () => void;
 }) {
   // Solo EMPRESAS con RUC real (tipo_doc '6'). Ojo: una persona-DNI tiene su DNI en `ruc`,
   // por eso NO basta con `e.ruc` — hay que exigir que sea empresa (SUNAT: factura solo con RUC).
   const conRuc = empresas.filter(e => esEmpresa(e.tipo_doc) && e.ruc);
-  const [empresaId, setEmpresaId] = useState<number>(conRuc[0]?.id ?? 0);
+  // Si viene un prefill con empresa, ¿esa empresa tiene RUC? (para arrancar en Factura o NV).
+  const prefEmp = prefill?.empresa_id ? empresas.find(e => e.id === prefill.empresa_id) : undefined;
+  const prefTieneRuc = !!(prefEmp && esEmpresa(prefEmp.tipo_doc) && prefEmp.ruc);
+  const [empresaId, setEmpresaId] = useState<number>(prefill?.empresa_id ?? conRuc[0]?.id ?? 0);
   const [planInfo, setPlanInfo] = useState('');
   const [planesCat, setPlanesCat] = useState<PlanCatalogo[]>([]);       // TODOS los planes (mant/impl de cada uno)
   const [planActualSlug, setPlanActualSlug] = useState<string | null>(null);
@@ -366,15 +394,20 @@ function EmitirModal({ empresas, onClose, onDone }: {
     [...WEB_PLANES, ...DOMINIOS, ...HOSTING],
   );
 
-  const [lineas, setLineas] = useState<LineaVenta[]>([]);
+  const [lineas, setLineas] = useState<LineaVenta[]>(
+    prefill?.lineas?.length
+      ? prefill.lineas.map(l => ({ descripcion: l.descripcion, cantidad: l.cantidad, precioUnitario: r2(l.precioUnitario), descuentoTipo: 'pct' as const }))
+      : [],
+  );
 
-  // Por defecto Nota de venta (NV), NO factura — pedido del usuario.
-  const [tipoComp, setTipoComp] = useState<'01' | '03' | 'NV'>('NV');  // factura | boleta | nota de venta
+  // Por defecto Nota de venta (NV), NO factura — pedido del usuario. Si el prefill trae una
+  // empresa con RUC, arranca en Factura (es el caso típico del puente desde Infraestructura).
+  const [tipoComp, setTipoComp] = useState<'01' | '03' | 'NV'>(prefTieneRuc ? '01' : 'NV');  // factura | boleta | nota de venta
   // Cliente: empresa registrada o persona con DNI (solo boleta/NV). Factura siempre empresa.
-  const [clienteModo, setClienteModo] = useState<'empresa' | 'dni'>('empresa');
+  const [clienteModo, setClienteModo] = useState<'empresa' | 'dni'>(prefill && !prefill.empresa_id ? 'dni' : 'empresa');
   const [docTipo, setDocTipo] = useState('1');   // cat.06: 1 DNI · 4 CE · 0 sin doc
   const [numDoc, setNumDoc]   = useState('');
-  const [nombreCli, setNombreCli] = useState('');
+  const [nombreCli, setNombreCli] = useState(prefill && !prefill.empresa_id ? prefill.cliente : '');
   const [descTipo, setDescTipo] = useState<'monto' | 'pct'>('pct');
   const [descVal, setDescVal]   = useState('');
   const [notas, setNotas]       = useState('');

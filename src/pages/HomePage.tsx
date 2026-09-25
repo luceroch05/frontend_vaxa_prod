@@ -635,12 +635,23 @@ function ClientesCarrusel({ alianzas }: { alianzas: Alianza[] }) {
   const fila2 = dosFilas ? items.slice(mid) : [];
   const dur = Math.max(26, items.length * 3.2);
 
+  // Arranca el desplazamiento SOLO cuando el layout ya está medido/pintado.
+  // Así en móvil no se ve el primer ciclo "cortado": queda estático y bien
+  // puesto desde el segundo 1 y recién ahí empieza a correr.
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    let raf2 = 0;
+    const raf1 = requestAnimationFrame(() => { raf2 = requestAnimationFrame(() => setReady(true)); });
+    return () => { cancelAnimationFrame(raf1); cancelAnimationFrame(raf2); };
+  }, []);
+
   return (
-    <div className="space-y-5">
+    <div className={`space-y-5 ${ready ? 'clientes-ready' : ''}`}>
       <style>{`
         @keyframes clientes-scroll { from { transform: translate3d(0,0,0); } to { transform: translate3d(-50%,0,0); } }
         .clientes-marquee { overflow: hidden; -webkit-mask-image: linear-gradient(90deg, transparent, #000 5%, #000 95%, transparent); mask-image: linear-gradient(90deg, transparent, #000 5%, #000 95%, transparent); }
-        .clientes-track { display: flex; width: max-content; will-change: transform; animation-name: clientes-scroll; animation-timing-function: linear; animation-iteration-count: infinite; }
+        .clientes-track { display: flex; width: max-content; will-change: transform; animation-name: clientes-scroll; animation-timing-function: linear; animation-iteration-count: infinite; animation-play-state: paused; }
+        .clientes-ready .clientes-track { animation-play-state: running; }
         .clientes-marquee:hover .clientes-track { animation-play-state: paused; }
         .clientes-slide { flex: 0 0 280px; padding: 0 10px; }
         @media (max-width: 1024px) { .clientes-slide { flex-basis: 240px; } }

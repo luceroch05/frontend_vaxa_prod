@@ -1,0 +1,47 @@
+# ── Vaxa · .htaccess de PRODUCCION (SPA React Router) ─────────────────────────
+# Va en el document root del subdominio (ej: sistemas.vaxasys.com), junto al index.html.
+# NO viene en el dist/ (Vite lo omite con el plugin omitirHtaccess); se pone a mano.
+#
+# CAUSA DEL 403 EN VPS/Apache: el RewriteRule queda PROHIBIDO si el directorio no tiene
+# "FollowSymLinks" -> Apache responde 403 Forbidden. Por eso la 1ra linea es clave.
+#
+# Si "Options +FollowSymLinks" da 500 -> cambiala por "Options +SymLinksIfOwnerMatch".
+# Si igual da 500 -> hay que habilitarlo en el vhost de Apache (AllowOverride All +
+# Options +FollowSymLinks en el <Directory> del sitio) y reiniciar Apache.
+# ──────────────────────────────────────────────────────────────────────────────
+
+Options +FollowSymLinks
+DirectoryIndex index.html
+
+RewriteEngine On
+RewriteBase /
+
+# Si NO es un archivo ni una carpeta real -> servir index.html (React Router).
+# Esto evita el 403/404 al entrar directo por una URL profunda o al hacer F5.
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^ /index.html [L]
+
+
+# ── OPCIONAL (agregar solo si lo de arriba ya funciona, probando de a un bloque) ──
+
+#
+# <IfModule mod_headers.c>
+#   <FilesMatch "index\.html$">
+#     Header set Cache-Control "no-cache, no-store, must-revalidate"
+#   </FilesMatch>
+# </IfModule>
+#
+# <IfModule mod_expires.c>
+#   ExpiresActive On
+#   ExpiresByType text/css                "access plus 1 year"
+#   ExpiresByType application/javascript  "access plus 1 year"
+#   ExpiresByType image/png               "access plus 1 month"
+#   ExpiresByType image/jpeg              "access plus 1 month"
+#   ExpiresByType image/svg+xml           "access plus 1 month"
+#   ExpiresByType font/woff2              "access plus 1 year"
+# </IfModule>
+#
+# <IfModule mod_deflate.c>
+#   AddOutputFilterByType DEFLATE text/html text/css application/javascript application/json image/svg+xml
+# </IfModule>

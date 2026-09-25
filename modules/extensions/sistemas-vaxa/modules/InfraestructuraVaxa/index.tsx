@@ -10,7 +10,7 @@ import { VAXA_CONFIG } from '../../shared/constants';
 import {
   infraRecursosApi, infraAlquileresApi, enviarAvisosCobro,
   type InfraRecurso, type InfraAlquiler,
-  aMensual, diasHasta, estadoVencimiento, fechaCorta,
+  aMensual, diasHasta, estadoVencimiento, estadoEfectivo, fechaCorta,
 } from '../../shared/api/infra.admin.api';
 import RecursosPanel from './RecursosPanel';
 import AlquileresPanel from './AlquileresPanel';
@@ -22,6 +22,15 @@ const GREEN = '#059669';
 
 const fmt = (n: number, moneda = 'PEN') =>
   `${moneda === 'USD' ? '$' : 'S/'} ${n.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+/** Totales por moneda: no se puede sumar S/ con $, así que se acumula por separado. */
+type Money = Record<string, number>;
+const addMoney = (m: Money, moneda: string, n: number) => { const k = moneda || 'PEN'; m[k] = (m[k] ?? 0) + n; };
+/** Muestra cada moneda presente ("S/ 1,200.00 · $ 50.00"); "S/ 0.00" si no hay nada. */
+const fmtMoney = (m: Money): string => {
+  const parts = Object.entries(m).filter(([, v]) => Math.abs(v) > 0.005).map(([mon, v]) => fmt(v, mon));
+  return parts.length ? parts.join('  ·  ') : fmt(0);
+};
 
 export default function InfraestructuraVaxa({ tenantId }: Props) {
   const navigate = useNavigate();
@@ -64,10 +73,48 @@ export default function InfraestructuraVaxa({ tenantId }: Props) {
 
   if (!usuario) return null;
 
-  // ── Métricas del resumen ─────────────────────────────────
-  const pagoMensual = recursos.filter((r) => r.activo !== 0).reduce((s, r) => s + aMensual(Number(r.costo) || 0, r.ciclo), 0);
-  const cobroMensual = alquileres.filter((a) => a.activo !== 0).reduce((s, a) => s + aMensual(Number(a.precio) || 0, a.ciclo), 0);
-  const ganancia = cobroMensual - pagoMensual;
+  // Este módulo es interno de Vaxa y SOLO para ADMINISTRADOR (el backend también lo exige).
+  const esAdmin = String(usuario.role || '').toUpperCase() === 'ADMINISTRADOR';
+  if (!esAdmin) {
+    return (
+      <div className="min-h-screen" style={{ background: '#F5F4F0' }}>
+        <HeaderSistemasVaxa tenantId={tenantId} usuario={usuario}
+          config={{ name: VAXA_CONFIG.NAME, primaryColor: VAXA_CONFIG.PRIMARY_COLOR, secondaryColor: VAXA_CONFIG.SECONDARY_COLOR }} />
+        <main className="max-w-md mx-auto px-6 py-24 text-center">
+          <div className="h-12 w-12 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: '#FEF3C7' }}>
+            <AlertTriangle size={22} style={{ color: '#B45309' }} />
+          </div>
+          <h1 className="text-[19px] font-bold" style={{ color: '#0D0E12' }}>Acceso restringido</h1>
+          <p className="text-[13.5px] mt-2" style={{ color: '#6B7280' }}>El módulo de Infraestructura es solo para administradores de Vaxa.</p>
+        </main>
+      </div>
+    );
+  }
+
+  // ── Métricas del resumen (por moneda: no se mezclan S/ y $) ──
+  const recActivos = recursos.filter((r) => r.activo !== 0);
+  const alqActivos = alquileres.filter((a) => a.activo !== 0);
+
+  const pagoMensual: Money = {};
+  recActivos.forEach((r) => addMoney(pagoMensual, r.moneda, aMensual(Number(r.costo) || 0, r.ciclo)));
+  const cobroMensual: Money = {};
+  alqActivos.forEach((a) => addMoney(cobroMensual, a.moneda, aMensual(Number(a.precio) || 0, a.ciclo)));
+  const ganancia: Money = {};
+  [...new Set([...Object.keys(pagoMensual), ...Object.keys(cobroMensual)])].forEach((m) => {
+    ganancia[m] = (cobroMensual[m] ?? 0) - (pagoMensual[m] ?? 0);
+  });
+  const gananciaNeg = Object.values(ganancia).some((v) => v < -0.005);
+
+  // Cobranza: lo que te deben AHORA (vencido + por vencer) y el vencido aparte.
+  const porCobrar: Money = {};
+  const vencido: Money = {};
+  alqActivos.forEach((a) => {
+    const key = estadoEfectivo(a).key;
+    const monto = Number(a.precio) || 0;
+    if (key === 'vencido') { addMoney(vencido, a.moneda, monto); addMoney(porCobrar, a.moneda, monto); }
+    else if (key === 'por_vencer') { addMoney(porCobrar, a.moneda, monto); }
+  });
+  const hayVencido = Object.values(vencido).some((v) => v > 0.005);
 
   // Próximos vencimientos (recursos = pagar, alquileres = cobrar), ordenados por fecha
   type Venc = { tipo: 'pagar' | 'cobrar'; nombre: string; sub: string; fecha: string; dias: number };
@@ -120,14 +167,18 @@ export default function InfraestructuraVaxa({ tenantId }: Props) {
         ) : tab === 'recursos' ? (
           <RecursosPanel recursos={recursos} onChange={cargar} />
         ) : tab === 'alquileres' ? (
-          <AlquileresPanel alquileres={alquileres} recursos={recursos} onChange={cargar} />
+          <AlquileresPanel alquileres={alquileres} recursos={recursos} tenantId={tenantId} onChange={cargar} />
         ) : (
           /* ── Resumen ── */
           <div className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <MetricCard icon={<CreditCard size={18} />} label="Pagas al mes" value={fmt(pagoMensual)} tint="#0D0E12" />
-              <MetricCard icon={<DollarSign size={18} />} label="Cobras al mes" value={fmt(cobroMensual)} tint={GREEN} />
-              <MetricCard icon={<TrendingUp size={18} />} label="Ganancia mensual" value={fmt(ganancia)} tint={ganancia >= 0 ? GREEN : '#DC2626'} />
+              <MetricCard icon={<CreditCard size={18} />} label="Pagas al mes" value={fmtMoney(pagoMensual)} tint="#0D0E12" />
+              <MetricCard icon={<DollarSign size={18} />} label="Cobras al mes" value={fmtMoney(cobroMensual)} tint={GREEN} />
+              <MetricCard icon={<TrendingUp size={18} />} label="Ganancia mensual" value={fmtMoney(ganancia)} tint={gananciaNeg ? '#DC2626' : GREEN} />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <MetricCard icon={<AlertTriangle size={18} />} label="Por cobrar (vence pronto o vencido)" value={fmtMoney(porCobrar)} tint="#B45309" />
+              <MetricCard icon={<AlertTriangle size={18} />} label="Vencido" value={fmtMoney(vencido)} tint={hayVencido ? '#DC2626' : '#9CA3AF'} />
             </div>
 
             <div className="sv-card p-5">

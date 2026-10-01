@@ -39,8 +39,10 @@ import TerapPacienteDetalle from '../modules/extensions/terapeutico/modules/Paci
 import TerapAgenda       from '../modules/extensions/terapeutico/modules/Agenda';
 import TerapServicios    from '../modules/extensions/terapeutico/modules/Servicios';
 import TerapVentas        from '../modules/extensions/terapeutico/modules/Ventas';
+import TerapNuevaVenta   from '../modules/extensions/terapeutico/modules/Ventas/NuevaVenta';
 import TerapInventario    from '../modules/extensions/terapeutico/modules/Inventario';
 import TerapCaja          from '../modules/extensions/terapeutico/modules/Caja';
+import TerapReportes      from '../modules/extensions/terapeutico/modules/Reportes';
 import TerapMiWeb        from '../modules/extensions/terapeutico/modules/MiWeb';
 import TerapAuditoria    from '../modules/extensions/terapeutico/modules/Auditoria';
 import TerapLanding      from '../modules/extensions/terapeutico/modules/Landing';
@@ -109,8 +111,10 @@ function terapeuticoChildren() {
           <Route path="agenda" element={<TerapAgenda />} />
           <Route path="servicios" element={<TerapServicios />} />
           <Route path="ventas" element={<TerapVentas />} />
+          <Route path="ventas/nueva" element={<TerapNuevaVenta />} />
           <Route path="inventario" element={<TerapInventario />} />
           <Route path="caja" element={<TerapCaja />} />
+          <Route path="reportes" element={<TerapReportes />} />
           <Route path="web" element={<TerapMiWeb />} />
           <Route path="auditoria" element={<TerapAuditoria />} />
           <Route path="pacientes/:id" element={<TerapPacienteDetalle />} />
@@ -135,10 +139,21 @@ function tenantChildren() {
       <Route path="historial/:loteId/certificados" element={<LazyRoute module="Certificados" paramKey="loteId" />} />
       <Route path="validar"     element={<LazyRoute module="Validacion" />} />
       <Route path="sistemas"    element={<LazyRoute module="Sistemas" />} />
+      {/* Registro CENTRALIZADO de clientes (product-agnóstico): SaaS y/o servicios a medida */}
+      <Route path="registrar-empresa" element={<LazyRoute module="RegistrarEmpresaCertificaciones" />} />
+      {/* Finanzas CENTRALIZADAS (para TODOS los sistemas, no solo Certificados) */}
+      <Route path="tarifario"    element={<LazyRoute module="TarifarioCertificaciones" />} />
+      <Route path="cotizaciones" element={<LazyRoute module="CotizacionesCertificaciones" />} />
+      <Route path="facturacion"  element={<LazyRoute module="FacturacionCertificaciones" />} />
       <Route path="usuarios"    element={<LazyRoute module="UsuariosSistemasVaxa" />} />
       <Route path="landing"     element={<LazyRoute module="LandingVaxa" />} />
       <Route path="infraestructura" element={<LazyRoute module="InfraestructuraVaxa" />} />
       <Route path="certificaciones"                       element={<LazyRoute module="DashboardCertificaciones" />} />
+      <Route path="historias-clinicas"                    element={<LazyRoute module="DashboardHistorias" />} />
+      <Route path="historias-clinicas/empresas"           element={<LazyRoute module="EmpresasCertificaciones" />} />
+      <Route path="historias-clinicas/cobranza"           element={<LazyRoute module="CobranzaCertificaciones" />} />
+      <Route path="historias-clinicas/registrar-empresa"  element={<LazyRoute module="RegistrarEmpresaCertificaciones" />} />
+      <Route path="historias-clinicas/empresa/:empresaId" element={<LazyRoute module="PerfilEmpresa" paramKey="empresaId" />} />
       <Route path="certificaciones/empresas"              element={<LazyRoute module="EmpresasCertificaciones" />} />
       <Route path="certificaciones/cobranza"              element={<LazyRoute module="CobranzaCertificaciones" />} />
       <Route path="certificaciones/facturacion"           element={<LazyRoute module="FacturacionCertificaciones" />} />
@@ -222,6 +237,7 @@ export default function App() {
               <Route path="agenda" element={<TerapAgenda />} />
               <Route path="servicios" element={<TerapServicios />} />
               <Route path="ventas" element={<TerapVentas />} />
+          <Route path="ventas/nueva" element={<TerapNuevaVenta />} />
               <Route path="inventario" element={<TerapInventario />} />
               <Route path="caja" element={<TerapCaja />} />
               <Route path="web" element={<TerapMiWeb />} />

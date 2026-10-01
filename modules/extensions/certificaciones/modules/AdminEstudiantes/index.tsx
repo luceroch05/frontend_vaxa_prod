@@ -397,10 +397,10 @@ function EditarModal({ empresa, participante, onClose, onDone }: {
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4"
       style={{ background: 'rgba(13,14,18,0.45)', backdropFilter: 'blur(4px)' }}
       onMouseDown={onClose}>
-      <div className="w-full max-w-[480px] bg-white rounded-2xl overflow-hidden"
+      <div className="w-full max-w-[480px] max-h-[90vh] flex flex-col bg-white rounded-2xl overflow-hidden"
         style={{ border: '1px solid rgba(15,24,41,0.08)', boxShadow: '0 20px 60px -12px rgba(13,14,18,0.35)' }}
         onMouseDown={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid #EEECE6' }}>
+        <div className="flex-shrink-0 flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid #EEECE6' }}>
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: '#FBF7EC', color: '#C9962C' }}>
               <Pencil size={15} />
@@ -410,7 +410,7 @@ function EditarModal({ empresa, participante, onClose, onDone }: {
           <button onClick={onClose} className="p-1 rounded-lg hover:bg-[#F5F4F0]" style={{ color: '#B0A898' }}><X size={16} /></button>
         </div>
 
-        <div className="p-5 space-y-3">
+        <div className="flex-1 overflow-y-auto p-5 space-y-3">
           {error && (
             <div className="flex items-center gap-2 text-[12.5px] px-3 py-2 rounded-xl"
               style={{ background: '#FEF2F2', border: '1px solid #FECACA', color: '#B91C1C' }}>
@@ -500,7 +500,7 @@ function EditarModal({ empresa, participante, onClose, onDone }: {
           </div>
         </div>
 
-        <div className="flex items-center justify-end gap-2.5 px-5 py-4" style={{ borderTop: '1px solid #EEECE6' }}>
+        <div className="flex-shrink-0 flex items-center justify-end gap-2.5 px-5 py-4" style={{ borderTop: '1px solid #EEECE6' }}>
           <button onClick={onClose} className="px-4 py-2 text-[13px] font-semibold rounded-xl"
             style={{ color: '#4B5563', border: '1px solid rgba(15,24,41,0.12)' }}>Cancelar</button>
           <button onClick={submit} disabled={saving || !puedeGuardar} className="vx-btn vx-btn-primary px-4 py-2">

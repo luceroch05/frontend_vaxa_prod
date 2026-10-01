@@ -89,8 +89,9 @@ export default function Pacientes() {
       {/* Cabecera */}
       <div className="flex items-center justify-between mb-5 gap-3 flex-wrap">
         <div className="flex items-center gap-2.5">
-          <div className="h-10 w-10 rounded-xl flex items-center justify-center" style={{ background: '#CCFBF1' }}>
-            <Users size={19} style={{ color: TEAL }} />
+          <div className="h-11 w-11 rounded-2xl flex items-center justify-center shrink-0"
+            style={{ background: 'linear-gradient(135deg,#14B8A6,#0F766E)', boxShadow: '0 8px 20px -6px rgba(15,118,110,0.5)' }}>
+            <Users size={20} color="#fff" />
           </div>
           <div>
             <h1 className="text-[21px] font-bold leading-tight" style={{ color: '#0E1A1A' }}>Pacientes</h1>
@@ -135,7 +136,7 @@ export default function Pacientes() {
       </div>
 
       {/* Lista */}
-      <div className="rounded-2xl bg-white overflow-hidden" style={{ border: '1px solid #E5E9E7' }}>
+      <div className="rounded-2xl bg-white overflow-hidden" style={{ border: '1px solid #EAEFEE', boxShadow: '0 1px 2px rgba(16,48,44,.04), 0 12px 32px -16px rgba(16,48,44,.14)' }}>
         {loading ? (
           <SkeletonList />
         ) : filtrados.length === 0 ? (
@@ -214,8 +215,8 @@ export default function Pacientes() {
 /* ── Componentes de apoyo ───────────────────────────────────────── */
 function StatCard({ label, value, tint, fg, icon }: { label: string; value: number; tint: string; fg: string; icon: React.ReactNode }) {
   return (
-    <div className="rounded-xl bg-white px-4 py-3 flex items-center gap-3" style={{ border: '1px solid #E5E9E7' }}>
-      <div className="h-8 w-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: tint, color: fg }}>{icon}</div>
+    <div className="rounded-2xl bg-white px-4 py-3.5 flex items-center gap-3" style={{ border: '1px solid #EAEFEE', boxShadow: '0 1px 2px rgba(16,48,44,.04), 0 12px 32px -16px rgba(16,48,44,.16)' }}>
+      <div className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: tint, color: fg }}>{icon}</div>
       <div className="leading-tight">
         <p className="text-[19px] font-bold" style={{ color: '#0E1A1A' }}>{value}</p>
         <p className="text-[11px]" style={{ color: '#6B7280' }}>{label}</p>

@@ -112,8 +112,8 @@ export interface DiagnosticoDto {
 
 export interface Terapeuta { id: number; nombre: string; }
 
-export interface Servicio { id: number; nombre: string; descripcion: string | null; precio: number; activo: number; }
-export interface ServicioDto { nombre: string; descripcion?: string | null; precio?: number | null; activo?: boolean; }
+export interface Servicio { id: number; nombre: string; descripcion: string | null; precio: number; duracion_min: number; activo: number; }
+export interface ServicioDto { nombre: string; descripcion?: string | null; precio?: number | null; duracion_min?: number | null; activo?: boolean; }
 
 // ── Finanzas: Inventario / Ventas / Caja ──────────────────────────────────────
 export interface Producto {
@@ -147,12 +147,13 @@ export interface InventarioMov {
 export interface VentaItem {
   id: number; venta_id: number; tipo: 'servicio' | 'producto';
   servicio_id: number | null; producto_id: number | null;
-  descripcion: string; cantidad: number; precio_unit: number; subtotal: number;
+  descripcion: string; cantidad: number; precio_unit: number; descuento: number; subtotal: number;
 }
+export interface VentaPago { metodo_pago: string; monto: number; }
 export interface Venta {
   id: number; paciente_id: number | null; paciente_nombre: string | null;
-  fecha: string; total: number; metodo_pago: string; nota: string | null;
-  estado: 'emitida' | 'anulada'; vendedor: string | null; items?: VentaItem[];
+  fecha: string; total: number; descuento: number; metodo_pago: string; nota: string | null;
+  estado: 'emitida' | 'anulada'; vendedor: string | null; items?: VentaItem[]; pagos?: VentaPago[];
 }
 export interface VentaItemDto {
   tipo: 'servicio' | 'producto';
@@ -160,11 +161,16 @@ export interface VentaItemDto {
   producto_id?: number | null;
   cantidad?: number;
   precio_unit?: number | null;
+  descuento?: number;   // descuento de la línea en S/ (ya resuelto de %→monto)
 }
+export interface PagoDto { metodo: string; monto: number; }
 export interface VentaDto {
   paciente_id?: number | null;
   metodo_pago?: string | null;
+  pagos?: PagoDto[];    // pago dividido: varios métodos; su suma debe ser el total
   nota?: string | null;
+  fecha?: string | null;
+  descuento?: number;   // descuento GLOBAL de la venta en S/
   items: VentaItemDto[];
 }
 export interface CajaMov {
@@ -210,6 +216,14 @@ export interface TratamientoDto {
 export interface Asignacion {
   id: number; paciente_id: number; terapeuta_id: number; terapeuta_nombre: string;
   servicio_id: number | null; servicio_nombre: string | null;
+}
+
+/** Saldo de sesiones de un servicio para un paciente (vínculo venta↔cita). */
+export interface SaldoSesiones {
+  comprado: number;
+  consumido: number;
+  saldo: number;
+  requiere: boolean;   // true si Ventas + Agenda están activos (la regla aplica)
 }
 
 export interface Cita {
@@ -358,7 +372,41 @@ export interface PortalData {
   tareas: PortalTarea[];
 }
 
+// ── Reportes gerenciales del centro ────────────────────────────────────────────
+export interface ReporteServicio {
+  servicio_id: number;
+  nombre: string;
+  pacientes: number;   // pacientes distintos que pidieron cita del servicio (en el rango)
+  citas: number;       // citas agendadas del servicio
+  sesiones: number;    // sesiones (evoluciones) del servicio
+  ingresos: number;    // S/ facturado por el servicio
+}
+export interface ReportesData {
+  rango: { desde: string; hasta: string };
+  resumen: {
+    pacientes_activos: number;
+    pacientes_nuevos: number;
+    sesiones: number;
+    citas: number;
+    ingresos_servicios: number;
+    servicio_top: string | null;
+  };
+  servicios: ReporteServicio[];
+  pacientes_por_sexo: { sexo: string; total: number }[];
+  pacientes_por_mes: { mes: string; total: number }[];
+  citas_por_estado: { estado: string; total: number }[];
+}
+
 export interface LoginResponse { token: string; usuario: AuthUser; }
+
+/** Módulos que Vaxa activa/desactiva por centro (controlan el nav del panel). */
+export interface HcModulos {
+  pacientes: boolean; historia: boolean; agenda: boolean; servicios: boolean;
+  ventas: boolean; inventario: boolean; caja: boolean; web: boolean;
+}
+/** Datos fiscales del centro para el comprobante de venta. */
+export interface CentroFiscal { razon_social: string | null; ruc: string | null; logo_url: string | null; }
+export interface MiConfig { modulos: HcModulos; centro: CentroFiscal; }
 
 // Opciones de auth (tenant header + token) por empresa.
 const opts = (empresa: string) => ({
@@ -384,6 +432,9 @@ export const terapAuthApi = {
 export const terapApi = {
   catalogos: (empresa: string) => api.get<Catalogos>(`${B}/catalogos`, opts(empresa)),
 
+  /** Config del centro: módulos activos (nav) + datos fiscales (comprobante). */
+  miConfig: (empresa: string) => api.get<MiConfig>(`${B}/mi-config`, opts(empresa)),
+
   // Pacientes
   listPacientes: (empresa: string, incluirInactivos = false) =>
     api.get<Paciente[]>(`${B}/pacientes${incluirInactivos ? '?todos=1' : ''}`, opts(empresa)),
@@ -401,6 +452,9 @@ export const terapApi = {
     api.patch<Paciente>(`${B}/pacientes/${id}`, data, opts(empresa)),
   setActivoPaciente: (empresa: string, id: number, activo: boolean) =>
     api.patch<void>(`${B}/pacientes/${id}/activo`, { activo }, opts(empresa)),
+  /** Elimina el paciente (solo ADMIN). Devuelve si se borró o se archivó (tiene historia/ventas). */
+  eliminarPaciente: (empresa: string, id: number) =>
+    api.delete<{ modo: 'eliminada' | 'archivada' }>(`${B}/pacientes/${id}`, opts(empresa)),
 
   // Historia
   getHistoria: (empresa: string, pacienteId: number) =>
@@ -472,8 +526,14 @@ export const terapApi = {
   },
   createCita: (empresa: string, data: CitaDto) =>
     api.post<Cita>(`${B}/citas`, data, opts(empresa)),
+  /** Saldo de sesiones de un servicio para un paciente (comprado − usado). `requiere`
+   *  indica si el vínculo venta↔cita aplica (Ventas + Agenda activos). */
+  saldoSesiones: (empresa: string, pacienteId: number, servicioId: number) =>
+    api.get<SaldoSesiones>(`${B}/pacientes/${pacienteId}/saldo-sesiones?servicio_id=${servicioId}`, opts(empresa)),
   updateCita: (empresa: string, id: number, data: CitaUpdateDto) =>
     api.patch<Cita>(`${B}/citas/${id}`, data, opts(empresa)),
+  deleteCita: (empresa: string, id: number) =>
+    api.delete<{ ok: boolean }>(`${B}/citas/${id}`, opts(empresa)),
 
   // Objetivos terapéuticos + progreso
   listObjetivos: (empresa: string, historiaId: number) =>
@@ -601,11 +661,12 @@ export const terapApi = {
     api.post<Venta>(`${B}/ventas/${id}/anular`, {}, opts(empresa)),
 
   // ── Finanzas: Caja ────────────────────────────────────────────────────────────
-  listCaja: (empresa: string, params?: { desde?: string; hasta?: string; tipo?: string }) => {
+  listCaja: (empresa: string, params?: { desde?: string; hasta?: string; tipo?: string; metodo?: string }) => {
     const q = new URLSearchParams();
-    if (params?.desde) q.set('desde', params.desde);
-    if (params?.hasta) q.set('hasta', params.hasta);
-    if (params?.tipo)  q.set('tipo', params.tipo);
+    if (params?.desde)  q.set('desde', params.desde);
+    if (params?.hasta)  q.set('hasta', params.hasta);
+    if (params?.tipo)   q.set('tipo', params.tipo);
+    if (params?.metodo) q.set('metodo', params.metodo);
     const qs = q.toString();
     return api.get<CajaData>(`${B}/caja${qs ? `?${qs}` : ''}`, opts(empresa));
   },
@@ -613,6 +674,15 @@ export const terapApi = {
     api.post<CajaMov>(`${B}/caja`, data, opts(empresa)),
   deleteCajaMov: (empresa: string, id: number) =>
     api.delete<void>(`${B}/caja/${id}`, opts(empresa)),
+
+  // ── Reportes gerenciales (solo lectura; ADMIN/ADMISION) ─────────────────────────
+  reportes: (empresa: string, params?: { desde?: string; hasta?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.desde) q.set('desde', params.desde);
+    if (params?.hasta) q.set('hasta', params.hasta);
+    const qs = q.toString();
+    return api.get<ReportesData>(`${B}/reportes${qs ? `?${qs}` : ''}`, opts(empresa));
+  },
 };
 
 export interface HcAuditoriaEvento {

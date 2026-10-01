@@ -76,3 +76,14 @@ export function publicCertUrl(empresa: string, sub = ''): string {
   if (base) return `${base}/${empresa}${sub}`;
   return `${window.location.origin}/${empresa}/certificados${sub}`;
 }
+
+/**
+ * URL ABSOLUTA pública del panel de Historias Clínicas de un centro (para compartir).
+ * Si está definido VITE_HISTORIAS_URL (subdominio `historias.`), apunta ahí; si no
+ * (legacy/local), usa el origen actual con el segmento `/terapeutico`.
+ */
+export function publicHistoriasUrl(empresa: string, sub = ''): string {
+  const base = (import.meta.env.VITE_HISTORIAS_URL as string | undefined)?.replace(/\/$/, '');
+  if (base) return `${base}/${empresa}${sub}`;
+  return `${window.location.origin}/${empresa}/terapeutico${sub}`;
+}

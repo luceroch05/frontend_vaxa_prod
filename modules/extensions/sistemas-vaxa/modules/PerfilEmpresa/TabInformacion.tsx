@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Building2, FileText, Globe, CreditCard, Edit, Loader2, Upload, AlertCircle, User } from '@/components/ui/icon';
 
 import { creditosAdminApi, type EmpresaCreditos } from '../../shared/api/creditos.admin.api';
-import { publicCertUrl } from '@/lib/paths';
+import { publicCertUrl, publicHistoriasUrl } from '@/lib/paths';
 import { imgUrl } from '@/lib/api/client';
 import CopyLinkCard from '../../shared/components/CopyLinkCard';
 import { DOC_RULES, sanitizeDoc, esEmpresa, tipoClienteLabel, docLabel, nombreLabel } from '../../shared/docs';
@@ -160,17 +160,20 @@ export default function TabInformacion({ empresa, onChange }: TabInformacionProp
           <Field label={docLabel(tipoDoc)}>
             <div className="flex gap-2">
               <select value={tipoDoc}
-                onChange={(e) => { const t = e.target.value; setTipoDoc(t); setRuc((r) => sanitizeDoc(r, t)); }}
-                className={inputCls} style={{ width: 110 }}>
+                onChange={(e) => { const t = e.target.value; setTipoDoc(t); setRuc((r) => t === '0' ? '' : sanitizeDoc(r, t)); }}
+                className={inputCls} style={{ width: 130 }}>
                 <option value="6">RUC</option>
                 <option value="1">DNI</option>
                 <option value="4">CE</option>
                 <option value="7">Pasaporte</option>
+                <option value="0">Sin documento</option>
               </select>
               <input value={ruc} onChange={(e) => setRuc(sanitizeDoc(e.target.value, tipoDoc))}
                 inputMode={DOC_RULES[tipoDoc]?.numeric ? 'numeric' : 'text'}
                 maxLength={DOC_RULES[tipoDoc]?.max || 15}
-                className={`${inputCls} flex-1`} />
+                disabled={tipoDoc === '0'}
+                placeholder={tipoDoc === '0' ? 'Sin documento' : ''}
+                className={`${inputCls} flex-1 disabled:bg-gray-100 disabled:text-gray-400`} />
             </div>
           </Field>
           <Field label="Estado">
@@ -231,7 +234,12 @@ export default function TabInformacion({ empresa, onChange }: TabInformacionProp
     inscripcion: publicCertUrl(empresa.tenant_slug),
     validacion:  publicCertUrl(empresa.tenant_slug, '/validar'),
     login:       publicCertUrl(empresa.tenant_slug, '/login'),
+    historias:   publicHistoriasUrl(empresa.tenant_slug, '/login'),
   };
+  // Enlaces según los sistemas que contrató el cliente (sin fila = certificados, legacy).
+  const prodsCliente = (empresa.productos ?? '').split(',').map((s) => s.trim()).filter(Boolean);
+  const tieneCert = prodsCliente.length === 0 || prodsCliente.includes('certificaciones');
+  const tieneHC   = prodsCliente.includes('historias-clinicas');
 
  
 
@@ -281,9 +289,12 @@ export default function TabInformacion({ empresa, onChange }: TabInformacionProp
           </p>
         </div>
 
-        <CopyLinkCard label="Inscripción" value={links.inscripcion} />
-        <CopyLinkCard label="Validación de certificados" value={links.validacion} />
-        <CopyLinkCard label="Login interno" value={links.login} />
+        {tieneCert && <>
+          <CopyLinkCard label="Certificados · Inscripción" value={links.inscripcion} />
+          <CopyLinkCard label="Certificados · Validación" value={links.validacion} />
+          <CopyLinkCard label="Certificados · Login interno" value={links.login} />
+        </>}
+        {tieneHC && <CopyLinkCard label="Historias Clínicas · Acceso al panel" value={links.historias} />}
       </div>
     </div>
   );

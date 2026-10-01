@@ -5,9 +5,22 @@ import { createPortal } from 'react-dom';
 import { Plus, User, Mail, Loader2, AlertCircle, X, Edit, Trash2 } from '@/components/ui/icon';
 import {
   creditosAdminApi, type EmpresaCreditos, type UsuarioEmpresa, type Rol, type EstadoPlanEmpresa,
+  type HcModulos, type ProductoEmpresa,
 } from '../../shared/api/creditos.admin.api';
 
-interface TabUsuariosProps { empresa: EmpresaCreditos; }
+/** Módulos del panel de Historias Clínicas, en orden de menú, para los toggles de Vaxa. */
+const HC_MODULOS_UI: { key: keyof HcModulos; label: string; desc: string }[] = [
+  { key: 'pacientes',  label: 'Pacientes',  desc: 'Registro de pacientes y datos' },
+  { key: 'historia',   label: 'Historia clínica', desc: 'Expediente: historia, tratamientos, objetivos, sesiones, tareas' },
+  { key: 'agenda',     label: 'Agenda',     desc: 'Citas y calendario' },
+  { key: 'servicios',  label: 'Servicios',  desc: 'Catálogo de servicios del centro' },
+  { key: 'ventas',     label: 'Ventas',     desc: 'Ventas y comprobantes' },
+  { key: 'inventario', label: 'Inventario', desc: 'Productos y stock' },
+  { key: 'caja',       label: 'Caja',       desc: 'Ingresos y egresos' },
+  { key: 'web',        label: 'Mi Web',     desc: 'Landing pública del centro' },
+];
+
+interface TabUsuariosProps { empresa: EmpresaCreditos; producto: string; }
 
 const VACIO = { nombres: '', apellidos: '', correo: '', contrasena: '', rol_id: '' as number | '', activo: true };
 
@@ -21,13 +34,12 @@ const PRODUCTOS = [
   { slug: 'historias-clinicas', label: 'Historias Clínicas' },
 ] as const;
 
-export default function TabUsuarios({ empresa }: TabUsuariosProps) {
+export default function TabUsuarios({ empresa, producto }: TabUsuariosProps) {
   const [usuarios, setUsuarios] = useState<UsuarioEmpresa[] | null>(null);
   const [roles, setRoles] = useState<Rol[]>([]);
   const [estado, setEstado] = useState<EstadoPlanEmpresa | null>(null);   // plan vigente (usuarios incluidos)
   const [error, setError] = useState<string | null>(null);
-  // Producto activo: cada panel (Certificados / Historias Clínicas) lista y crea SUS usuarios.
-  const [producto, setProducto] = useState<string>('certificaciones');
+  // El producto lo decide la pestaña de sistema del perfil (no hay selector interno).
 
   // null = cerrado · 'nuevo' = crear · number = editar ese usuario
   const [modal, setModal] = useState<'nuevo' | number | null>(null);
@@ -35,6 +47,16 @@ export default function TabUsuarios({ empresa }: TabUsuariosProps) {
   const [saving, setSaving] = useState(false);
   const [confirmDel, setConfirmDel] = useState<UsuarioEmpresa | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  // Estado de los productos del centro (Certificados / Historias Clínicas activo o no).
+  const [productos, setProductos] = useState<ProductoEmpresa[] | null>(null);
+  const [prodSaving, setProdSaving] = useState(false);
+
+  // Módulos activos del centro (solo aplica al panel de Historias Clínicas).
+  const esHC = producto === 'historias-clinicas';
+  const [modulos, setModulos] = useState<HcModulos | null>(null);
+  const [modSaving, setModSaving] = useState(false);
+  const [modMsg, setModMsg] = useState<string | null>(null);
 
   const editando = typeof modal === 'number';
 
@@ -51,6 +73,52 @@ export default function TabUsuarios({ empresa }: TabUsuariosProps) {
   }, [empresa.id, producto]);
 
   useEffect(() => { cargar(); }, [cargar]);
+
+  // Estado de productos del centro (para el toggle Certificados/HC activo o no).
+  useEffect(() => {
+    let vivo = true;
+    creditosAdminApi.getProductosEmpresa(empresa.id)
+      .then((p) => { if (vivo) setProductos(p); })
+      .catch(() => { if (vivo) setProductos([]); });
+    return () => { vivo = false; };
+  }, [empresa.id]);
+
+  const productoActivo = productos?.find((p) => p.slug === producto)?.activo === 1;
+
+  const toggleProducto = async () => {
+    if (!productos || prodSaving) return;
+    setProdSaving(true);
+    try {
+      const actualizado = await creditosAdminApi.setProductoEmpresa(empresa.id, producto, !productoActivo);
+      setProductos(actualizado);
+    } catch (e) { setError((e as Error).message); }
+    finally { setProdSaving(false); }
+  };
+
+  // Carga los módulos del centro al entrar al panel de Historias Clínicas.
+  useEffect(() => {
+    if (!esHC) { setModulos(null); return; }
+    let vivo = true;
+    setModMsg(null); setModulos(null);
+    creditosAdminApi.getHcModulos(empresa.id)
+      .then((m) => { if (vivo) setModulos(m); })
+      .catch(() => { if (vivo) setModMsg('No se pudieron cargar los módulos.'); });
+    return () => { vivo = false; };
+  }, [esHC, empresa.id]);
+
+  const toggleModulo = async (key: keyof HcModulos) => {
+    if (!modulos || modSaving) return;
+    const siguiente = { ...modulos, [key]: !modulos[key] };
+    setModulos(siguiente); setModSaving(true); setModMsg(null);
+    try {
+      const guardado = await creditosAdminApi.setHcModulos(empresa.id, siguiente);
+      setModulos(guardado);
+      setModMsg('Cambios guardados');
+    } catch (e) {
+      setModulos(modulos);   // revertir el optimista
+      setModMsg((e as Error).message || 'No se pudo guardar.');
+    } finally { setModSaving(false); }
+  };
 
   const abrirNuevo = () => {
     setError(null);
@@ -136,22 +204,67 @@ export default function TabUsuarios({ empresa }: TabUsuariosProps) {
 
   return (
     <div className="space-y-6">
-      {/* Selector de producto: cada panel tiene sus propios usuarios (no se comparten). */}
-      <div className="inline-flex rounded-xl p-1 gap-1" style={{ background: '#F1F0EC', border: '1px solid #EEECE6' }}>
-        {PRODUCTOS.map((p) => {
-          const activo = producto === p.slug;
-          return (
-            <button key={p.slug} type="button"
-              onClick={() => { if (!activo) { setError(null); setProducto(p.slug); } }}
-              className="px-4 py-1.5 rounded-lg text-[12.5px] font-semibold transition-colors"
-              style={activo
-                ? { background: '#fff', color: '#0D0E12', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }
-                : { color: '#8A8578' }}>
-              {p.label}
-            </button>
-          );
-        })}
-      </div>
+      {/* Estado del producto para el centro: Vaxa lo activa o desactiva por completo. */}
+      {productos && (
+        <div className="rounded-2xl p-4 flex items-center justify-between gap-3"
+          style={{ background: productoActivo ? '#F0FDFA' : '#FEF2F2', border: `1px solid ${productoActivo ? '#CCFBF1' : '#FECACA'}` }}>
+          <div>
+            <h3 className="text-[15px] font-bold" style={{ color: '#0D0E12' }}>
+              {productoLabel} · {productoActivo ? 'Activo' : 'Desactivado'}
+            </h3>
+            <p className="text-[12.5px] mt-0.5" style={{ color: '#9CA3AF' }}>
+              {productoActivo
+                ? `Este centro puede ingresar al panel de ${productoLabel}.`
+                : `El centro NO puede ingresar a ${productoLabel} (el login queda bloqueado).`}
+            </p>
+          </div>
+          <button type="button" onClick={toggleProducto} disabled={prodSaving}
+            className="relative inline-block h-6 w-11 rounded-full shrink-0 transition-colors disabled:opacity-60"
+            style={{ background: productoActivo ? '#0F766E' : '#D4D2CA' }}>
+            <span className="absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all"
+              style={{ left: productoActivo ? '22px' : '2px' }} />
+          </button>
+        </div>
+      )}
+
+      {/* Módulos activos del centro (solo Historias Clínicas). Vaxa prende/apaga lo que contrató. */}
+      {esHC && productoActivo && (
+        <div className="rounded-2xl p-4" style={{ background: '#fff', border: '1px solid #EEECE6' }}>
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h3 className="text-[15px] font-bold" style={{ color: '#0D0E12' }}>Módulos activos</h3>
+              <p className="text-[12.5px] mt-0.5" style={{ color: '#9CA3AF' }}>
+                Qué secciones ve este centro en su panel. Se aplican al instante.
+              </p>
+            </div>
+            {modMsg && <span className="text-[12px] font-medium" style={{ color: modSaving ? '#9CA3AF' : '#0F766E' }}>{modMsg}</span>}
+          </div>
+          {!modulos ? (
+            <p className="text-[12.5px]" style={{ color: '#9CA3AF' }}>Cargando módulos…</p>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {HC_MODULOS_UI.map((m) => {
+                const on = modulos[m.key];
+                return (
+                  <button key={m.key} type="button" onClick={() => toggleModulo(m.key)} disabled={modSaving}
+                    className="flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl text-left transition-colors disabled:opacity-60"
+                    style={{ border: '1px solid #EEECE6', background: on ? '#F0FDFA' : '#FAFAF8' }}>
+                    <span>
+                      <span className="block text-[13px] font-semibold" style={{ color: '#0D0E12' }}>{m.label}</span>
+                      <span className="block text-[11.5px]" style={{ color: '#9CA3AF' }}>{m.desc}</span>
+                    </span>
+                    <span className="relative inline-block h-5 w-9 rounded-full shrink-0 transition-colors"
+                      style={{ background: on ? '#0F766E' : '#D4D2CA' }}>
+                      <span className="absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all"
+                        style={{ left: on ? '18px' : '2px' }} />
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="flex items-center justify-between">
         <div>

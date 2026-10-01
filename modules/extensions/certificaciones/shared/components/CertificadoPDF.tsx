@@ -206,8 +206,10 @@ export function CertificadoPDF({ certificado, config, onClose }: Props) {
   const cuerpoBase  = config.texto_personalizado?.trim() || cuerpoDefault;
   const docNum  = (certificado as any).numero_documento ?? '';
   const docTipo = (certificado as any).tipo_doc_codigo ?? (certificado as any).tipo_documento ?? '';
+  // Nombre con sus grados (Lic., T.M., …) tal como viene; los grados salen para todas las calidades.
+  const nombreMostrar = certificado.participante_nombre;
   const cuerpoTexto = expandirVariablesCertificado(cuerpoBase, {
-    participante: certificado.participante_nombre,
+    participante: nombreMostrar,
     programa:     certificado.programa_nombre,
     horas:        certificado.horas_academicas ?? '',
     creditos:     certificado.creditos ?? '',
@@ -229,8 +231,8 @@ export function CertificadoPDF({ certificado, config, onClose }: Props) {
   const layout     = parseLayout(config.layout_personalizado);
   const usarLienzo = layoutActivo(layout);
   const varsLienzo: Record<string, string> = {
-    nombre: certificado.participante_nombre, participante: certificado.participante_nombre,
-    nombreCorto: nombreCortoDe(certificado.participante_nombre),
+    nombre: nombreMostrar, participante: nombreMostrar,
+    nombreCorto: nombreCortoDe(nombreMostrar),
     calidad: (certificado as any).calidad ?? 'Participante',
     tipoDocumento: docTipo, documento: docNum,
     programa: certificado.programa_nombre, curso: certificado.programa_nombre,
@@ -256,7 +258,7 @@ export function CertificadoPDF({ certificado, config, onClose }: Props) {
         background: '#0D0E12', borderBottom: '1px solid rgba(255,255,255,0.08)',
       }}>
         <p style={{ margin: 0, color: '#F1F5F9', fontSize: 14, fontWeight: 600 }}>
-          {certificado.participante_nombre}
+          {nombreMostrar}
         </p>
         <div style={{ display: 'flex', gap: 8 }}>
           <button
@@ -372,7 +374,7 @@ export function CertificadoPDF({ certificado, config, onClose }: Props) {
                 fontFamily: 'Georgia, "Times New Roman", serif',
                 whiteSpace: 'pre-wrap',
               }}>
-                {nombreCortoDe(certificado.participante_nombre)}
+                {nombreCortoDe(nombreMostrar)}
               </p>
 
               {/* Cuerpo */}

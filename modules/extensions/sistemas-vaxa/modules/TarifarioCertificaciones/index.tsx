@@ -88,7 +88,7 @@ export default function TarifarioCertificaciones({ tenantId }: Props) {
         config={{ name: 'Sistemas Vaxa', primaryColor: VAXA_CONFIG.PRIMARY_COLOR, secondaryColor: VAXA_CONFIG.SECONDARY_COLOR }} />
 
       <main className="max-w-5xl mx-auto px-5 sm:px-6 lg:px-8 py-7">
-        <div className="no-print"><BotonVolver to={tenantPath(tenantId, '/certificaciones')} /></div>
+        <div className="no-print"><BotonVolver to={tenantPath(tenantId, '/sistemas')} /></div>
 
         <div className="mb-6 flex items-end justify-between gap-4 page-enter">
           <div>

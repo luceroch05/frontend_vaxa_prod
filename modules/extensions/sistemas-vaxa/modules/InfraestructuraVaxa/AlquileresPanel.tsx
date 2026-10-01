@@ -140,7 +140,7 @@ export default function AlquileresPanel({ alquileres, recursos, tenantId, onChan
         precioUnitario: Number(x.precio) || 0,
       })),
     };
-    navigate(tenantPath(tenantId, '/certificaciones/facturacion'), { state: { prefillFactura } });
+    navigate(tenantPath(tenantId, '/facturacion'), { state: { prefillFactura } });
   };
 
   // ── Lista filtrada ──────────────────────────────────────

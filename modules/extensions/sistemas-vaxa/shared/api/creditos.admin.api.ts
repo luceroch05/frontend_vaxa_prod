@@ -25,6 +25,7 @@ export interface EmpresaCreditos {
   ilimitado?: boolean;      // plan ilimitado (Corporativo): saldo sin tope
   permite_diseno?: boolean; // servicio a medida: editor de "Diseño personalizado (Lienzo)" (lo activa Vaxa)
   precio_certificado?: number | null; // modo "Pago por certificado": S/ por cert emitido (null = no aplica)
+  productos?: string | null;  // slugs de sistemas activos, separados por coma (ej. "certificaciones,historias-clinicas")
 }
 
 export interface MovimientoCredito {
@@ -188,7 +189,12 @@ export interface CrearEmpresaDto {
    *  editor de "Diseño personalizado (Lienzo)". Independiente del plan. Requiere
    *  la columna empresas.permite_diseno en el backend para persistir/enforzar. */
   permite_diseno?: boolean;
+  /** Sistemas que contrata: 'certificaciones' | 'historias-clinicas' | los que se agreguen (default: certificaciones). */
+  productos?: string[];
 }
+
+/** Un sistema del catálogo (para elegir al registrar). */
+export interface ProductoCatalogo { slug: string; nombre: string; }
 
 export interface EditarEmpresaDto {
   razon_social?: string;
@@ -225,9 +231,34 @@ export interface EditarUsuarioDto {
   activo?: boolean;
 }
 
+/** Módulos del panel de Historias Clínicas que Vaxa puede activar/desactivar por centro. */
+export interface HcModulos {
+  pacientes: boolean;
+  historia: boolean;
+  agenda: boolean;
+  servicios: boolean;
+  ventas: boolean;
+  inventario: boolean;
+  caja: boolean;
+  web: boolean;
+}
+
+/** Producto contratado por el centro (Certificados / Historias Clínicas) y si está activo. */
+export interface ProductoEmpresa { slug: string; nombre: string; activo: number; }
+
 export const creditosAdminApi = {
   listEmpresas: () =>
     api.get<EmpresaCreditos[]>('/api/admin/empresas', opts()),
+
+  /** Productos del centro: activar/desactivar Certificados o Historias Clínicas. */
+  getProductosEmpresa: (empresaId: number) =>
+    api.get<ProductoEmpresa[]>(`/api/admin/empresas/${empresaId}/productos`, opts()),
+  setProductoEmpresa: (empresaId: number, slug: string, activo: boolean) =>
+    api.put<ProductoEmpresa[]>(`/api/admin/empresas/${empresaId}/productos`, { slug, activo }, opts()),
+
+  /** Catálogo de sistemas disponibles (para elegir al registrar). */
+  getCatalogoProductos: () =>
+    api.get<ProductoCatalogo[]>('/api/admin/productos', opts()),
 
   crearEmpresa: (dto: CrearEmpresaDto) =>
     api.post<EmpresaCreditos>('/api/admin/empresas', dto, opts()),
@@ -269,6 +300,12 @@ export const creditosAdminApi = {
 
   crearUsuario: (empresaId: number, dto: CrearUsuarioDto) =>
     api.post<UsuarioEmpresa>(`/api/admin/empresas/${empresaId}/usuarios`, dto, opts()),
+
+  /** Módulos de Historias Clínicas activos por centro (Vaxa los prende/apaga). */
+  getHcModulos: (empresaId: number) =>
+    api.get<HcModulos>(`/api/admin/empresas/${empresaId}/hc-modulos`, opts()),
+  setHcModulos: (empresaId: number, modulos: HcModulos) =>
+    api.put<HcModulos>(`/api/admin/empresas/${empresaId}/hc-modulos`, modulos, opts()),
 
   editarUsuario: (empresaId: number, usuarioId: number, dto: EditarUsuarioDto) =>
     api.patch<UsuarioEmpresa>(`/api/admin/empresas/${empresaId}/usuarios/${usuarioId}`, dto, opts()),

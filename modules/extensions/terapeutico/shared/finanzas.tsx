@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Loader2, X, DollarSign } from '@/components/ui/icon';
-import { terapApi, type Venta } from './api/terapeutico.api';
+import { Loader2, X, DollarSign, PrinterIcon } from '@/components/ui/icon';
+import { terapApi, type Venta, type CentroFiscal } from './api/terapeutico.api';
+import { imprimirTicket, imprimirA4 } from '../modules/Ventas/comprobante';
 
 /**
  * UI y helpers compartidos por las páginas de finanzas del centro
@@ -9,6 +10,17 @@ import { terapApi, type Venta } from './api/terapeutico.api';
 
 export const TEAL = '#0F766E';
 export const hoy = () => new Date().toISOString().slice(0, 10);
+/** Primer día (YYYY-MM-01) del mes actual, en hora local. */
+export const primerDiaMes = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+};
+/** Último día del mes actual (YYYY-MM-DD), en hora local. */
+export const ultimoDiaMes = () => {
+  const d = new Date();
+  const last = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(last).padStart(2, '0')}`;
+};
 export const soles = (n: number | string) => `S/ ${Number(n || 0).toFixed(2)}`;
 export const fmtFecha = (s: string) => {
   const d = new Date(s);
@@ -17,8 +29,10 @@ export const fmtFecha = (s: string) => {
 
 export function Overlay({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(13,26,26,0.5)', backdropFilter: 'blur(3px)' }} onMouseDown={onClose}>
-      <div className="bg-white rounded-2xl w-full max-w-lg max-h-[92vh] overflow-auto shadow-xl" onMouseDown={e => e.stopPropagation()}>{children}</div>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 vx-modal-in" style={{ background: 'rgba(10,22,24,0.55)', backdropFilter: 'blur(4px)' }} onMouseDown={onClose}>
+      <div className="bg-white rounded-2xl w-full max-w-lg max-h-[92vh] overflow-auto vx-modal-card"
+        style={{ boxShadow: '0 30px 80px -20px rgba(6,20,22,0.55)', border: '1px solid #EAEFEE' }}
+        onMouseDown={e => e.stopPropagation()}>{children}</div>
     </div>
   );
 }
@@ -27,10 +41,11 @@ export function Cabecera({ icon, titulo, onClose }: { icon: React.ReactNode; tit
   return (
     <div className="flex items-center justify-between px-5 py-4 sticky top-0 bg-white z-10" style={{ borderBottom: '1px solid #EEF2F1' }}>
       <div className="flex items-center gap-2.5">
-        <div className="h-8 w-8 rounded-lg flex items-center justify-center" style={{ background: '#CCFBF1' }}>{icon}</div>
+        <div className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0"
+          style={{ background: 'linear-gradient(135deg,#14B8A6,#0F766E)', boxShadow: '0 6px 14px -6px rgba(15,118,110,0.55)' }}>{icon}</div>
         <h2 className="text-[16px] font-bold" style={{ color: '#0E1A1A' }}>{titulo}</h2>
       </div>
-      <button onClick={onClose} className="p-1 rounded-lg hover:bg-gray-100"><X size={18} style={{ color: '#6B7280' }} /></button>
+      <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors"><X size={18} style={{ color: '#6B7280' }} /></button>
     </div>
   );
 }
@@ -50,8 +65,9 @@ export function EncabezadoPagina({ icon, titulo, subtitulo, accion }: {
 }) {
   return (
     <div className="flex items-center justify-between mb-5 gap-3 flex-wrap">
-      <div className="flex items-center gap-2.5">
-        <div className="h-10 w-10 rounded-xl flex items-center justify-center" style={{ background: '#CCFBF1' }}>{icon}</div>
+      <div className="flex items-center gap-3">
+        <div className="h-11 w-11 rounded-2xl flex items-center justify-center shrink-0"
+          style={{ background: 'linear-gradient(135deg,#14B8A6,#0F766E)', boxShadow: '0 8px 20px -6px rgba(15,118,110,0.5)' }}>{icon}</div>
         <div>
           <h1 className="text-[21px] font-bold leading-tight" style={{ color: '#0E1A1A' }}>{titulo}</h1>
           <p className="text-[12.5px]" style={{ color: '#6B7280' }}>{subtitulo}</p>
@@ -64,8 +80,8 @@ export function EncabezadoPagina({ icon, titulo, subtitulo, accion }: {
 
 export function Resumen({ label, value, tint, fg, icon }: { label: string; value: string; tint: string; fg: string; icon: React.ReactNode }) {
   return (
-    <div className="rounded-xl bg-white px-4 py-3 flex items-center gap-3" style={{ border: '1px solid #E5E9E7' }}>
-      <div className="h-8 w-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: tint, color: fg }}>{icon}</div>
+    <div className="rounded-2xl bg-white px-4 py-3.5 flex items-center gap-3" style={{ border: '1px solid #EAEFEE', boxShadow: '0 1px 2px rgba(16,48,44,.04), 0 12px 32px -16px rgba(16,48,44,.16)' }}>
+      <div className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: tint, color: fg }}>{icon}</div>
       <div className="leading-tight">
         <p className="text-[17px] font-bold" style={{ color: '#0E1A1A' }}>{value}</p>
         <p className="text-[11px]" style={{ color: '#6B7280' }}>{label}</p>
@@ -99,7 +115,7 @@ function Dato({ label, valor }: { label: string; valor: React.ReactNode }) {
 
 /** Modal de solo lectura con el detalle de una venta (cabecera + ítems + total).
  *  Compartido por Ventas y Caja (los ingresos de caja enlazan a su venta). */
-export function ModalDetalleVenta({ slug, ventaId, onClose }: { slug: string; ventaId: number; onClose: () => void }) {
+export function ModalDetalleVenta({ slug, ventaId, onClose, centro }: { slug: string; ventaId: number; onClose: () => void; centro?: CentroFiscal | null }) {
   const [venta, setVenta] = useState<Venta | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -110,14 +126,14 @@ export function ModalDetalleVenta({ slug, ventaId, onClose }: { slug: string; ve
 
   return (
     <Overlay onClose={onClose}>
-      <Cabecera icon={<DollarSign size={16} style={{ color: TEAL }} />} titulo={`Venta #${ventaId}`} onClose={onClose} />
+      <Cabecera icon={<DollarSign size={16} color="#fff" />} titulo={`Venta #${ventaId}`} onClose={onClose} />
       {loading ? <Cargando /> : !venta ? (
         <p className="p-6 text-[13px]" style={{ color: '#6B7280' }}>No se pudo cargar la venta.</p>
       ) : (
         <div className="p-5 space-y-4">
           <div className="grid grid-cols-2 gap-y-2 gap-x-4 text-[13px]">
             <Dato label="Fecha" valor={fmtFecha(venta.fecha)} />
-            <Dato label="Método de pago" valor={<span className="capitalize">{venta.metodo_pago}</span>} />
+            <Dato label="Método de pago" valor={<span className="capitalize">{venta.metodo_pago === 'mixto' ? 'Mixto (ver desglose)' : venta.metodo_pago}</span>} />
             <Dato label="Cliente / Paciente" valor={venta.paciente_nombre ?? 'Mostrador'} />
             <Dato label="Estado" valor={venta.estado === 'anulada'
               ? <span className="text-[11px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: '#FEE2E2', color: '#B91C1C' }}>ANULADA</span>
@@ -159,6 +175,36 @@ export function ModalDetalleVenta({ slug, ventaId, onClose }: { slug: string; ve
               </tfoot>
             </table>
           </div>
+
+          {/* Desglose de pagos (pago dividido): un renglón por método. */}
+          {(venta.pagos?.length ?? 0) > 1 && (
+            <div className="rounded-xl px-3 py-2.5" style={{ background: '#F6FAF9', border: '1px solid #E5E9E7' }}>
+              <p className="text-[10.5px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: '#94A3B8' }}>Pagos</p>
+              <div className="space-y-1">
+                {venta.pagos!.map((p, i) => (
+                  <div key={i} className="flex justify-between text-[12.5px]">
+                    <span className="capitalize" style={{ color: '#374151' }}>{p.metodo_pago}</span>
+                    <span className="font-semibold tabular-nums" style={{ color: '#0E1A1A' }}>{soles(p.monto)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {venta.estado !== 'anulada' && (
+            <div className="flex flex-wrap justify-end gap-2 pt-1">
+              <button onClick={() => imprimirTicket(venta, centro ?? null)}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-semibold"
+                style={{ background: '#F1F5F4', color: '#374151' }}>
+                <PrinterIcon size={15} /> Imprimir ticket
+              </button>
+              <button onClick={() => imprimirA4(venta, centro ?? null)}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-semibold text-white"
+                style={{ background: TEAL }}>
+                <PrinterIcon size={15} /> Imprimir A4
+              </button>
+            </div>
+          )}
         </div>
       )}
     </Overlay>

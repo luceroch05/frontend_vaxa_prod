@@ -13,6 +13,7 @@ import {
 } from '../../shared/api/terapeutico.api';
 import { imprimirHistoria } from './imprimir';
 import { esVideoMime, youtubeEmbedUrl } from '../../shared/video';
+import { useTerapCtx } from '../../shared/TerapShell';
 
 const TEAL = '#0F766E';
 const escribeClinico = (rol?: string) => ['ADMINISTRADOR', 'TERAPEUTA'].includes((rol ?? '').toUpperCase());
@@ -56,6 +57,31 @@ export default function PacienteDetalle() {
   const navigate = useNavigate();
   const rol = authStorage.getUser(slug)?.rol;
   const puedeClinico = escribeClinico(rol);
+  const esAdmin = (rol ?? '').toUpperCase() === 'ADMINISTRADOR';
+  const [eliminando, setEliminando] = useState(false);
+  // ¿El centro tiene habilitado el expediente clínico? (default ON mientras carga la config)
+  const { modulos } = useTerapCtx();
+  const clinicoOn = modulos?.historia ?? true;
+
+  const eliminarPaciente = async () => {
+    if (!paciente || eliminando) return;
+    if (!confirm(`¿Eliminar a ${paciente.apellidos}, ${paciente.nombres}?\n\nSi tiene historia clínica o ventas se archivará (reversible); si no, se elimina definitivamente.`)) return;
+    setEliminando(true);
+    try {
+      await terapApi.eliminarPaciente(slug, pacienteId);
+      navigate(terapPath(slug, '/panel'));
+    } catch (e) { alert((e as Error)?.message ?? 'No se pudo eliminar el paciente'); setEliminando(false); }
+  };
+  // Sin el módulo de expediente, el paciente muestra SOLO la pestaña "Datos".
+  // Cada pestaña depende de SU módulo: "citas" de la Agenda; las clínicas (historia,
+  // tratamientos, objetivos, sesiones, tareas, documentos) del módulo Historia. "Datos"
+  // siempre. Así, con Agenda ON e Historia OFF, las citas del paciente SÍ se ven.
+  const agendaOn = modulos?.agenda ?? true;
+  const tabsVisibles = TABS.filter((t) => {
+    if (t.id === 'datos') return true;
+    if (t.id === 'citas') return agendaOn;
+    return clinicoOn;   // resto = expediente clínico
+  });
 
   const [paciente, setPaciente] = useState<Paciente | null>(null);
   const [historia, setHistoria] = useState<Historia | null>(null);
@@ -64,6 +90,14 @@ export default function PacienteDetalle() {
   const [catalogos, setCatalogos] = useState<Catalogos | null>(null);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<TabId>('historia');
+  // Si al cargar la config la pestaña activa queda oculta (su módulo está apagado),
+  // cae a una válida: Historia si hay expediente, si no Citas (agenda), si no Datos.
+  useEffect(() => {
+    if (!tabsVisibles.some((t) => t.id === tab)) {
+      setTab(clinicoOn ? 'historia' : agendaOn ? 'citas' : 'datos');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clinicoOn, agendaOn]);
 
   const cargarHistoria = async (hId: number) => {
     const [ss, dx] = await Promise.all([
@@ -83,7 +117,8 @@ export default function PacienteDetalle() {
         terapApi.catalogos(slug).catch(() => null),
       ]);
       setPaciente(pac); setCatalogos(cat);
-      if (pac) {
+      // Solo cargamos el expediente si el centro tiene el módulo (si no, ni se pide).
+      if (pac && clinicoOn) {
         const h = await terapApi.getHistoria(slug, pacienteId).catch(() => null);
         setHistoria(h);
         if (h) await cargarHistoria(h.id);
@@ -91,7 +126,7 @@ export default function PacienteDetalle() {
       setLoading(false);
     })();
 
-  }, [slug, pacienteId]);
+  }, [slug, pacienteId, clinicoOn]);
 
   const abrirHistoria = async (motivo: string) => {
     const h = await terapApi.abrirHistoria(slug, pacienteId, { motivo_consulta: motivo });
@@ -113,7 +148,7 @@ export default function PacienteDetalle() {
         const av = avatar(paciente.id);
         const e = edad(paciente.fecha_nacimiento);
         return (
-          <div className="rounded-2xl bg-white p-5 mb-5" style={{ border: '1px solid #E5E9E7' }}>
+          <div className="rounded-2xl bg-white p-5 mb-5" style={{ border: '1px solid #EAEFEE', boxShadow: '0 1px 2px rgba(16,48,44,.04), 0 12px 32px -16px rgba(16,48,44,.14)' }}>
             <div className="flex items-start gap-3.5">
               <div className="h-14 w-14 rounded-2xl flex items-center justify-center text-[18px] font-bold shrink-0" style={{ background: av.bg, color: av.fg }}>
                 {iniciales(paciente.nombres, paciente.apellidos)}
@@ -142,15 +177,26 @@ export default function PacienteDetalle() {
                   )}
                 </div>
               </div>
-              {historia && (
-                <button
-                  onClick={() => imprimirHistoria({ slug, paciente, historia, diagnosticos, sesiones })}
-                  className="flex items-center gap-1.5 text-[12.5px] font-semibold px-3 py-2 rounded-lg shrink-0 hover:bg-[#F0FAF8] transition"
-                  style={{ border: `1px solid ${TEAL}`, color: TEAL }}
-                  title="Exportar / imprimir la historia clínica en PDF">
-                  <PrinterIcon size={14} /> Exportar PDF
-                </button>
-              )}
+              <div className="flex items-center gap-2 shrink-0">
+                {historia && clinicoOn && (
+                  <button
+                    onClick={() => imprimirHistoria({ slug, paciente, historia, diagnosticos, sesiones })}
+                    className="flex items-center gap-1.5 text-[12.5px] font-semibold px-3 py-2 rounded-lg hover:bg-[#F0FAF8] transition"
+                    style={{ border: `1px solid ${TEAL}`, color: TEAL }}
+                    title="Exportar / imprimir la historia clínica en PDF">
+                    <PrinterIcon size={14} /> Exportar PDF
+                  </button>
+                )}
+                {esAdmin && (
+                  <button
+                    onClick={eliminarPaciente} disabled={eliminando}
+                    className="flex items-center gap-1.5 text-[12.5px] font-semibold px-3 py-2 rounded-lg hover:bg-[#FEF2F2] transition disabled:opacity-60"
+                    style={{ border: '1px solid #FCA5A5', color: '#DC2626' }}
+                    title="Eliminar paciente">
+                    {eliminando ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />} Eliminar
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         );
@@ -158,7 +204,7 @@ export default function PacienteDetalle() {
 
       {/* Barra de pestañas: divide el perfil en secciones para no ser un scroll infinito */}
       <div className="flex items-center gap-1 mb-5 overflow-x-auto pb-0.5" style={{ borderBottom: '1px solid #E5E9E7' }}>
-        {TABS.map(t => {
+        {tabsVisibles.map(t => {
           const activo = tab === t.id;
           const count = t.id === 'sesiones' ? sesiones.length : t.id === 'historia' ? diagnosticos.length : undefined;
           return (
@@ -178,8 +224,10 @@ export default function PacienteDetalle() {
       {tab === 'datos' && (
         <>
           <BloqueDatos paciente={paciente} />
-          <BloqueTerapeutas slug={slug} pacienteId={pacienteId} puedeGestionar={gestiona(rol)} />
-          {gestiona(rol) && <BloqueAcceso slug={slug} pacienteId={pacienteId} />}
+          {/* Terapeutas a cargo y portal del apoderado son parte del expediente:
+              si el módulo de Historia clínica está apagado, no se muestran. */}
+          {clinicoOn && <BloqueTerapeutas slug={slug} pacienteId={pacienteId} puedeGestionar={gestiona(rol)} />}
+          {clinicoOn && gestiona(rol) && <BloqueAcceso slug={slug} pacienteId={pacienteId} />}
         </>
       )}
 
@@ -284,6 +332,13 @@ function Dato({ label, valor }: { label: string; valor?: string | null }) {
 
 // ── Citas del paciente ────────────────────────────────────────────────────────
 const COLOR_ESTADO_CITA: Record<number, string> = { 1: '#F59E0B', 2: '#0F766E', 3: '#9CA3AF', 4: '#DC2626' };
+/** Parsea la fecha/hora del backend como hora LOCAL de pared (ignora 'Z'/zona), para
+ *  que la cita se muestre a la hora en que se guardó aunque el servidor esté en UTC. */
+const parseLocal = (s?: string | null): Date => {
+  const m = String(s ?? '').match(/(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?/);
+  if (!m) return new Date(s ?? NaN);
+  return new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +(m[6] || 0));
+};
 function BloqueCitas({ slug, pacienteId }: { slug: string; pacienteId: number }) {
   const [citas, setCitas] = useState<Cita[]>([]);
   const [loading, setLoading] = useState(true);
@@ -294,8 +349,8 @@ function BloqueCitas({ slug, pacienteId }: { slug: string; pacienteId: number })
   }, [slug, pacienteId]);
 
   const ahora = Date.now();
-  const proximas = citas.filter(c => new Date(c.inicio).getTime() >= ahora).sort((a, b) => +new Date(a.inicio) - +new Date(b.inicio));
-  const pasadas = citas.filter(c => new Date(c.inicio).getTime() < ahora).sort((a, b) => +new Date(b.inicio) - +new Date(a.inicio));
+  const proximas = citas.filter(c => parseLocal(c.inicio).getTime() >= ahora).sort((a, b) => +parseLocal(a.inicio) - +parseLocal(b.inicio));
+  const pasadas = citas.filter(c => parseLocal(c.inicio).getTime() < ahora).sort((a, b) => +parseLocal(b.inicio) - +parseLocal(a.inicio));
 
   return (
     <Section icon={CalendarIcon} titulo="Citas del paciente">
@@ -322,7 +377,7 @@ function ListaCitas({ titulo, citas }: { titulo: string; citas: Cita[] }) {
           <li key={c.id} className="flex items-center justify-between px-3 py-2 rounded-lg text-[13px]" style={{ background: '#F6FAF9' }}>
             <div className="min-w-0">
               <span style={{ color: '#0E1A1A' }}>
-                {new Date(c.inicio).toLocaleDateString()} · {new Date(c.inicio).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                {parseLocal(c.inicio).toLocaleDateString()} · {parseLocal(c.inicio).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </span>
               <span className="text-[12px]" style={{ color: '#6B7280' }}>
                 {c.servicio_nombre ? ` · ${c.servicio_nombre}` : ''} · {c.terapeuta_nombre}

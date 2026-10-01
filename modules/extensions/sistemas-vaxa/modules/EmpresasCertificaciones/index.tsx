@@ -15,12 +15,14 @@ import { VAXA_CONFIG } from '../../shared/constants';
 import { authStorage } from '@/lib/auth';
 import { ApiError } from '@/lib/api/client';
 import { creditosAdminApi, type EmpresaCreditos } from '../../shared/api/creditos.admin.api';
+import { useAreaBase } from '../../shared/useAreaBase';
 
 interface Props { tenantId: string; tenant: TenantConfig; }
 interface Usuario { email: string; nombre: string; role: string; }
 
 export default function EmpresasCertificaciones({ tenantId }: Props) {
   const navigate = useNavigate();
+  const base = useAreaBase();
   const [usuario, setUsuario] = useState<Usuario | null>(null);
   const [empresas, setEmpresas] = useState<EmpresaCreditos[]>([]);
   const [loading, setLoading] = useState(true);
@@ -97,8 +99,18 @@ export default function EmpresasCertificaciones({ tenantId }: Props) {
   const activasCount = empresas.filter((e) => e.activo).length;
   const inactivasCount = empresas.length - activasCount;
 
+  // Filtro por ÁREA: en Historias Clínicas solo se ven los clientes con ese sistema;
+  // en Certificados, los que tienen certificaciones (y los legacy sin vínculo).
+  const esHC = base === '/historias-clinicas';
+  const perteneceArea = (e: EmpresaCreditos) => {
+    const prods = (e.productos ?? '').split(',').map((s) => s.trim()).filter(Boolean);
+    return esHC ? prods.includes('historias-clinicas')
+                : (prods.length === 0 || prods.includes('certificaciones'));
+  };
+
   const q = searchTerm.toLowerCase().trim();
   const filtradas = empresas
+    .filter(perteneceArea)
     .filter((e) => (estadoFiltro === 'activas' ? !!e.activo : !e.activo))
     .filter((e) =>
       e.razon_social.toLowerCase().includes(q) ||
@@ -121,7 +133,7 @@ export default function EmpresasCertificaciones({ tenantId }: Props) {
       />
 
       <main className="max-w-5xl mx-auto px-5 sm:px-6 lg:px-8 py-7">
-        <BotonVolver to={tenantPath(tenantId, '/certificaciones')} />
+        <BotonVolver to={tenantPath(tenantId, base)} />
 
         <div className="mb-5 flex items-end justify-between gap-4 page-enter">
           <div>
@@ -130,7 +142,7 @@ export default function EmpresasCertificaciones({ tenantId }: Props) {
             <p className="text-[13px] mt-1" style={{ color: '#9CA3AF' }}>Gestiona las empresas que usan el sistema de certificados.</p>
           </div>
           <button
-            onClick={() => navigate(tenantPath(tenantId, '/certificaciones/registrar-empresa'))}
+            onClick={() => navigate(tenantPath(tenantId, `${base}/registrar-empresa`))}
             className="sv-btn sv-btn-primary flex-shrink-0"
           >
             <Plus className="w-4 h-4" /> Registrar empresa
@@ -208,7 +220,7 @@ export default function EmpresasCertificaciones({ tenantId }: Props) {
                 <div key={e.id}
                   className="grid items-center px-5 py-3.5 gap-3 cursor-pointer group transition-colors"
                   style={{ gridTemplateColumns: '1fr 80px 96px 80px 64px', borderBottom: idx < filtradasPagina.length - 1 ? '1px solid #F5F4F0' : undefined }}
-                  onClick={() => navigate(tenantPath(tenantId, `/certificaciones/empresa/${e.id}`))}
+                  onClick={() => navigate(tenantPath(tenantId, `${base}/empresa/${e.id}`))}
                   onMouseEnter={(ev) => { ev.currentTarget.style.background = '#FAFAF8'; }}
                   onMouseLeave={(ev) => { ev.currentTarget.style.background = 'transparent'; }}>
                   <div className="flex items-center gap-3 min-w-0">
@@ -224,6 +236,20 @@ export default function EmpresasCertificaciones({ tenantId }: Props) {
                     <div className="min-w-0">
                       <p className="text-[13.5px] font-semibold truncate" style={{ color: '#0D0E12' }}>{e.razon_social}</p>
                       <p className="text-[11.5px] truncate" style={{ color: '#9CA3AF' }}>{e.tenant_slug}{e.ruc ? ` · ${e.ruc}` : ''}</p>
+                      {(() => {
+                        const prods = (e.productos ?? '').split(',').map((s) => s.trim()).filter(Boolean);
+                        if (!prods.length) return null;
+                        return (
+                          <div className="flex items-center gap-1 mt-1">
+                            {prods.includes('certificaciones') && (
+                              <span className="text-[9.5px] font-bold px-1.5 py-0.5 rounded" style={{ background: '#ECFDF5', color: '#059669' }}>Certificados</span>
+                            )}
+                            {prods.includes('historias-clinicas') && (
+                              <span className="text-[9.5px] font-bold px-1.5 py-0.5 rounded" style={{ background: '#CCFBF1', color: '#0F766E' }}>Historias Clínicas</span>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
                   <div className="w-20 text-center">
@@ -287,7 +313,7 @@ export default function EmpresasCertificaciones({ tenantId }: Props) {
                 </p>
                 {estadoFiltro === 'activas' && (
                   <button
-                    onClick={() => navigate(tenantPath(tenantId, '/certificaciones/registrar-empresa'))}
+                    onClick={() => navigate(tenantPath(tenantId, `${base}/registrar-empresa`))}
                     className="sv-btn sv-btn-primary mx-auto"
                   >
                     <Plus className="w-4 h-4" /> Registrar primera empresa

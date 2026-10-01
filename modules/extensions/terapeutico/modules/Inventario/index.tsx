@@ -23,7 +23,7 @@ export default function Inventario() {
   return (
     <div>
       <EncabezadoPagina
-        icon={<Package size={19} style={{ color: TEAL }} />}
+        icon={<Package size={19} color="#fff" />}
         titulo="Inventario" subtitulo="Productos e insumos del centro con control de stock"
         accion={
           <button onClick={() => setModal('nuevo')} className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-white text-[13.5px] font-semibold" style={{ background: TEAL }}>
@@ -37,7 +37,7 @@ export default function Inventario() {
         <input value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar producto…" className="vx-input vx-input-icon w-full" />
       </div>
 
-      <div className="rounded-2xl bg-white overflow-hidden" style={{ border: '1px solid #E5E9E7' }}>
+      <div className="rounded-2xl bg-white overflow-hidden" style={{ border: '1px solid #EAEFEE', boxShadow: '0 1px 2px rgba(16,48,44,.04), 0 12px 32px -16px rgba(16,48,44,.14)' }}>
         {loading ? <Cargando /> : filtrados.length === 0 ? (
           <Vacio icon={<Package size={26} />} titulo="Sin productos" texto="Agrega productos al inventario con «Nuevo producto»." />
         ) : (
@@ -113,7 +113,7 @@ function ModalProducto({ slug, producto, onClose, onDone }: { slug: string; prod
 
   return (
     <Overlay onClose={onClose}>
-      <Cabecera icon={<Package size={16} style={{ color: TEAL }} />} titulo={editar ? 'Editar producto' : 'Nuevo producto'} onClose={onClose} />
+      <Cabecera icon={<Package size={16} color="#fff" />} titulo={editar ? 'Editar producto' : 'Nuevo producto'} onClose={onClose} />
       <form onSubmit={submit} className="p-5 space-y-4">
         <div className="grid grid-cols-2 gap-3">
           <Campo label="Nombre *"><input className="vx-input" value={f.nombre} onChange={e => set('nombre', e.target.value)} autoFocus /></Campo>
@@ -163,7 +163,7 @@ function ModalStock({ slug, producto, onClose, onDone }: { slug: string; product
 
   return (
     <Overlay onClose={onClose}>
-      <Cabecera icon={<Package size={16} style={{ color: TEAL }} />} titulo={`Ajustar stock · ${producto.nombre}`} onClose={onClose} />
+      <Cabecera icon={<Package size={16} color="#fff" />} titulo={`Ajustar stock · ${producto.nombre}`} onClose={onClose} />
       <form onSubmit={submit} className="p-5 space-y-4">
         <p className="text-[12.5px]" style={{ color: '#6B7280' }}>Stock actual: <b>{Number(producto.stock)}</b> {producto.unidad}</p>
         <div className="inline-flex rounded-xl overflow-hidden" style={{ border: '1px solid #E5E9E7' }}>

@@ -47,7 +47,7 @@ export default function LoginSistemasVaxa({ tenantId, tenant }: LoginProps) {
         role: usuario.rol,
       }));
 
-      navigate(tenantPath(tenantId, '/certificaciones'));
+      navigate(tenantPath(tenantId, '/sistemas'));
     } catch (err) {
       if (err instanceof ApiError) setError(err.status === 401 ? 'Email o contraseña incorrectos' : err.message);
       else setError('Error de conexión con el servidor');

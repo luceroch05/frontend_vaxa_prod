@@ -1,11 +1,14 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Loader2, Activity } from '@/components/ui/icon';
+import { Loader2, Shield } from '@/components/ui/icon';
 import { authStorage } from '@/lib/auth';
 import { useEmpresaSlug } from '@/lib/useEmpresa';
 import { terapApi, type HcAuditoriaEvento } from '../../shared/api/terapeutico.api';
+import { EncabezadoPagina, Campo } from '../../shared/finanzas';
 
 const TEAL = '#0F766E';
 const PAGE = 30;
+/** Sombra/borde de tarjeta premium (mismo patrón de Ventas/Caja/Reportes). */
+const CARD: React.CSSProperties = { border: '1px solid #EAEFEE', boxShadow: '0 1px 2px rgba(16,48,44,.04), 0 12px 32px -16px rgba(16,48,44,.14)' };
 
 /** Color del "chip" según la acción, para leer la bitácora de un vistazo. */
 const colorAccion = (a: string): { bg: string; fg: string } => {
@@ -59,46 +62,38 @@ export default function Auditoria() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center gap-2.5">
-        <div className="h-9 w-9 rounded-xl flex items-center justify-center" style={{ background: '#CCFBF1' }}>
-          <Activity size={18} style={{ color: TEAL }} />
-        </div>
-        <div>
-          <h1 className="text-[20px] font-bold" style={{ color: '#0E1A1A' }}>Auditoría</h1>
-          <p className="text-[12.5px]" style={{ color: '#6B7280' }}>Quién hizo qué y cuándo sobre los datos clínicos ({total} registro{total === 1 ? '' : 's'})</p>
-        </div>
-      </div>
+      <EncabezadoPagina
+        icon={<Shield size={19} color="#fff" />}
+        titulo="Auditoría"
+        subtitulo={`Quién hizo qué y cuándo sobre los datos clínicos · ${total} registro${total === 1 ? '' : 's'}`}
+      />
 
       {/* Filtros */}
       <div className="flex flex-wrap gap-2 items-end">
-        <label className="flex flex-col gap-1">
-          <span className="text-[10.5px] font-semibold uppercase tracking-wider" style={{ color: '#94A3B8' }}>Acción</span>
-          <select value={accion} onChange={e => setAccion(e.target.value)}
-            className="text-[13px] rounded-lg px-2.5 py-1.5" style={{ background: '#fff', border: '1px solid #E2E8F0' }}>
+        <Campo label="Acción">
+          <select value={accion} onChange={e => setAccion(e.target.value)} className="vx-input">
             <option value="">Todas</option>
             {['crear', 'editar', 'eliminar', 'ver', 'asignar', 'revocar', 'adjuntar'].map(a =>
               <option key={a} value={a}>{a}</option>)}
           </select>
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-[10.5px] font-semibold uppercase tracking-wider" style={{ color: '#94A3B8' }}>Entidad</span>
-          <select value={entidad} onChange={e => setEntidad(e.target.value)}
-            className="text-[13px] rounded-lg px-2.5 py-1.5" style={{ background: '#fff', border: '1px solid #E2E8F0' }}>
+        </Campo>
+        <Campo label="Entidad">
+          <select value={entidad} onChange={e => setEntidad(e.target.value)} className="vx-input">
             <option value="">Todas</option>
             {['paciente', 'historia', 'diagnostico', 'objetivo', 'avance', 'sesion', 'tarea', 'tratamiento', 'servicio', 'cita', 'adjunto', 'acceso', 'asignacion'].map(e =>
               <option key={e} value={e}>{e}</option>)}
           </select>
-        </label>
+        </Campo>
       </div>
 
       {error && (
         <div className="px-4 py-3 rounded-xl text-[13px]" style={{ background: '#FEF2F2', border: '1px solid #FECACA', color: '#B91C1C' }}>{error}</div>
       )}
 
-      <div className="rounded-2xl overflow-hidden" style={{ background: '#fff', border: '1px solid #E5E9E7' }}>
+      <div className="rounded-2xl bg-white overflow-hidden" style={CARD}>
         {/* Cabecera */}
         <div className="hidden md:grid px-4 py-2.5 text-[10.5px] font-semibold uppercase tracking-wider"
-          style={{ gridTemplateColumns: '150px 180px 90px 1fr 120px', color: '#94A3B8', borderBottom: '1px solid #F1F5F4' }}>
+          style={{ gridTemplateColumns: '150px 180px 90px 1fr 120px', color: '#64748B', background: '#F6FAF9', borderBottom: '1px solid #F1F5F4' }}>
           <span>Fecha</span><span>Usuario</span><span>Acción</span><span>Detalle</span><span>IP</span>
         </div>
 

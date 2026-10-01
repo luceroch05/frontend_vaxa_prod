@@ -345,7 +345,11 @@
       "Bash(echo \"BACK TSC EXIT: $?\")",
       "Bash(echo \"FRONT TSC EXIT: $?\")",
       "Bash(echo \"tsc exit $?\")",
-      "Bash(grep -oE \"export \\\\{[^}]*\\\\}|as [A-Z][a-zA-Z]+|[A-Z][a-zA-Z]+,\" src/components/ui/icon.tsx)"
+      "Bash(grep -oE \"export \\\\{[^}]*\\\\}|as [A-Z][a-zA-Z]+|[A-Z][a-zA-Z]+,\" src/components/ui/icon.tsx)",
+      "PowerShell(npx tsc --noEmit 2>&1 | Select-Object -First 20)",
+      "Bash(grep -rn \"\\\\\"@/\\\\*\\\\\"\\\\|'@/'\\\\|@/\\\\*\\\\|baseUrl\\\\|paths\" tsconfig.json tsconfig.*.json)",
+      "PowerShell($p = Get-CimInstance Win32_Process -Filter \"ProcessId = 18728\" -ErrorAction SilentlyContinue; if \\($p\\) { \"$\\($p.Name\\) => $\\($p.CommandLine\\)\" } else { \"PID 18728 ya no existe\" })",
+      "Bash(grep -rn \"new WebSocket\\\\|/ws\\\\|wss:\\\\|ws://\\\\|WS_URL\" modules/extensions/terapeutico lib)"
     ],
     "deny": [],
     "ask": []

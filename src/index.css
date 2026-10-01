@@ -134,6 +134,10 @@ body {
   from { height: 0; }
 }
 
+/* Modales del panel: fondo con fade + tarjeta con scale-in suave */
+.vx-modal-in   { animation: vx-fade 0.16s ease-out both; }
+.vx-modal-card { animation: scaleIn 0.2s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
 .page-enter  { animation: vx-enter 0.32s cubic-bezier(0.22, 1, 0.36, 1) both; }
 .page-fade   { animation: vx-fade  0.2s ease-out both; }
 .stagger-1   { animation-delay: 0.04s; }

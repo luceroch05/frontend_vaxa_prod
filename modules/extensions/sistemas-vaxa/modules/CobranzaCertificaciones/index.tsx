@@ -16,6 +16,7 @@ import { ApiError } from '@/lib/api/client';
 import {
   creditosAdminApi, type VencimientoEmpresa, type EstadoCobranza,
 } from '../../shared/api/creditos.admin.api';
+import { useAreaBase } from '../../shared/useAreaBase';
 
 interface Props { tenantId: string; tenant: TenantConfig; }
 interface Usuario { email: string; nombre: string; role: string; }
@@ -32,6 +33,7 @@ const COBRANZA: Record<EstadoCobranza, { bg: string; bd: string; fg: string; lab
 
 export default function CobranzaCertificaciones({ tenantId }: Props) {
   const navigate = useNavigate();
+  const base = useAreaBase();
   const [usuario, setUsuario] = useState<Usuario | null>(null);
   const [filas, setFilas] = useState<VencimientoEmpresa[]>([]);
   const [loading, setLoading] = useState(true);
@@ -90,7 +92,7 @@ export default function CobranzaCertificaciones({ tenantId }: Props) {
       />
 
       <main className="max-w-5xl mx-auto px-5 sm:px-6 lg:px-8 py-7">
-        <BotonVolver to={tenantPath(tenantId, '/certificaciones')} />
+        <BotonVolver to={tenantPath(tenantId, base)} />
 
         <div className="mb-6 page-enter">
           <p className="text-[11px] font-semibold uppercase tracking-[0.16em] mb-1" style={{ color: '#059669' }}>
@@ -147,7 +149,7 @@ export default function CobranzaCertificaciones({ tenantId }: Props) {
                     const style = est ? COBRANZA[est] : { bg: '#F5F4F0', bd: '#EAE7DF', fg: '#6B7280', label: 'Sin plan' };
                     return (
                       <div key={f.empresa_id}
-                        onClick={() => navigate(tenantPath(tenantId, `/certificaciones/empresa/${f.empresa_id}`))}
+                        onClick={() => navigate(tenantPath(tenantId, `${base}/empresa/${f.empresa_id}`))}
                         className="grid items-center px-5 py-3.5 cursor-pointer transition-colors"
                         style={{ gridTemplateColumns: '2fr 1.2fr 1fr 1fr 1fr 24px', borderBottom: '1px solid #F5F4F0' }}
                         onMouseEnter={(e) => { e.currentTarget.style.background = '#FAFAF8'; }}

@@ -8,13 +8,15 @@ import { imgUrl } from '@/lib/api/client';
 import {
   Building2, Users, CreditCard, Info, Loader2, AlertCircle,
   Trash2, RefreshCw, AlertTriangle, CheckCircle, DollarSign, Package,
+  FileText, Activity,
 } from '@/components/ui/icon';
 import HeaderSistemasVaxa from '../../shared/components/HeaderSistemasVaxa';
 import BotonVolver from '../../shared/components/BotonVolver';
 import { VAXA_CONFIG } from '../../shared/constants';
 import { authStorage } from '@/lib/auth';
 import { ApiError } from '@/lib/api/client';
-import { creditosAdminApi, type EmpresaCreditos } from '../../shared/api/creditos.admin.api';
+import { creditosAdminApi, type EmpresaCreditos, type ProductoEmpresa } from '../../shared/api/creditos.admin.api';
+import { useAreaBase } from '../../shared/useAreaBase';
 import { esEmpresa, docLabel, tipoClienteLabel } from '../../shared/docs';
 import TabInformacion from './TabInformacion';
 import TabPlan from './TabPlan';
@@ -22,15 +24,21 @@ import TabUsuarios from './TabUsuarios';
 
 interface PerfilEmpresaProps { tenantId: string; tenant: TenantConfig; empresaId: string; }
 interface Usuario { email: string; nombre: string; role: string; }
-type TabType = 'informacion' | 'plan' | 'cobros' | 'creditos' | 'usuarios';
+/** Nivel 1: por SISTEMA (además de la info común). */
+type TabType = 'informacion' | 'certificaciones' | 'historias-clinicas';
+/** Nivel 2 dentro de Certificados: config + cobro de ese sistema. */
+type CertTab = 'plan' | 'cobros' | 'creditos' | 'usuarios';
 
 export default function PerfilEmpresa({ tenantId, empresaId }: PerfilEmpresaProps) {
   const navigate = useNavigate();
+  const base = useAreaBase();
   const [usuario, setUsuario] = useState<Usuario | null>(null);
   const [empresa, setEmpresa] = useState<EmpresaCreditos | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>('informacion');
+  const [certTab, setCertTab] = useState<CertTab>('plan');   // sub-pestaña dentro de Certificados
+  const [productos, setProductos] = useState<ProductoEmpresa[]>([]);   // sistemas contratados por el cliente
 
   // Acciones de la empresa (en el header): eliminar / restaurar.
   const [confirmarEliminar, setConfirmarEliminar] = useState(false);
@@ -43,7 +51,7 @@ export default function PerfilEmpresa({ tenantId, empresaId }: PerfilEmpresaProp
     setEliminando(true); setAccionError(null);
     try {
       await creditosAdminApi.eliminarEmpresa(Number(empresaId));
-      navigate(tenantPath(tenantId, '/certificaciones/empresas'));
+      navigate(tenantPath(tenantId, `${base}/empresas`));
     } catch (e) { setAccionError((e as Error).message); setEliminando(false); }
   };
 
@@ -59,9 +67,13 @@ export default function PerfilEmpresa({ tenantId, empresaId }: PerfilEmpresaProp
 
   const cargar = useCallback(async () => {
     setLoading(true); setError(null);
+    const idNum = Number(empresaId);
+    if (!Number.isFinite(idNum)) { setEmpresa(null); setProductos([]); setLoading(false); return; }
     try {
       const lista = await creditosAdminApi.listEmpresas();
-      setEmpresa(lista.find((e) => e.id === Number(empresaId)) ?? null);
+      setEmpresa(lista.find((e) => e.id === idNum) ?? null);
+      // Sistemas contratados (para mostrar una pestaña por producto).
+      creditosAdminApi.getProductosEmpresa(idNum).then(setProductos).catch(() => setProductos([]));
     } catch (e) {
       if (e instanceof ApiError && (e.status === 401 || e.status === 403)) {
         authStorage.clearAllSessions();
@@ -85,12 +97,23 @@ export default function PerfilEmpresa({ tenantId, empresaId }: PerfilEmpresaProp
 
   if (!usuario) return null;
 
+  // ¿Qué sistemas tiene contratados? (si aún no cargó, mostramos ambos por defecto).
+  const tieneCert = productos.length ? productos.some((p) => p.slug === 'certificaciones' && p.activo) : true;
+  const tieneHC   = productos.length ? productos.some((p) => p.slug === 'historias-clinicas' && p.activo) : true;
+
+  // Nivel 1: Información (común) + una pestaña por SISTEMA contratado.
   const tabs = [
     { id: 'informacion' as TabType, label: 'Información', icon: Info },
-    { id: 'plan' as TabType, label: 'Plan', icon: CreditCard },
-    { id: 'cobros' as TabType, label: 'Cobros', icon: DollarSign },
-    { id: 'creditos' as TabType, label: 'Créditos', icon: Package },
-    { id: 'usuarios' as TabType, label: 'Usuarios', icon: Users },
+    ...(tieneCert ? [{ id: 'certificaciones' as TabType, label: 'Certificados', icon: FileText }] : []),
+    ...(tieneHC ? [{ id: 'historias-clinicas' as TabType, label: 'Historias Clínicas', icon: Activity }] : []),
+  ];
+
+  // Sub-pestañas de Certificados (config + cobro de ese sistema).
+  const certTabs: { id: CertTab; label: string; icon: typeof CreditCard }[] = [
+    { id: 'plan', label: 'Plan', icon: CreditCard },
+    { id: 'cobros', label: 'Cobros', icon: DollarSign },
+    { id: 'creditos', label: 'Créditos', icon: Package },
+    { id: 'usuarios', label: 'Usuarios', icon: Users },
   ];
 
   return (
@@ -102,7 +125,7 @@ export default function PerfilEmpresa({ tenantId, empresaId }: PerfilEmpresaProp
       />
 
       <main className="max-w-5xl mx-auto px-5 sm:px-6 lg:px-8 py-7">
-        <BotonVolver to={tenantPath(tenantId, '/certificaciones/empresas')}>Volver a empresas</BotonVolver>
+        <BotonVolver to={tenantPath(tenantId, `${base}/empresas`)}>Volver a empresas</BotonVolver>
 
         {loading ? (
           <div className="flex justify-center py-20" style={{ color: '#D1D5DB' }}><Loader2 className="w-6 h-6 animate-spin" /></div>
@@ -115,7 +138,7 @@ export default function PerfilEmpresa({ tenantId, empresaId }: PerfilEmpresaProp
           <div className="text-center py-16">
             <Building2 className="w-12 h-12 mx-auto mb-3" style={{ color: '#E5E1D8' }} />
             <h2 className="text-[16px] font-bold mb-3" style={{ color: '#0D0E12' }}>Empresa no encontrada</h2>
-            <button onClick={() => navigate(tenantPath(tenantId, '/certificaciones/empresas'))} className="sv-btn sv-btn-primary mx-auto">Volver a empresas</button>
+            <button onClick={() => navigate(tenantPath(tenantId, `${base}/empresas`))} className="sv-btn sv-btn-primary mx-auto">Volver a empresas</button>
           </div>
         ) : (
           <>
@@ -205,10 +228,34 @@ export default function PerfilEmpresa({ tenantId, empresaId }: PerfilEmpresaProp
                 {activeTab === 'informacion' && (
                   <TabInformacion empresa={empresa} onChange={cargar} />
                 )}
-                {activeTab === 'plan' && <TabPlan empresa={empresa} onChange={cargar} section="plan" />}
-                {activeTab === 'cobros' && <TabPlan empresa={empresa} onChange={cargar} section="cobros" />}
-                {activeTab === 'creditos' && <TabPlan empresa={empresa} onChange={cargar} section="creditos" />}
-                {activeTab === 'usuarios' && <TabUsuarios empresa={empresa} />}
+
+                {/* ── Sistema: Certificados (config + cobro juntos) ── */}
+                {activeTab === 'certificaciones' && (
+                  <div className="space-y-5">
+                    {/* Sub-pestañas del sistema */}
+                    <div className="inline-flex rounded-xl p-1 gap-1" style={{ background: '#F1F0EC', border: '1px solid #EEECE6' }}>
+                      {certTabs.map((t) => {
+                        const on = certTab === t.id;
+                        return (
+                          <button key={t.id} onClick={() => setCertTab(t.id)}
+                            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-[12.5px] font-semibold transition-colors"
+                            style={on ? { background: '#fff', color: '#059669', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' } : { color: '#8A8578' }}>
+                            <t.icon className="w-3.5 h-3.5" /> {t.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {certTab === 'plan' && <TabPlan empresa={empresa} onChange={cargar} section="plan" />}
+                    {certTab === 'cobros' && <TabPlan empresa={empresa} onChange={cargar} section="cobros" />}
+                    {certTab === 'creditos' && <TabPlan empresa={empresa} onChange={cargar} section="creditos" />}
+                    {certTab === 'usuarios' && <TabUsuarios empresa={empresa} producto="certificaciones" />}
+                  </div>
+                )}
+
+                {/* ── Sistema: Historias Clínicas (usuarios + módulos; cobro próximamente) ── */}
+                {activeTab === 'historias-clinicas' && (
+                  <TabUsuarios empresa={empresa} producto="historias-clinicas" />
+                )}
               </div>
             </div>
           </>

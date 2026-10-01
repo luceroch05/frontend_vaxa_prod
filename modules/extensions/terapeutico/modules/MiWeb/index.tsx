@@ -1,10 +1,14 @@
 import { useState } from 'react';
+import { Globe } from '@/components/ui/icon';
 import { useEmpresaSlug } from '@/lib/useEmpresa';
 import { webApi } from '../../shared/api/web.api';
+import { EncabezadoPagina } from '../../shared/finanzas';
 import FormConfig, { type CampoConfig } from './FormConfig';
 import CrudLista, { type CampoLista, type CrudApi } from './CrudLista';
 
 const TEAL = '#0F766E';
+/** Sombra/borde de tarjeta premium (mismo patrón de Ventas/Caja/Reportes). */
+const CARD: React.CSSProperties = { border: '1px solid #EAEFEE', boxShadow: '0 1px 2px rgba(16,48,44,.04), 0 12px 32px -16px rgba(16,48,44,.14)' };
 
 // ── Specs de campos (estables, fuera del componente) ──────────────────────────
 const PORTADA: CampoConfig[] = [
@@ -66,13 +70,14 @@ export default function MiWeb() {
 
   return (
     <div>
-      <div className="mb-1">
-        <h2 className="text-[20px] font-bold" style={{ color: '#0E1A1A' }}>Mi Web</h2>
-        <p className="text-[13px]" style={{ color: '#8A9A98' }}>Administra el contenido de tu página pública.</p>
-      </div>
+      <EncabezadoPagina
+        icon={<Globe size={19} color="#fff" />}
+        titulo="Mi Web"
+        subtitulo="Administra el contenido de tu página pública"
+      />
 
       {/* Tabs */}
-      <div className="flex gap-1 flex-wrap my-5 p-1 rounded-xl w-fit" style={{ background: '#EEF2F1' }}>
+      <div className="flex gap-1 flex-wrap mb-5 p-1 rounded-xl w-fit" style={{ background: '#EEF2F1' }}>
         {TABS.map((t) => (
           <button key={t} onClick={() => setTab(t)}
             className="px-4 py-1.5 rounded-lg text-[13px] font-semibold transition-colors"
@@ -82,7 +87,7 @@ export default function MiWeb() {
         ))}
       </div>
 
-      <div className="rounded-2xl p-6" style={{ background: '#fff', border: '1px solid #E5E9E7' }}>
+      <div className="rounded-2xl bg-white p-6" style={CARD}>
         {tab === 'Portada' && <FormConfig empresa={empresa} titulo="Portada" descripcion="Logo, colores, título y botón principal." campos={PORTADA} />}
         {tab === 'Redes' && <FormConfig empresa={empresa} titulo="Redes sociales" descripcion="Deja en blanco las que no uses." campos={REDES} />}
         {tab === 'Contacto' && <FormConfig empresa={empresa} titulo="Datos de contacto" descripcion="Dirección, teléfonos, correo y horario." campos={CONTACTO} />}

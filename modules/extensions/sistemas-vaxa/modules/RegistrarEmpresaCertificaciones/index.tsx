@@ -24,7 +24,7 @@ import {
 } from '@/components/ui/icon';
 import HeaderSistemasVaxa from '../../shared/components/HeaderSistemasVaxa';
 import { VAXA_CONFIG } from '../../shared/constants';
-import { creditosAdminApi, type PlanCatalogo, type ProductoCatalogo } from '../../shared/api/creditos.admin.api';
+import { creditosAdminApi, type PlanCatalogo, type ProductoCatalogo, type EmpresaCreditos } from '../../shared/api/creditos.admin.api';
 import { infraRecursosApi, infraAlquileresApi, aMensual, type InfraRecurso } from '../../shared/api/infra.admin.api';
 import { tarifarioApi, type ServicioCatalogo } from '../../shared/api/tarifario.admin.api';
 import { DOC_RULES, sanitizeDoc, nombreLabel, esEmpresa } from '../../shared/docs';
@@ -117,6 +117,8 @@ export default function RegistrarEmpresaCertificaciones({
   const [precioCert, setPrecioCert] = useState<number>(20);   // solo modo "Pago por certificado"
   const [verificandoRuc, setVerificandoRuc] = useState(false);
   const [rucMsg, setRucMsg] = useState<{ ok: boolean; texto: string } | null>(null);
+  // Clientes ya registrados: para avisar si el documento ya existe (evitar duplicados).
+  const [empresasReg, setEmpresasReg] = useState<EmpresaCreditos[]>([]);
   // Servicio a medida que el proveedor (Vaxa) activa para este cliente puntual.
   const [permiteDiseno, setPermiteDiseno] = useState(false);
   // Sistemas que se contratan (multi-select, desde el catálogo de la BD).
@@ -133,6 +135,9 @@ export default function RegistrarEmpresaCertificaciones({
   const [recursos, setRecursos] = useState<InfraRecurso[]>([]);
   const [serviciosCat, setServiciosCat] = useState<ServicioCatalogo[]>([]);   // catálogo del Tarifario
   const [lineas, setLineas] = useState<LineaServicio[]>([]);
+  // La infraestructura/servicios es OPCIONAL al dar de alta (crece con el tiempo):
+  // por defecto va plegada y lo normal es agregarla después desde el perfil del cliente.
+  const [mostrarServicios, setMostrarServicios] = useState(false);
 
   const nuevaLinea = (): LineaServicio => ({
     key: Math.random().toString(36).slice(2),
@@ -191,6 +196,11 @@ export default function RegistrarEmpresaCertificaciones({
     creditosAdminApi.listPlanes()
       .then((ps) => { setPlanes(ps); setPlanId((id) => id || ps[0]?.id || 0); })
       .catch(() => { /* el backend dará el error al guardar si falla */ });
+  }, []);
+
+  // Clientes existentes (para detectar documentos repetidos y no duplicar el registro).
+  useEffect(() => {
+    creditosAdminApi.listEmpresas().then(setEmpresasReg).catch(() => setEmpresasReg([]));
   }, []);
 
   // VPS/hosting ya registrados en Infraestructura (para asignarlos al servicio a medida).
@@ -328,9 +338,16 @@ export default function RegistrarEmpresaCertificaciones({
   // Ciclo de pago elegido (define cuántas mensualidades se cobran y la vigencia).
   const cicloSel = CICLOS.find((c) => c.id === cicloId) ?? CICLOS[0];
 
+  // ¿El documento ya pertenece a un cliente registrado? (para no duplicar el alta).
+  const docActual = formData.tipoDoc !== '0' ? formData.ruc.trim() : '';
+  const empresaDuplicada = docActual
+    ? empresasReg.find((e) => (e.ruc ?? '').trim() !== '' && (e.ruc ?? '').trim() === docActual)
+    : undefined;
+
   // ¿Se puede registrar? Todos los campos marcados con * deben estar completos.
   const f = formData;
   const puedeRegistrar =
+    !empresaDuplicada &&                                 // si ya existe, se va al perfil (no se duplica)
     (productos.length > 0 || lineasValidas.length > 0) &&   // al menos un SaaS o un servicio válido
     f.nombre.trim() !== '' && f.pais.trim() !== '' &&   // documento OPCIONAL (persona/empresa sin RUC o que aún no lo da)
     f.email.trim() !== '' && f.telefono.trim() !== '' && f.direccion.trim() !== '' &&
@@ -400,28 +417,39 @@ export default function RegistrarEmpresaCertificaciones({
             </div>
           </div>
 
-          {/* 2) Servicios y recursos (lo que le cobras: web/catálogo/dominio/hosting del Tarifario) */}
+          {/* 2) Servicios y recursos (lo que le cobras: web/catálogo/dominio/hosting del Tarifario).
+                OPCIONAL al dar de alta — plegado por defecto; lo normal es agregarlo luego desde el perfil. */}
           <div className="mb-8">
             <div className="flex items-center justify-between gap-2 mb-1">
-              <h2 className="text-[15px] font-bold text-gray-900">Servicios y recursos <span className="text-[12px] font-medium text-gray-400">· lo que le cobras</span></h2>
-              <button type="button" onClick={addLinea} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12.5px] font-semibold" style={{ background: '#ECFDF5', color: '#059669', border: '1px solid #A7F3D0' }}>
-                <Plus className="w-3.5 h-3.5" /> Agregar servicio
-              </button>
+              <h2 className="text-[15px] font-bold text-gray-900">Servicios y recursos <span className="text-[12px] font-medium text-gray-400">· opcional</span></h2>
+              {(mostrarServicios || lineas.length > 0) && (
+                <button type="button" onClick={addLinea} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12.5px] font-semibold" style={{ background: '#ECFDF5', color: '#059669', border: '1px solid #A7F3D0' }}>
+                  <Plus className="w-3.5 h-3.5" /> Agregar servicio
+                </button>
+              )}
             </div>
-            <p className="text-[13px] mb-4" style={{ color: '#9CA3AF' }}>Elige del Tarifario. Por cada uno puedes <b>asignar</b> un recurso tuyo o <b>comprar</b> uno nuevo (dominio/hosting); se crea el cobro ligado al cliente y verás el margen.</p>
 
-            {lineas.length === 0 ? (
-              <div className="rounded-2xl p-6 text-center" style={{ border: '1.5px dashed #D9E3E0', background: '#FAFBFB' }}>
-                <p className="text-[13px]" style={{ color: '#6B7280' }}>Sin servicios agregados.</p>
-                <button type="button" onClick={addLinea} className="mt-2 inline-flex items-center gap-1.5 text-[13px] font-semibold" style={{ color: '#059669' }}><Plus className="w-4 h-4" /> Agregar el primero</button>
+            {!mostrarServicios && lineas.length === 0 ? (
+              /* Plegado: infra opcional. Se puede agregar ahora o después desde el perfil del cliente. */
+              <div className="rounded-2xl p-5 flex items-center justify-between gap-3" style={{ border: '1px solid #EEECE6', background: '#FAFBFB' }}>
+                <p className="text-[12.5px]" style={{ color: '#6B7280' }}>
+                  ¿Le vendes web, dominio u hosting? Puedes agregarlo ahora o <b>después desde el perfil del cliente</b> (pestaña “Servicios y cobros”). No es obligatorio al registrar.
+                </p>
+                <button type="button" onClick={() => { setMostrarServicios(true); addLinea(); }}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-[12.5px] font-semibold flex-shrink-0" style={{ background: '#ECFDF5', color: '#059669', border: '1px solid #A7F3D0' }}>
+                  <Plus className="w-3.5 h-3.5" /> Agregar al dar de alta
+                </button>
               </div>
             ) : (
-              <div className="space-y-3">
-                {lineas.map((l, i) => (
-                  <LineaCard key={l.key} idx={i} l={l} serviciosCat={serviciosCat} recursos={recursos}
-                    onUpd={updLinea} onUpdNuevo={updNuevo} onElegir={elegirServicio} onRemove={removeLinea} />
-                ))}
-              </div>
+              <>
+                <p className="text-[13px] mb-4" style={{ color: '#9CA3AF' }}>Elige del Tarifario. Por cada uno puedes <b>asignar</b> un recurso tuyo o <b>comprar</b> uno nuevo (dominio/hosting); se crea el cobro ligado al cliente y verás el margen.</p>
+                <div className="space-y-3">
+                  {lineas.map((l, i) => (
+                    <LineaCard key={l.key} idx={i} l={l} serviciosCat={serviciosCat} recursos={recursos}
+                      onUpd={updLinea} onUpdNuevo={updNuevo} onElegir={elegirServicio} onRemove={removeLinea} />
+                  ))}
+                </div>
+              </>
             )}
 
             {productos.length === 0 && lineasValidas.length === 0 && (
@@ -628,6 +656,26 @@ export default function RegistrarEmpresaCertificaciones({
                 )}
                 {formData.tipoDoc !== '6' && formData.tipoDoc !== '0' && (
                   <p className="text-[11.5px] mt-1.5" style={{ color: '#9CA3AF' }}>Con DNI/CE solo se emiten boletas (desde Facturación). La factura requiere RUC.</p>
+                )}
+                {empresaDuplicada && (
+                  <div className="mt-2.5 px-3 py-2.5 rounded-xl flex items-start gap-2.5"
+                    style={{ background: '#FFFBEB', border: '1px solid #FDE68A' }}>
+                    <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: '#B45309' }} />
+                    <div className="min-w-0">
+                      <p className="text-[12.5px] font-semibold" style={{ color: '#92400E' }}>
+                        Este documento ya es de <b>{empresaDuplicada.razon_social}</b>.
+                      </p>
+                      <p className="text-[11.5px] mt-0.5" style={{ color: '#B45309' }}>
+                        No lo registres de nuevo: abre su perfil y agrégale el sistema o servicio ahí (sin duplicar).
+                      </p>
+                      <button type="button"
+                        onClick={() => navigate(tenantPath(tenantId, `/certificaciones/empresa/${empresaDuplicada.id}`))}
+                        className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold"
+                        style={{ background: '#B45309', color: '#fff' }}>
+                        Abrir perfil de {empresaDuplicada.razon_social}
+                      </button>
+                    </div>
+                  </div>
                 )}
               </div>
 

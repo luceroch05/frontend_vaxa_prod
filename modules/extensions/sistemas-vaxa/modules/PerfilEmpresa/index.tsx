@@ -8,24 +8,31 @@ import { imgUrl } from '@/lib/api/client';
 import {
   Building2, Users, CreditCard, Info, Loader2, AlertCircle,
   Trash2, RefreshCw, AlertTriangle, CheckCircle, DollarSign, Package,
-  FileText, Activity,
+  FileText, Activity, Plus, X, Layers,
 } from '@/components/ui/icon';
 import HeaderSistemasVaxa from '../../shared/components/HeaderSistemasVaxa';
 import BotonVolver from '../../shared/components/BotonVolver';
 import { VAXA_CONFIG } from '../../shared/constants';
 import { authStorage } from '@/lib/auth';
 import { ApiError } from '@/lib/api/client';
-import { creditosAdminApi, type EmpresaCreditos, type ProductoEmpresa } from '../../shared/api/creditos.admin.api';
+import { creditosAdminApi, type EmpresaCreditos, type ProductoEmpresa, type ProductoCatalogo } from '../../shared/api/creditos.admin.api';
 import { useAreaBase } from '../../shared/useAreaBase';
 import { esEmpresa, docLabel, tipoClienteLabel } from '../../shared/docs';
 import TabInformacion from './TabInformacion';
 import TabPlan from './TabPlan';
 import TabUsuarios from './TabUsuarios';
+import TabServicios from './TabServicios';
+
+/** Presentación por sistema (icono/color) para el modal de "Agregar sistema". */
+const PRODUCTO_META: Record<string, { icon: typeof Layers; color: string }> = {
+  'certificaciones':    { icon: FileText, color: '#059669' },
+  'historias-clinicas': { icon: Activity, color: '#0F766E' },
+};
 
 interface PerfilEmpresaProps { tenantId: string; tenant: TenantConfig; empresaId: string; }
 interface Usuario { email: string; nombre: string; role: string; }
-/** Nivel 1: por SISTEMA (además de la info común). */
-type TabType = 'informacion' | 'certificaciones' | 'historias-clinicas';
+/** Nivel 1: por SISTEMA (además de la info común) + servicios/cobros a medida. */
+type TabType = 'informacion' | 'certificaciones' | 'historias-clinicas' | 'servicios';
 /** Nivel 2 dentro de Certificados: config + cobro de ese sistema. */
 type CertTab = 'plan' | 'cobros' | 'creditos' | 'usuarios';
 
@@ -39,6 +46,9 @@ export default function PerfilEmpresa({ tenantId, empresaId }: PerfilEmpresaProp
   const [activeTab, setActiveTab] = useState<TabType>('informacion');
   const [certTab, setCertTab] = useState<CertTab>('plan');   // sub-pestaña dentro de Certificados
   const [productos, setProductos] = useState<ProductoEmpresa[]>([]);   // sistemas contratados por el cliente
+  const [catalogo, setCatalogo] = useState<ProductoCatalogo[]>([]);    // sistemas disponibles (para agregar)
+  const [showAddSistema, setShowAddSistema] = useState(false);
+  const [agregandoSlug, setAgregandoSlug] = useState<string | null>(null);
 
   // Acciones de la empresa (en el header): eliminar / restaurar.
   const [confirmarEliminar, setConfirmarEliminar] = useState(false);
@@ -93,9 +103,29 @@ export default function PerfilEmpresa({ tenantId, empresaId }: PerfilEmpresaProp
     }
     try { setUsuario(JSON.parse(localStorage.getItem(`auth_user_${tenantId}`) ?? 'null')); } catch { /* noop */ }
     cargar();
+    // Catálogo de sistemas (para "Agregar sistema"); 'sistemas-vaxa' es el panel interno, no se contrata.
+    creditosAdminApi.getCatalogoProductos()
+      .then((c) => setCatalogo(c.filter((p) => p.slug !== 'sistemas-vaxa')))
+      .catch(() => setCatalogo([]));
   }, [tenantId, navigate, cargar]);
 
+  // Agrega (activa) un sistema a esta empresa SIN re-registrarla.
+  const agregarSistema = async (slug: string) => {
+    if (agregandoSlug) return;
+    setAgregandoSlug(slug); setAccionError(null);
+    try {
+      await creditosAdminApi.setProductoEmpresa(Number(empresaId), slug, true);
+      await cargar();
+      setShowAddSistema(false);
+      setActiveTab(slug === 'certificaciones' ? 'certificaciones' : slug === 'historias-clinicas' ? 'historias-clinicas' : 'informacion');
+    } catch (e) { setAccionError((e as Error).message); }
+    finally { setAgregandoSlug(null); }
+  };
+
   if (!usuario) return null;
+
+  // Sistemas que el cliente AÚN no tiene (para ofrecerlos en "Agregar sistema").
+  const sistemasDisponibles = catalogo.filter((c) => !productos.some((p) => p.slug === c.slug && p.activo));
 
   // ¿Qué sistemas tiene contratados? (si aún no cargó, mostramos ambos por defecto).
   const tieneCert = productos.length ? productos.some((p) => p.slug === 'certificaciones' && p.activo) : true;
@@ -106,6 +136,7 @@ export default function PerfilEmpresa({ tenantId, empresaId }: PerfilEmpresaProp
     { id: 'informacion' as TabType, label: 'Información', icon: Info },
     ...(tieneCert ? [{ id: 'certificaciones' as TabType, label: 'Certificados', icon: FileText }] : []),
     ...(tieneHC ? [{ id: 'historias-clinicas' as TabType, label: 'Historias Clínicas', icon: Activity }] : []),
+    { id: 'servicios' as TabType, label: 'Servicios y cobros', icon: DollarSign },
   ];
 
   // Sub-pestañas de Certificados (config + cobro de ese sistema).
@@ -203,6 +234,26 @@ export default function PerfilEmpresa({ tenantId, empresaId }: PerfilEmpresaProp
               )}
             </div>
 
+            {/* Barra: sistemas contratados + agregar uno nuevo (sin re-registrar) */}
+            <div className="flex items-center justify-between gap-3 mb-3 flex-wrap page-enter">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {productos.filter((p) => p.activo).map((p) => (
+                  <span key={p.slug} className="text-[11px] font-semibold px-2.5 py-1 rounded-lg"
+                    style={{ background: '#ECFDF5', color: '#047857', border: '1px solid #A7F3D0' }}>{p.nombre}</span>
+                ))}
+                {productos.filter((p) => p.activo).length === 0 && (
+                  <span className="text-[12px]" style={{ color: '#9CA3AF' }}>Sin sistemas contratados</span>
+                )}
+              </div>
+              {sistemasDisponibles.length > 0 && (
+                <button onClick={() => { setShowAddSistema(true); setAccionError(null); }}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-[12.5px] font-semibold flex-shrink-0"
+                  style={{ background: '#ECFDF5', color: '#059669', border: '1px solid #A7F3D0' }}>
+                  <Plus className="w-3.5 h-3.5" /> Agregar sistema
+                </button>
+              )}
+            </div>
+
             {/* Tabs */}
             <div className="sv-card overflow-hidden page-enter stagger-1">
               <div style={{ borderBottom: '1px solid #F2F0EA' }}>
@@ -256,6 +307,11 @@ export default function PerfilEmpresa({ tenantId, empresaId }: PerfilEmpresaProp
                 {activeTab === 'historias-clinicas' && (
                   <TabUsuarios empresa={empresa} producto="historias-clinicas" />
                 )}
+
+                {/* ── Servicios y cobros a medida (web/dominio/hosting), sin re-registrar ── */}
+                {activeTab === 'servicios' && (
+                  <TabServicios empresa={empresa} />
+                )}
               </div>
             </div>
           </>
@@ -307,6 +363,51 @@ export default function PerfilEmpresa({ tenantId, empresaId }: PerfilEmpresaProp
                 Sí, eliminar
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal: Agregar sistema a un cliente existente (sin re-registrar) ── */}
+      {showAddSistema && empresa && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(13,14,18,0.45)' }}
+          onClick={() => { if (!agregandoSlug) setShowAddSistema(false); }}>
+          <div className="sv-card w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start justify-between gap-3 mb-1">
+              <h3 className="text-[16px] font-bold" style={{ color: '#0D0E12' }}>Agregar sistema</h3>
+              <button onClick={() => setShowAddSistema(false)} disabled={!!agregandoSlug} className="p-1 rounded-lg" style={{ color: '#9CA3AF' }}><X className="w-5 h-5" /></button>
+            </div>
+            <p className="text-[12.5px] mb-4" style={{ color: '#9CA3AF' }}>
+              Suma un SaaS a <b style={{ color: '#0D0E12' }}>{empresa.razon_social}</b> sin volver a registrarla. Luego configuras su plan/cobro en la pestaña del sistema.
+            </p>
+            <div className="space-y-2">
+              {sistemasDisponibles.map((p) => {
+                const meta = PRODUCTO_META[p.slug] ?? { icon: Layers, color: '#6366F1' };
+                const Icon = meta.icon;
+                const cargando = agregandoSlug === p.slug;
+                return (
+                  <button key={p.slug} onClick={() => agregarSistema(p.slug)} disabled={!!agregandoSlug}
+                    className="w-full flex items-center gap-3 p-3 rounded-xl text-left transition-all disabled:opacity-60"
+                    style={{ border: '1px solid #EEECE6' }}
+                    onMouseEnter={(e) => { if (!agregandoSlug) e.currentTarget.style.background = '#FAFAF8'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: meta.color }}>
+                      <Icon className="w-5 h-5 text-white" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[13.5px] font-bold" style={{ color: '#0D0E12' }}>{p.nombre}</p>
+                      <p className="text-[11.5px]" style={{ color: '#9CA3AF' }}>Activar este sistema para el cliente</p>
+                    </div>
+                    {cargando ? <Loader2 className="w-4 h-4 animate-spin" style={{ color: meta.color }} /> : <Plus className="w-4 h-4" style={{ color: '#C8C3BB' }} />}
+                  </button>
+                );
+              })}
+            </div>
+            {accionError && (
+              <div className="mt-4 px-3 py-2.5 rounded-xl flex items-center gap-2 text-[12.5px]"
+                style={{ background: '#FEF2F2', border: '1px solid #FECACA', color: '#B91C1C' }}>
+                <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" /> {accionError}
+              </div>
+            )}
           </div>
         </div>
       )}

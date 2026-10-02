@@ -279,7 +279,7 @@ export default function TarifarioCertificaciones({ tenantId }: Props) {
 
             <div className="mt-6 flex items-center gap-2 text-[12px] no-print" style={{ color: '#9CA3AF' }}>
               <FileText className="w-4 h-4" />
-              ¿Vas a proponerle esto a un cliente? Arma una <button onClick={() => navigate(tenantPath(tenantId, '/certificaciones/cotizaciones'))} className="font-semibold underline" style={{ color: '#059669' }}>cotización</button>.
+              ¿Vas a proponerle esto a un cliente? Arma una <button onClick={() => navigate(tenantPath(tenantId, '/cotizaciones'))} className="font-semibold underline" style={{ color: '#059669' }}>cotización</button>.
             </div>
           </>
         )}

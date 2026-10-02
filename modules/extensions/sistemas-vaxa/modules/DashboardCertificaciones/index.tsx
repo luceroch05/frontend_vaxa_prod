@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { TenantConfig } from '@/lib/tenants';
 import { tenantPath } from '@/lib/paths';
 import {
-  Building2, FileText, TrendingUp, CreditCard, Plus, ArrowRight, Loader2, ClipboardList, DollarSign, BookOpen,
+  Building2, FileText, TrendingUp, CreditCard, Plus, ArrowRight, Loader2,
 } from '@/components/ui/icon';
 import HeaderSistemasVaxa from '../../shared/components/HeaderSistemasVaxa';
 import { VAXA_CONFIG } from '../../shared/constants';
@@ -120,12 +120,7 @@ export default function DashboardCertificaciones({ tenantId }: Props) {
             {/* Accesos rápidos */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-5 page-enter stagger-2">
               {[
-                { to: tenantPath(tenantId, '/certificaciones/empresas'), Icon: Building2, t: 'Ver todas las empresas', d: 'Empresas, créditos y usuarios' },
-                { to: tenantPath(tenantId, '/certificaciones/cotizaciones'), Icon: ClipboardList, t: 'Cotizaciones', d: 'Arma propuestas y conviértelas en venta' },
-                { to: tenantPath(tenantId, '/certificaciones/tarifario'), Icon: DollarSign, t: 'Tarifario', d: 'Planes, paquetes y precios 2026' },
-                { to: tenantPath(tenantId, '/certificaciones/cobranza'), Icon: CreditCard, t: 'Cobranza y vencimientos', d: 'Quién debe pagar y cuándo vence' },
-                { to: tenantPath(tenantId, '/certificaciones/facturacion'), Icon: FileText, t: 'Facturación electrónica', d: 'Emite y consulta comprobantes SUNAT' },
-                { to: tenantPath(tenantId, '/certificaciones/reclamos'), Icon: BookOpen, t: 'Libro de Reclamaciones', d: 'Reclamos y quejas (INDECOPI)' },
+                { to: tenantPath(tenantId, '/clientes'), Icon: Building2, t: 'Ver todos los clientes', d: 'Clientes de Vaxa y sus sistemas' },
                 { to: tenantPath(tenantId, '/certificaciones/registrar-empresa'), Icon: Plus, t: 'Registrar nueva empresa', d: 'Agrega una empresa al sistema' },
               ].map(({ to, Icon, t, d }) => (
                 <button key={to} onClick={() => navigate(to)}
@@ -149,7 +144,7 @@ export default function DashboardCertificaciones({ tenantId }: Props) {
               style={{ background: '#FFFFFF', border: '1px solid #EEECE6' }}>
               <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid #F2F0EA' }}>
                 <h2 className="text-[14px] font-bold" style={{ color: '#0D0E12' }}>Empresas recientes</h2>
-                <button onClick={() => navigate(tenantPath(tenantId, '/certificaciones/empresas'))}
+                <button onClick={() => navigate(tenantPath(tenantId, '/clientes'))}
                   className="text-[12.5px] font-semibold flex items-center gap-1 transition-colors hover:opacity-70"
                   style={{ color: '#059669' }}>
                   Ver todas <ArrowRight className="w-3.5 h-3.5" />

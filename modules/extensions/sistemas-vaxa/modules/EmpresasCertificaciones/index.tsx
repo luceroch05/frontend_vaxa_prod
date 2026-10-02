@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { TenantConfig } from '@/lib/tenants';
 import { tenantPath } from '@/lib/paths';
 import { imgUrl } from '@/lib/api/client';
@@ -23,6 +23,9 @@ interface Usuario { email: string; nombre: string; role: string; }
 export default function EmpresasCertificaciones({ tenantId }: Props) {
   const navigate = useNavigate();
   const base = useAreaBase();
+  const { pathname } = useLocation();
+  // Modo CENTRAL (/clientes): una sola lista de todos los clientes, sin filtrar por sistema.
+  const central = /\/clientes\/?$/.test(pathname);
   const [usuario, setUsuario] = useState<Usuario | null>(null);
   const [empresas, setEmpresas] = useState<EmpresaCreditos[]>([]);
   const [loading, setLoading] = useState(true);
@@ -103,6 +106,7 @@ export default function EmpresasCertificaciones({ tenantId }: Props) {
   // en Certificados, los que tienen certificaciones (y los legacy sin vínculo).
   const esHC = base === '/historias-clinicas';
   const perteneceArea = (e: EmpresaCreditos) => {
+    if (central) return true;   // vista central: todos los clientes
     const prods = (e.productos ?? '').split(',').map((s) => s.trim()).filter(Boolean);
     return esHC ? prods.includes('historias-clinicas')
                 : (prods.length === 0 || prods.includes('certificaciones'));
@@ -137,15 +141,15 @@ export default function EmpresasCertificaciones({ tenantId }: Props) {
 
         <div className="mb-5 flex items-end justify-between gap-4 page-enter">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] mb-1" style={{ color: '#059669' }}>Certificaciones</p>
-            <h1 className="text-[24px] font-bold tracking-tight" style={{ color: '#0D0E12' }}>Empresas registradas</h1>
-            <p className="text-[13px] mt-1" style={{ color: '#9CA3AF' }}>Gestiona las empresas que usan el sistema de certificados.</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] mb-1" style={{ color: '#059669' }}>{central ? 'Vaxa' : 'Certificaciones'}</p>
+            <h1 className="text-[24px] font-bold tracking-tight" style={{ color: '#0D0E12' }}>{central ? 'Clientes' : 'Empresas registradas'}</h1>
+            <p className="text-[13px] mt-1" style={{ color: '#9CA3AF' }}>{central ? 'Todos los clientes de Vaxa y los sistemas que tiene cada uno.' : 'Gestiona las empresas que usan el sistema de certificados.'}</p>
           </div>
           <button
-            onClick={() => navigate(tenantPath(tenantId, `${base}/registrar-empresa`))}
+            onClick={() => navigate(tenantPath(tenantId, central ? '/registrar-empresa' : `${base}/registrar-empresa`))}
             className="sv-btn sv-btn-primary flex-shrink-0"
           >
-            <Plus className="w-4 h-4" /> Registrar empresa
+            <Plus className="w-4 h-4" /> Registrar cliente
           </button>
         </div>
 
@@ -313,10 +317,10 @@ export default function EmpresasCertificaciones({ tenantId }: Props) {
                 </p>
                 {estadoFiltro === 'activas' && (
                   <button
-                    onClick={() => navigate(tenantPath(tenantId, `${base}/registrar-empresa`))}
+                    onClick={() => navigate(tenantPath(tenantId, central ? '/registrar-empresa' : `${base}/registrar-empresa`))}
                     className="sv-btn sv-btn-primary mx-auto"
                   >
-                    <Plus className="w-4 h-4" /> Registrar primera empresa
+                    <Plus className="w-4 h-4" /> Registrar primer cliente
                   </button>
                 )}
               </div>

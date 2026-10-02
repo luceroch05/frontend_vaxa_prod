@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { TenantConfig } from '@/lib/tenants';
 import { tenantPath } from '@/lib/paths';
-import { Activity, Building2, Plus, CreditCard, ChevronRight } from '@/components/ui/icon';
+import { Activity, Building2, Plus, ChevronRight } from '@/components/ui/icon';
 import HeaderSistemasVaxa from '../../shared/components/HeaderSistemasVaxa';
 import { VAXA_CONFIG } from '../../shared/constants';
 import { authStorage } from '@/lib/auth';
@@ -31,9 +31,8 @@ export default function DashboardHistorias({ tenantId }: Props) {
   if (!usuario) return null;
 
   const menu = [
-    { to: '/historias-clinicas/empresas', Icon: Building2, t: 'Centros', d: 'Clientes con Historias Clínicas: usuarios y módulos' },
+    { to: '/clientes', Icon: Building2, t: 'Clientes', d: 'Todos los clientes de Vaxa y sus sistemas' },
     { to: '/historias-clinicas/registrar-empresa', Icon: Plus, t: 'Registrar centro', d: 'Alta de un nuevo cliente y sus sistemas' },
-    { to: '/historias-clinicas/cobranza', Icon: CreditCard, t: 'Cobranza', d: 'Pagos y vencimientos de los centros' },
   ];
 
   return (

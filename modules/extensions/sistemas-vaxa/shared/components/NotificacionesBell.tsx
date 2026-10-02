@@ -51,7 +51,7 @@ export default function NotificacionesBell({ tenantId }: { tenantId: string }) {
       lineas: grupo.map((x) => ({ descripcion: x.descripcion || 'Servicio', cantidad: 1, precioUnitario: Number(x.precio) || 0 })),
     };
     setOpen(false);
-    navigate(tenantPath(tenantId, '/certificaciones/cotizaciones'), { state: { prefillCobro: prefill } });
+    navigate(tenantPath(tenantId, '/cotizaciones'), { state: { prefillCobro: prefill } });
   };
 
   return (

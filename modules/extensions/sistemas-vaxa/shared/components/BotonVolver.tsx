@@ -2,6 +2,7 @@
 
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft } from '@/components/ui/icon';
+import { useInsideShell } from '../shellContext';
 
 interface BotonVolverProps {
   /** Ruta a la que navega. Si se pasa `onClick`, este tiene prioridad. */
@@ -16,6 +17,9 @@ interface BotonVolverProps {
 /** Botón "volver" reutilizable (flecha + texto), mismo estilo en todas las pantallas de sistemas-vaxa. */
 export default function BotonVolver({ to, onClick, children = 'Volver al panel', className = '' }: BotonVolverProps) {
   const navigate = useNavigate();
+  const insideShell = useInsideShell();
+  // Dentro del shell el sidebar ya resuelve la navegación: no hace falta "volver".
+  if (insideShell) return null;
   const handle = onClick ?? (() => to && navigate(to));
   return (
     <button

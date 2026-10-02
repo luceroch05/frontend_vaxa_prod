@@ -3,6 +3,7 @@ import { LogOut, Package, Users, Menu, X } from 'lucide-react';
 import { useState } from 'react';
 import { tenantPath } from '@/lib/paths';
 import NotificacionesBell from './NotificacionesBell';
+import { useInsideShell } from '../shellContext';
 
 interface HeaderSistemasVaxaProps {
   tenantId: string;
@@ -28,8 +29,12 @@ const EMERALD_BD   = '#A7F3D0';
 export default function HeaderSistemasVaxa({ tenantId, usuario, config }: HeaderSistemasVaxaProps) {
   const navigate = useNavigate();
   const pathname = useLocation().pathname;
+  const insideShell = useInsideShell();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+
+  // Dentro del shell (sidebar fijo) la navegación la provee el shell: no duplicamos cabecera.
+  if (insideShell) return null;
 
   const marca = config?.name ?? 'Sistemas Vaxa';
 

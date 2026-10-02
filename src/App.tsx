@@ -28,6 +28,8 @@ import PublicRegistro from '../modules/extensions/certificaciones/modules/Public
 import PublicValidar  from '../modules/extensions/certificaciones/modules/PublicValidar';
 // Libro de Reclamaciones Virtual (público, sin login — importación directa para NO envolverlo en AuthGuard)
 import LibroReclamaciones from '../modules/extensions/sistemas-vaxa/modules/LibroReclamaciones';
+// Shell del panel interno (sistemas-vaxa): sidebar fijo + todo centralizado
+import SistemasShell from '../modules/extensions/sistemas-vaxa/shared/components/SistemasShell';
 
 // Módulo SaaS de Historias Clínicas (centros terapéuticos) — importación directa
 import TerapLayout   from '../modules/extensions/terapeutico/shared/TerapLayout';
@@ -138,30 +140,33 @@ function tenantChildren() {
       <Route path="historial"   element={<LazyRoute module="HistorialLotes" />} />
       <Route path="historial/:loteId/certificados" element={<LazyRoute module="Certificados" paramKey="loteId" />} />
       <Route path="validar"     element={<LazyRoute module="Validacion" />} />
-      <Route path="sistemas"    element={<LazyRoute module="Sistemas" />} />
-      {/* Registro CENTRALIZADO de clientes (product-agnóstico): SaaS y/o servicios a medida */}
-      <Route path="registrar-empresa" element={<LazyRoute module="RegistrarEmpresaCertificaciones" />} />
-      {/* Finanzas CENTRALIZADAS (para TODOS los sistemas, no solo Certificados) */}
-      <Route path="tarifario"    element={<LazyRoute module="TarifarioCertificaciones" />} />
-      <Route path="cotizaciones" element={<LazyRoute module="CotizacionesCertificaciones" />} />
-      <Route path="facturacion"  element={<LazyRoute module="FacturacionCertificaciones" />} />
-      <Route path="usuarios"    element={<LazyRoute module="UsuariosSistemasVaxa" />} />
-      <Route path="landing"     element={<LazyRoute module="LandingVaxa" />} />
-      <Route path="infraestructura" element={<LazyRoute module="InfraestructuraVaxa" />} />
-      <Route path="certificaciones"                       element={<LazyRoute module="DashboardCertificaciones" />} />
-      <Route path="historias-clinicas"                    element={<LazyRoute module="DashboardHistorias" />} />
-      <Route path="historias-clinicas/empresas"           element={<LazyRoute module="EmpresasCertificaciones" />} />
-      <Route path="historias-clinicas/cobranza"           element={<LazyRoute module="CobranzaCertificaciones" />} />
-      <Route path="historias-clinicas/registrar-empresa"  element={<LazyRoute module="RegistrarEmpresaCertificaciones" />} />
-      <Route path="historias-clinicas/empresa/:empresaId" element={<LazyRoute module="PerfilEmpresa" paramKey="empresaId" />} />
-      <Route path="certificaciones/empresas"              element={<LazyRoute module="EmpresasCertificaciones" />} />
-      <Route path="certificaciones/cobranza"              element={<LazyRoute module="CobranzaCertificaciones" />} />
-      <Route path="certificaciones/facturacion"           element={<LazyRoute module="FacturacionCertificaciones" />} />
-      <Route path="certificaciones/tarifario"             element={<LazyRoute module="TarifarioCertificaciones" />} />
-      <Route path="certificaciones/cotizaciones"          element={<LazyRoute module="CotizacionesCertificaciones" />} />
-      <Route path="certificaciones/reclamos"              element={<LazyRoute module="ReclamosCertificaciones" />} />
-      <Route path="certificaciones/registrar-empresa"     element={<LazyRoute module="RegistrarEmpresaCertificaciones" />} />
-      <Route path="certificaciones/empresa/:empresaId"    element={<LazyRoute module="PerfilEmpresa" paramKey="empresaId" />} />
+
+      {/* ── Panel interno de Vaxa: TODO bajo un shell con sidebar fijo (centralizado) ── */}
+      <Route element={<SistemasShell />}>
+        <Route path="sistemas"    element={<LazyRoute module="Sistemas" />} />
+        {/* Clientes CENTRALIZADOS: una sola lista de todos (product-agnóstica) */}
+        <Route path="clientes"    element={<LazyRoute module="EmpresasCertificaciones" />} />
+        {/* Registro CENTRALIZADO de clientes (product-agnóstico): SaaS y/o servicios a medida */}
+        <Route path="registrar-empresa" element={<LazyRoute module="RegistrarEmpresaCertificaciones" />} />
+        {/* Finanzas y cobros CENTRALIZADOS (para TODOS los sistemas, no solo Certificados) */}
+        <Route path="tarifario"    element={<LazyRoute module="TarifarioCertificaciones" />} />
+        <Route path="cotizaciones" element={<LazyRoute module="CotizacionesCertificaciones" />} />
+        <Route path="facturacion"  element={<LazyRoute module="FacturacionCertificaciones" />} />
+        <Route path="cobranza"     element={<LazyRoute module="CobranzaCertificaciones" />} />
+        <Route path="usuarios"    element={<LazyRoute module="UsuariosSistemasVaxa" />} />
+        <Route path="landing"     element={<LazyRoute module="LandingVaxa" />} />
+        <Route path="infraestructura" element={<LazyRoute module="InfraestructuraVaxa" />} />
+        {/* Libro de Reclamaciones: a nivel VAXA (INDECOPI), no de un producto */}
+        <Route path="reclamos"    element={<LazyRoute module="ReclamosCertificaciones" />} />
+        <Route path="certificaciones"                       element={<LazyRoute module="DashboardCertificaciones" />} />
+        <Route path="historias-clinicas"                    element={<LazyRoute module="DashboardHistorias" />} />
+        <Route path="historias-clinicas/empresas"           element={<LazyRoute module="EmpresasCertificaciones" />} />
+        <Route path="historias-clinicas/registrar-empresa"  element={<LazyRoute module="RegistrarEmpresaCertificaciones" />} />
+        <Route path="historias-clinicas/empresa/:empresaId" element={<LazyRoute module="PerfilEmpresa" paramKey="empresaId" />} />
+        <Route path="certificaciones/empresas"              element={<LazyRoute module="EmpresasCertificaciones" />} />
+        <Route path="certificaciones/registrar-empresa"     element={<LazyRoute module="RegistrarEmpresaCertificaciones" />} />
+        <Route path="certificaciones/empresa/:empresaId"    element={<LazyRoute module="PerfilEmpresa" paramKey="empresaId" />} />
+      </Route>
     </>
   );
 }

@@ -349,7 +349,8 @@
       "PowerShell(npx tsc --noEmit 2>&1 | Select-Object -First 20)",
       "Bash(grep -rn \"\\\\\"@/\\\\*\\\\\"\\\\|'@/'\\\\|@/\\\\*\\\\|baseUrl\\\\|paths\" tsconfig.json tsconfig.*.json)",
       "PowerShell($p = Get-CimInstance Win32_Process -Filter \"ProcessId = 18728\" -ErrorAction SilentlyContinue; if \\($p\\) { \"$\\($p.Name\\) => $\\($p.CommandLine\\)\" } else { \"PID 18728 ya no existe\" })",
-      "Bash(grep -rn \"new WebSocket\\\\|/ws\\\\|wss:\\\\|ws://\\\\|WS_URL\" modules/extensions/terapeutico lib)"
+      "Bash(grep -rn \"new WebSocket\\\\|/ws\\\\|wss:\\\\|ws://\\\\|WS_URL\" modules/extensions/terapeutico lib)",
+      "PowerShell(Start-Process \"C:\\\\Users\\\\Lucero\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-Lucero-Desktop-frontend-vaxa-prod\\\\0adbf2a6-cf40-42ea-ae02-3cd6bb56fa9a\\\\scratchpad\\\\mockup-sistemas-vaxa.html\")"
     ],
     "deny": [],
     "ask": []

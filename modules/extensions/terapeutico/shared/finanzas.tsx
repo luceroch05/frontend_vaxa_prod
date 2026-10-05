@@ -153,19 +153,30 @@ export function ModalDetalleVenta({ slug, ventaId, onClose, centro }: { slug: st
                 </tr>
               </thead>
               <tbody>
-                {(venta.items ?? []).map(it => (
-                  <tr key={it.id} style={{ borderTop: '1px solid #F1F5F4' }}>
-                    <td className="px-3 py-2">
-                      <span className="text-[9.5px] font-bold px-1.5 py-0.5 rounded mr-1.5" style={{ background: it.tipo === 'servicio' ? '#CCFBF1' : '#FEF3C7', color: it.tipo === 'servicio' ? TEAL : '#B45309' }}>
-                        {it.tipo === 'servicio' ? 'SERV' : 'PROD'}
-                      </span>
-                      <span style={{ color: '#0E1A1A' }}>{it.descripcion}</span>
-                    </td>
-                    <td className="px-3 py-2 text-center" style={{ color: '#6B7280' }}>{Number(it.cantidad)}</td>
-                    <td className="px-3 py-2 text-right" style={{ color: '#6B7280' }}>{soles(it.precio_unit)}</td>
-                    <td className="px-3 py-2 text-right font-semibold" style={{ color: '#0E1A1A' }}>{soles(it.subtotal)}</td>
-                  </tr>
-                ))}
+                {(venta.items ?? []).map(it => {
+                  // Línea de contenido de un paquete (motivo incluido, sin precio): indentada.
+                  const esContenido = it.paquete_id && it.tipo !== 'paquete';
+                  if (esContenido) return (
+                    <tr key={it.id} style={{ borderTop: '1px solid #F1F5F4' }}>
+                      <td className="px-3 py-1.5" style={{ paddingLeft: 22, color: '#6B7280' }}>· {it.descripcion} ×{Number(it.cantidad)}</td>
+                      <td /><td /><td />
+                    </tr>
+                  );
+                  const badge = it.tipo === 'paquete' ? { t: 'PAQ', bg: '#F3E8FF', fg: '#7E22CE' }
+                    : it.tipo === 'producto' ? { t: 'PROD', bg: '#FEF3C7', fg: '#B45309' }
+                    : { t: 'SERV', bg: '#CCFBF1', fg: TEAL };
+                  return (
+                    <tr key={it.id} style={{ borderTop: '1px solid #F1F5F4' }}>
+                      <td className="px-3 py-2">
+                        <span className="text-[9.5px] font-bold px-1.5 py-0.5 rounded mr-1.5" style={{ background: badge.bg, color: badge.fg }}>{badge.t}</span>
+                        <span style={{ color: '#0E1A1A' }}>{it.descripcion}</span>
+                      </td>
+                      <td className="px-3 py-2 text-center" style={{ color: '#6B7280' }}>{Number(it.cantidad)}</td>
+                      <td className="px-3 py-2 text-right" style={{ color: '#6B7280' }}>{soles(it.precio_unit)}</td>
+                      <td className="px-3 py-2 text-right font-semibold" style={{ color: '#0E1A1A' }}>{soles(it.subtotal)}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
               <tfoot>
                 <tr style={{ background: '#F6FAF9', borderTop: '1px solid #E5E9E7' }}>

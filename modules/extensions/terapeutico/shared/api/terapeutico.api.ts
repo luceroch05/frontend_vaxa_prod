@@ -115,6 +115,66 @@ export interface Terapeuta { id: number; nombre: string; }
 export interface Servicio { id: number; nombre: string; descripcion: string | null; precio: number; duracion_min: number; activo: number; }
 export interface ServicioDto { nombre: string; descripcion?: string | null; precio?: number | null; duracion_min?: number | null; activo?: boolean; }
 
+/** Tipo de motivo de cita (para badge/color y reglas de saldo). */
+export type MotivoTipo = 'sesion' | 'evaluacion' | 'informe' | 'grupal' | 'otro';
+/** Motivo de cita: un "tipo" dentro de un servicio (Evaluación, Sesión individual, Informe…). */
+export interface Motivo {
+  id: number;
+  servicio_id: number;
+  servicio_nombre: string;
+  nombre: string;
+  descripcion: string | null;
+  tipo: MotivoTipo;
+  precio: number;
+  duracion_min: number;
+  consume_saldo: number;
+  orden: number;
+  activo: number;
+}
+export interface MotivoDto {
+  servicio_id?: number;
+  nombre?: string;
+  descripcion?: string | null;
+  tipo?: MotivoTipo;
+  precio?: number | null;
+  duracion_min?: number | null;
+  consume_saldo?: boolean;
+  orden?: number | null;
+  activo?: boolean;
+}
+
+/** Línea de un paquete/combo: un motivo × cantidad (con datos del motivo para mostrarlo). */
+export interface PaqueteLinea {
+  id?: number;
+  paquete_id?: number;
+  motivo_id: number;
+  cantidad: number;
+  orden?: number;
+  motivo_nombre?: string;
+  motivo_precio?: number;
+  motivo_servicio_id?: number;
+  motivo_servicio_nombre?: string;
+}
+/** Paquete / combo vendible = N líneas (motivo × cantidad) a un precio total especial. */
+export interface Paquete {
+  id: number;
+  servicio_id: number | null;
+  servicio_nombre: string | null;
+  nombre: string;
+  descripcion: string | null;
+  precio_total: number;
+  activo: number;
+  lineas: PaqueteLinea[];
+}
+export interface PaqueteDto {
+  servicio_id?: number | null;
+  nombre?: string;
+  descripcion?: string | null;
+  precio_total?: number | null;
+  activo?: boolean;
+  lineas?: { motivo_id: number; cantidad?: number }[];
+}
+
 // ── Finanzas: Inventario / Ventas / Caja ──────────────────────────────────────
 export interface Producto {
   id: number;
@@ -145,8 +205,8 @@ export interface InventarioMov {
   usuario: string | null; created_at: string;
 }
 export interface VentaItem {
-  id: number; venta_id: number; tipo: 'servicio' | 'producto';
-  servicio_id: number | null; producto_id: number | null;
+  id: number; venta_id: number; tipo: 'servicio' | 'producto' | 'motivo' | 'paquete';
+  servicio_id: number | null; motivo_id: number | null; paquete_id: number | null; producto_id: number | null;
   descripcion: string; cantidad: number; precio_unit: number; descuento: number; subtotal: number;
 }
 export interface VentaPago { metodo_pago: string; monto: number; }
@@ -156,8 +216,10 @@ export interface Venta {
   estado: 'emitida' | 'anulada'; vendedor: string | null; items?: VentaItem[]; pagos?: VentaPago[];
 }
 export interface VentaItemDto {
-  tipo: 'servicio' | 'producto';
+  tipo: 'servicio' | 'producto' | 'motivo' | 'paquete';
   servicio_id?: number | null;
+  motivo_id?: number | null;
+  paquete_id?: number | null;
   producto_id?: number | null;
   cantidad?: number;
   precio_unit?: number | null;
@@ -231,19 +293,23 @@ export interface Cita {
   paciente_id: number;
   terapeuta_id: number;
   servicio_id: number | null;
+  motivo_id: number | null;
   paciente_nombre: string;
   terapeuta_nombre: string;
   servicio_nombre: string | null;
+  motivo_nombre: string | null;       // nombre del motivo del catálogo
+  motivo_duracion: number | null;
   inicio: string;
   fin: string | null;
   estado_id: number;
   estado_nombre: string | null;
-  motivo: string | null;
+  motivo: string | null;              // nota libre (respaldo)
 }
 export interface CitaDto {
   paciente_id: number;
   terapeuta_id: number;
   servicio_id?: number | null;
+  motivo_id?: number | null;
   inicio: string;
   fin?: string | null;
   motivo?: string | null;
@@ -253,6 +319,7 @@ export interface CitaUpdateDto {
   inicio?: string;
   fin?: string | null;
   motivo?: string | null;
+  motivo_id?: number | null;
   estado_id?: number;
   terapeuta_id?: number;
   servicio_id?: number | null;
@@ -496,6 +563,31 @@ export const terapApi = {
   updateServicio: (empresa: string, id: number, data: Partial<ServicioDto>) =>
     api.patch<Servicio>(`${B}/servicios/${id}`, data, opts(empresa)),
 
+  // Motivos de cita (tipos con precio, por servicio)
+  listMotivos: (empresa: string, servicioId?: number, todos = false) => {
+    const q = new URLSearchParams();
+    if (servicioId) q.set('servicio_id', String(servicioId));
+    if (todos) q.set('todos', '1');
+    const qs = q.toString();
+    return api.get<Motivo[]>(`${B}/motivos${qs ? `?${qs}` : ''}`, opts(empresa));
+  },
+  createMotivo: (empresa: string, data: MotivoDto) =>
+    api.post<Motivo>(`${B}/motivos`, data, opts(empresa)),
+  updateMotivo: (empresa: string, id: number, data: MotivoDto) =>
+    api.patch<Motivo>(`${B}/motivos/${id}`, data, opts(empresa)),
+  deleteMotivo: (empresa: string, id: number) =>
+    api.delete<{ modo: 'eliminado' | 'desactivado' }>(`${B}/motivos/${id}`, opts(empresa)),
+
+  // Paquetes / combos (tarifas vendibles). Catálogo por tenant, gestión ADMIN/ADMISION.
+  listPaquetes: (empresa: string, todos = false) =>
+    api.get<Paquete[]>(`${B}/paquetes${todos ? '?todos=1' : ''}`, opts(empresa)),
+  createPaquete: (empresa: string, data: PaqueteDto) =>
+    api.post<Paquete>(`${B}/paquetes`, data, opts(empresa)),
+  updatePaquete: (empresa: string, id: number, data: PaqueteDto) =>
+    api.patch<Paquete>(`${B}/paquetes/${id}`, data, opts(empresa)),
+  deletePaquete: (empresa: string, id: number) =>
+    api.delete<{ modo: 'eliminado' | 'desactivado' }>(`${B}/paquetes/${id}`, opts(empresa)),
+
   // Servicios que brinda cada terapeuta
   getServiciosDeTerapeuta: (empresa: string, terapeutaId: number) =>
     api.get<Terapeuta[]>(`${B}/terapeutas/${terapeutaId}/servicios`, opts(empresa)),
@@ -528,8 +620,12 @@ export const terapApi = {
     api.post<Cita>(`${B}/citas`, data, opts(empresa)),
   /** Saldo de sesiones de un servicio para un paciente (comprado − usado). `requiere`
    *  indica si el vínculo venta↔cita aplica (Ventas + Agenda activos). */
-  saldoSesiones: (empresa: string, pacienteId: number, servicioId: number) =>
-    api.get<SaldoSesiones>(`${B}/pacientes/${pacienteId}/saldo-sesiones?servicio_id=${servicioId}`, opts(empresa)),
+  saldoSesiones: (empresa: string, pacienteId: number, params: { servicioId?: number; motivoId?: number }) => {
+    const q = new URLSearchParams();
+    if (params.servicioId) q.set('servicio_id', String(params.servicioId));
+    if (params.motivoId) q.set('motivo_id', String(params.motivoId));
+    return api.get<SaldoSesiones>(`${B}/pacientes/${pacienteId}/saldo-sesiones?${q.toString()}`, opts(empresa));
+  },
   updateCita: (empresa: string, id: number, data: CitaUpdateDto) =>
     api.patch<Cita>(`${B}/citas/${id}`, data, opts(empresa)),
   deleteCita: (empresa: string, id: number) =>

@@ -65,13 +65,27 @@ export function numeroALetras(monto: number): string {
 
 // ── Construcción del HTML ─────────────────────────────────────────────────────
 function filasItems(v: Venta): string {
-  return (v.items ?? []).map((it) => `
+  return (v.items ?? []).map((it) => {
+    // Línea de CONTENIDO de un paquete (motivo incluido, sin precio): se muestra
+    // indentada y sin columnas de precio; el precio va en la cabecera del paquete.
+    const esContenido = it.paquete_id && it.tipo !== 'paquete';
+    if (esContenido) {
+      return `
+    <tr>
+      <td class="c"></td>
+      <td class="d" style="padding-left:14px;color:#555">· ${escapar(it.descripcion)} ×${Number(it.cantidad)}</td>
+      <td class="r"></td>
+      <td class="r"></td>
+    </tr>`;
+    }
+    return `
     <tr>
       <td class="c">${Number(it.cantidad)}</td>
       <td class="d">${escapar(it.descripcion)}</td>
       <td class="r">${fm(it.precio_unit)}</td>
       <td class="r">${fm(it.subtotal)}</td>
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
 }
 
 const escapar = (s: string) =>

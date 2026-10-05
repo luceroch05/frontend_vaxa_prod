@@ -7,11 +7,13 @@ import { terapPath } from '@/lib/paths';
 import { useTerapCtx } from '../../shared/TerapShell';
 import { terapApi, type Venta } from '../../shared/api/terapeutico.api';
 import { TEAL, soles, fmtFecha, EncabezadoPagina, Cargando, Vacio, ModalDetalleVenta } from '../../shared/finanzas';
+import { useConfirm } from '@/modules/extensions/certificaciones/shared/hooks/useConfirm';
 
 export default function Ventas() {
   const slug = useEmpresaSlug()!;
   const navigate = useNavigate();
   const { centro } = useTerapCtx();
+  const confirm = useConfirm();
   const esAdmin = (authStorage.getUser(slug)?.rol ?? '').toUpperCase() === 'ADMINISTRADOR';
   const [ventas, setVentas] = useState<Venta[]>([]);
   const [loading, setLoading] = useState(true);
@@ -24,7 +26,13 @@ export default function Ventas() {
   useEffect(cargar, [slug]);
 
   const anular = async (v: Venta) => {
-    if (!confirm(`¿Anular la venta #${v.id} por ${soles(v.total)}? Se repondrá el stock y se quitará el ingreso de caja.`)) return;
+    const ok = await confirm({
+      title: `Anular venta #${v.id}`,
+      message: `¿Seguro que quieres anular esta venta por ${soles(v.total)}?\n\nSe repondrá el stock de los productos y se quitará su ingreso de la caja. Esta acción no se puede deshacer.`,
+      variant: 'danger',
+      confirmText: 'Anular venta',
+    });
+    if (!ok) return;
     const upd = await terapApi.anularVenta(slug, v.id);
     setVentas(prev => prev.map(x => x.id === v.id ? { ...x, estado: upd.estado } : x));
   };

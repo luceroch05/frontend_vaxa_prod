@@ -3,7 +3,7 @@ import { Calendar, Plus, Loader2, X, ChevronLeft, ChevronRight, Trash2 } from '@
 import { useEmpresaSlug } from '@/lib/useEmpresa';
 import { authStorage } from '@/lib/auth';
 import {
-  terapApi, type Cita, type Paciente, type Terapeuta, type Servicio, type Catalogos, type CitaDto, type SaldoSesiones,
+  terapApi, type Cita, type Paciente, type Terapeuta, type Servicio, type Motivo, type Catalogos, type CitaDto, type SaldoSesiones,
 } from '../../shared/api/terapeutico.api';
 import Combobox from '../../shared/components/Combobox';
 import { useConfirm } from '@/modules/extensions/certificaciones/shared/hooks/useConfirm';
@@ -330,12 +330,13 @@ function ModalCita({ slug, dia, horaInicial, terapeutaInicial, cita, catalogos, 
   const confirm = useConfirm();
   const [pacientes, setPacientes] = useState<Paciente[]>([]);
   const [servicios, setServicios] = useState<Servicio[]>([]);
+  const [motivos, setMotivos] = useState<Motivo[]>([]);
   const [terapeutas, setTerapeutas] = useState<Terapeuta[]>([]);
   const [f, setF] = useState<CitaDto & { estado_id?: number }>(
     cita
-      ? { paciente_id: cita.paciente_id, terapeuta_id: cita.terapeuta_id, servicio_id: cita.servicio_id,
+      ? { paciente_id: cita.paciente_id, terapeuta_id: cita.terapeuta_id, servicio_id: cita.servicio_id, motivo_id: cita.motivo_id,
           inicio: toLocalInput(cita.inicio), fin: cita.fin ? toLocalInput(cita.fin) : '', motivo: cita.motivo ?? '', estado_id: cita.estado_id }
-      : { paciente_id: 0, terapeuta_id: terapeutaInicial ?? 0, servicio_id: null, inicio: `${dia}T09:00`, motivo: '' },
+      : { paciente_id: 0, terapeuta_id: terapeutaInicial ?? 0, servicio_id: null, motivo_id: null, inicio: `${dia}T09:00`, motivo: '' },
   );
   const [saving, setSaving] = useState(false);
   const [eliminando, setEliminando] = useState(false);
@@ -344,23 +345,29 @@ function ModalCita({ slug, dia, horaInicial, terapeutaInicial, cita, catalogos, 
   const [ocupadas, setOcupadas] = useState<Cita[]>([]); // citas del día seleccionado (para marcar horarios ocupados)
   const set = (k: keyof typeof f, v: any) => setF(prev => ({ ...prev, [k]: v }));
 
-  // Saldo de sesiones del servicio elegido (vínculo venta↔cita). Solo si hay paciente + servicio.
+  // Motivo elegido (si el centro usa motivos). Define precio, duración y saldo.
+  const motivoSel = motivos.find(m => m.id === f.motivo_id) ?? null;
+  const motivosDelServicio = useMemo(() => motivos.filter(m => f.servicio_id && m.servicio_id === f.servicio_id), [motivos, f.servicio_id]);
+
+  // Saldo de sesiones del MOTIVO elegido (o del servicio, legacy). Solo con paciente + (motivo|servicio).
   useEffect(() => {
-    if (!f.paciente_id || !f.servicio_id) { setSaldo(null); return; }
+    if (!f.paciente_id || (!f.motivo_id && !f.servicio_id)) { setSaldo(null); return; }
     let vivo = true;
-    terapApi.saldoSesiones(slug, f.paciente_id, f.servicio_id)
+    terapApi.saldoSesiones(slug, f.paciente_id, { servicioId: f.servicio_id ?? undefined, motivoId: f.motivo_id ?? undefined })
       .then(s => { if (vivo) setSaldo(s); })
       .catch(() => { if (vivo) setSaldo(null); });
     return () => { vivo = false; };
-  }, [slug, f.paciente_id, f.servicio_id]);
+  }, [slug, f.paciente_id, f.servicio_id, f.motivo_id]);
 
-  // Duración (min) del servicio elegido; sin servicio, 45 por defecto. Sirve para autocalcular la hora fin.
-  const duracionDe = (servicioId?: number | null) => servicios.find(s => s.id === servicioId)?.duracion_min || 45;
+  // Duración (min): la del motivo elegido manda; si no, la del servicio; por defecto 45.
+  const duracionDe = (servicioId?: number | null) => motivoSel?.duracion_min || servicios.find(s => s.id === servicioId)?.duracion_min || 45;
 
-  // ¿Se cambió el servicio? (en edición, si es el mismo no se re-exige saldo).
-  const servicioCambiado = esEdicion ? Number(f.servicio_id || 0) !== Number(cita?.servicio_id || 0) : true;
-  // Bloquea agendar si la regla aplica, hay servicio, cambió, y no queda saldo.
-  const sinSaldo = !!saldo?.requiere && !!f.servicio_id && servicioCambiado && saldo.saldo < 1;
+  // ¿Cambió el "qué" de la cita (motivo o, en su defecto, servicio)? En edición, si es el mismo no se re-exige saldo.
+  const refCambiado = esEdicion
+    ? Number(f.motivo_id || 0) !== Number(cita?.motivo_id || 0) || Number(f.servicio_id || 0) !== Number(cita?.servicio_id || 0)
+    : true;
+  // Bloquea agendar si la regla aplica, hay motivo/servicio, cambió, y no queda saldo.
+  const sinSaldo = !!saldo?.requiere && !!(f.motivo_id || f.servicio_id) && refCambiado && saldo.saldo < 1;
 
   // Fecha + horas por separado (datepicker nativo + TimeField escribible) en vez de
   // un datetime-local. La cita es de un día: fecha + hora inicio (+ hora fin opcional).
@@ -369,6 +376,10 @@ function ModalCita({ slug, dia, horaInicial, terapeutaInicial, cita, catalogos, 
   const [horaIni, setHoraIni] = useState(iniLocal.split('T')[1] || '09:00');
   // Cita nueva: precarga la hora fin con +45 (default); al elegir servicio se recalcula con su duración real.
   const [horaFin, setHoraFin] = useState(cita?.fin ? toLocalInput(cita.fin).split('T')[1] : sumarMin(iniLocal.split('T')[1] || '09:00', 45));
+  // Citas MÚLTIPLES (solo al crear): fechas/horas adicionales para agendar varias de un golpe.
+  const [extras, setExtras] = useState<{ key: string; fecha: string; horaIni: string; horaFin: string }[]>([]);
+  // Caché de citas por fecha (para validar disponibilidad de las fechas extra sin recargar).
+  const [citasCache, setCitasCache] = useState<Record<string, Cita[]>>({});
 
   // Franjas de atención del día generadas EN PASOS DE LA DURACIÓN DE LA SESIÓN: si el
   // servicio dura 45 min, ofrece 07:00, 07:45, 08:30…; si dura 60, cada hora. Cada franja
@@ -376,37 +387,50 @@ function ModalCita({ slug, dia, horaInicial, terapeutaInicial, cita, catalogos, 
   // así el select solo ofrece huecos reales (entran completos antes del cierre) y marca
   // los tomados.
   const ABRE = 7 * 60, CIERRA = 21 * 60; // atención 07:00 → 21:00
-  const horariosDia = useMemo(() => {
-    const mins = (hhmm: string) => { const [h, m] = (hhmm || '').split(':').map(Number); return (h || 0) * 60 + (m || 0); };
-    const minDe = (dt: string) => { const d = parseLocal(dt); return d.getHours() * 60 + d.getMinutes(); };
-    const hhmm = (t: number) => `${pad2(Math.floor(t / 60))}:${pad2(t % 60)}`;
-    const dur = duracionDe(f.servicio_id);
-    // Intervalos ocupados del terapeuta ese día (excluye la propia cita en edición y las canceladas = estado 4).
-    const ivs = ocupadas
+  const mins = (hhmm: string) => { const [h, m] = (hhmm || '').split(':').map(Number); return (h || 0) * 60 + (m || 0); };
+  const minDe = (dt: string) => { const d = parseLocal(dt); return d.getHours() * 60 + d.getMinutes(); };
+  const hhmmDe = (t: number) => `${pad2(Math.floor(t / 60))}:${pad2(t % 60)}`;
+  const dur = duracionDe(f.servicio_id);
+
+  // Todas las fechas/horas a agendar (principal + extras): para que no choquen ENTRE ellas.
+  const nuevosSlots = [{ key: 'main', fecha, horaIni, horaFin }, ...extras];
+
+  /** Franjas del día para una fecha, marcando ocupadas por las citas existentes del terapeuta
+   *  Y por las OTRAS filas nuevas del mismo día (así dos citas nuevas tampoco se pisan). */
+  const slotsParaFecha = (fechaX: string, selfKey: string, horaActual: string) => {
+    const citasDia = (fechaX === fecha ? ocupadas : citasCache[fechaX]) ?? [];
+    const ivs = citasDia
       .filter(c => c.terapeuta_id === f.terapeuta_id && c.id !== cita?.id && c.estado_id !== 4)
       .map(c => ({ i: minDe(c.inicio), f: c.fin ? minDe(c.fin) : minDe(c.inicio) + 45 }));
-    // El slot [t, t+dur) choca con alguna cita existente del terapeuta.
+    nuevosSlots
+      .filter(n => n.key !== selfKey && n.fecha === fechaX && n.horaIni)
+      .forEach(n => ivs.push({ i: mins(n.horaIni), f: mins(n.horaFin || sumarMin(n.horaIni, dur)) }));
     const estaOcupado = (t: number) => !!f.terapeuta_id && ivs.some(iv => t < iv.f && t + dur > iv.i);
     const slots: { hhmm: string; ocupado: boolean }[] = [];
-    // El paso = duración de la sesión; la última franja debe terminar antes del cierre.
-    for (let t = ABRE; t + dur <= CIERRA; t += dur) slots.push({ hhmm: hhmm(t), ocupado: estaOcupado(t) });
-    // Garantiza que la hora actualmente escrita esté presente aunque no calce con la grilla,
-    // con su estado real de ocupación (si choca, saldrá como ocupada → no permitida).
-    if (horaIni && !slots.some(s => s.hhmm === horaIni)) {
-      slots.push({ hhmm: horaIni, ocupado: estaOcupado(mins(horaIni)) });
+    for (let t = ABRE; t + dur <= CIERRA; t += dur) slots.push({ hhmm: hhmmDe(t), ocupado: estaOcupado(t) });
+    if (horaActual && !slots.some(s => s.hhmm === horaActual)) {
+      slots.push({ hhmm: horaActual, ocupado: estaOcupado(mins(horaActual)) });
       slots.sort((a, b) => mins(a.hhmm) - mins(b.hhmm));
     }
     return slots;
-  }, [ocupadas, f.terapeuta_id, f.servicio_id, servicios, cita?.id, horaIni]);
+  };
 
-  // Opciones realmente disponibles (libres) y validez de la hora escrita: si no está en
-  // la lista de disponibles, no se permite agendar.
-  const horariosLibres = useMemo(() => horariosDia.filter(s => !s.ocupado), [horariosDia]);
+  // Disponibilidad de la fila principal.
+  const horariosLibres = slotsParaFecha(fecha, 'main', horaIni).filter(s => !s.ocupado);
   const horaDisponible = horariosLibres.some(s => s.hhmm === horaIni);
+
+  // Tope de citas a crear de golpe = sesiones disponibles en la venta (si el motivo consume saldo
+  // y la regla aplica). Sin regla/saldo, no hay tope. La fila principal cuenta como 1.
+  const consumeSaldo = f.motivo_id ? (motivoSel?.consume_saldo !== 0) : !!f.servicio_id;
+  const limitaSaldo = !!saldo?.requiere && consumeSaldo;
+  const maxCitas = limitaSaldo ? (saldo?.saldo ?? 0) : Infinity;
+  const totalCitas = 1 + extras.length;
+  const puedeAgregarFecha = totalCitas < maxCitas;
 
   useEffect(() => {
     terapApi.listPacientes(slug).then(setPacientes).catch(() => {});
     terapApi.listServicios(slug).then(setServicios).catch(() => {});
+    terapApi.listMotivos(slug).then(setMotivos).catch(() => {});
   }, [slug]);
 
   // Citas ya agendadas ese día (para saber qué horarios están ocupados).
@@ -418,6 +442,18 @@ function ModalCita({ slug, dia, horaInicial, terapeutaInicial, cita, catalogos, 
       .catch(() => { if (vivo) setOcupadas([]); });
     return () => { vivo = false; };
   }, [slug, fecha]);
+
+  // Citas de las fechas EXTRA (distintas a la principal) al caché, para validar su disponibilidad.
+  useEffect(() => {
+    const faltan = [...new Set(extras.map(e => e.fecha).filter(d => d && d !== fecha && !citasCache[d]))];
+    if (!faltan.length) return;
+    let vivo = true;
+    Promise.all(faltan.map(d =>
+      terapApi.listCitas(slug, { desde: `${d} 00:00:00`, hasta: `${d} 23:59:59` })
+        .then(cs => [d, cs] as const).catch(() => [d, [] as Cita[]] as const),
+    )).then(pares => { if (vivo) setCitasCache(prev => ({ ...prev, ...Object.fromEntries(pares) })); });
+    return () => { vivo = false; };
+  }, [slug, extras, fecha, citasCache]);
 
   // Al elegir servicio, filtrar terapeutas; sin servicio, todos.
   useEffect(() => {
@@ -452,31 +488,52 @@ function ModalCita({ slug, dia, horaInicial, terapeutaInicial, cita, catalogos, 
     if (soloLectura) { onClose(); return; }
     if (!f.paciente_id) { setError('Elige el paciente.'); return; }
     if (!f.terapeuta_id) { setError('Elige el terapeuta.'); return; }
-    if (!fecha || !horaIni) { setError('Falta la fecha y la hora de inicio.'); return; }
-    if (!horaDisponible) { setError('Ese horario no está disponible. Elige uno de la lista.'); return; }
-    if (sinSaldo) {
-      setError(saldo!.comprado === 0
-        ? 'Este paciente no tiene una venta de ese servicio. Regístrala antes de agendar.'
-        : `Sin sesiones disponibles de ese servicio (compradas ${saldo!.comprado}, usadas ${saldo!.consumido}).`);
+
+    // ── Edición: una sola cita (igual que siempre) ──────────────────────────────
+    if (esEdicion) {
+      if (!fecha || !horaIni) { setError('Falta la fecha y la hora de inicio.'); return; }
+      if (!horaDisponible) { setError('Ese horario no está disponible. Elige uno de la lista.'); return; }
+      if (sinSaldo) { setError('Sin sesiones disponibles de ese motivo. Registra la venta antes de agendar.'); return; }
+      setSaving(true); setError(null);
+      try {
+        await terapApi.updateCita(slug, cita!.id, {
+          inicio: toMysql(`${fecha}T${horaIni}`), fin: horaFin ? toMysql(`${fecha}T${horaFin}`) : null,
+          motivo: f.motivo ?? null, estado_id: f.estado_id,
+          terapeuta_id: f.terapeuta_id, servicio_id: f.servicio_id ?? null, motivo_id: f.motivo_id ?? null,
+        });
+        onSaved();
+      } catch (err: any) { setError(err?.message ?? 'No se pudo guardar'); setSaving(false); }
+      return;
+    }
+
+    // ── Nueva: una o VARIAS fechas de un golpe ──────────────────────────────────
+    const slotsAll = nuevosSlots.filter(s => s.fecha && s.horaIni);
+    if (!slotsAll.length) { setError('Agrega al menos una fecha y hora.'); return; }
+    // Cada horario debe estar libre (contra las citas existentes y contra las otras filas nuevas).
+    for (const s of slotsAll) {
+      const libres = slotsParaFecha(s.fecha, s.key, s.horaIni).filter(x => !x.ocupado);
+      if (!libres.some(x => x.hhmm === s.horaIni)) {
+        setError(`El horario ${s.fecha} ${s.horaIni} no está disponible. Elige otro.`); return;
+      }
+    }
+    // Saldo: cada cita de un motivo que consume saldo gasta 1 sesión. No alcanzar bloquea.
+    const consume = f.motivo_id ? (motivoSel?.consume_saldo !== 0) : true;
+    if (saldo?.requiere && consume && (f.motivo_id || f.servicio_id) && saldo.saldo < slotsAll.length) {
+      setError(saldo.comprado === 0
+        ? 'Este paciente no tiene una venta/paquete de ese motivo. Regístrala antes de agendar.'
+        : `Solo hay ${saldo.saldo} sesión(es) disponibles y estás agendando ${slotsAll.length}. Registra más ventas o un paquete.`);
       return;
     }
     setSaving(true); setError(null);
     try {
-      const inicio = toMysql(`${fecha}T${horaIni}`);
-      const fin = horaFin ? toMysql(`${fecha}T${horaFin}`) : null;
-      if (esEdicion) {
-        await terapApi.updateCita(slug, cita!.id, {
-          inicio, fin, motivo: f.motivo ?? null, estado_id: f.estado_id,
-          terapeuta_id: f.terapeuta_id, servicio_id: f.servicio_id ?? null,
-        });
-      } else {
+      for (const s of slotsAll) {
         await terapApi.createCita(slug, {
-          paciente_id: f.paciente_id, terapeuta_id: f.terapeuta_id, servicio_id: f.servicio_id ?? null,
-          inicio, fin, motivo: f.motivo ?? null,
+          paciente_id: f.paciente_id, terapeuta_id: f.terapeuta_id, servicio_id: f.servicio_id ?? null, motivo_id: f.motivo_id ?? null,
+          inicio: toMysql(`${s.fecha}T${s.horaIni}`), fin: s.horaFin ? toMysql(`${s.fecha}T${s.horaFin}`) : null, motivo: f.motivo ?? null,
         });
       }
       onSaved();
-    } catch (err: any) { setError(err?.message ?? 'No se pudo guardar'); setSaving(false); }
+    } catch (err: any) { setError(err?.message ?? 'No se pudieron agendar todas las citas'); setSaving(false); }
   };
 
   return (
@@ -506,27 +563,43 @@ function ModalCita({ slug, dia, horaInicial, terapeutaInicial, cita, catalogos, 
             <select className="vx-input" value={f.servicio_id || ''} disabled={soloLectura}
               onChange={e => {
                 const id = e.target.value ? Number(e.target.value) : null;
-                set('servicio_id', id);
-                if (horaIni) setHoraFin(sumarMin(horaIni, duracionDe(id)));   // recalcula el fin según la duración del servicio
+                // Al cambiar de área se limpia el motivo (pertenece a la anterior).
+                setF(prev => ({ ...prev, servicio_id: id, motivo_id: null }));
+                if (horaIni) setHoraFin(sumarMin(horaIni, servicios.find(s => s.id === id)?.duracion_min || 45));
               }}>
               <option value="">(Cualquiera)</option>
               {servicios.map(s => <option key={s.id} value={s.id}>{s.nombre} · {s.duracion_min ?? 45} min</option>)}
             </select>
-            {/* Saldo de sesiones (vínculo venta↔cita) */}
-            {saldo?.requiere && f.servicio_id ? (
-              sinSaldo ? (
-                <p className="text-[11.5px] mt-1.5 px-2.5 py-1.5 rounded-lg" style={{ background: '#FEF2F2', color: '#B91C1C' }}>
-                  {saldo.comprado === 0
-                    ? 'Sin venta de este servicio. Registra la venta para poder agendar.'
-                    : `Sin sesiones disponibles (compradas ${saldo.comprado}, usadas ${saldo.consumido}).`}
-                </p>
-              ) : (
-                <p className="text-[11.5px] mt-1.5 px-2.5 py-1.5 rounded-lg" style={{ background: '#ECFDF5', color: '#15803D' }}>
-                  Sesiones disponibles: <b>{saldo.saldo}</b> <span style={{ color: '#6B7280' }}>(compradas {saldo.comprado}, usadas {saldo.consumido})</span>
-                </p>
-              )
-            ) : null}
           </Campo>
+          {/* Motivo de cita del servicio elegido: define precio, duración y saldo. */}
+          {f.servicio_id && motivosDelServicio.length > 0 && (
+            <Campo label="Motivo de cita">
+              <select className="vx-input" value={f.motivo_id || ''} disabled={soloLectura}
+                onChange={e => {
+                  const id = e.target.value ? Number(e.target.value) : null;
+                  const m = motivos.find(x => x.id === id);
+                  set('motivo_id', id);
+                  if (horaIni && m) setHoraFin(sumarMin(horaIni, m.duracion_min || 45));
+                }}>
+                <option value="">(Sin especificar)</option>
+                {motivosDelServicio.map(m => <option key={m.id} value={m.id}>{m.nombre} · S/ {Number(m.precio).toFixed(2)} · {m.duracion_min} min</option>)}
+              </select>
+              {/* Saldo de sesiones (vínculo venta↔cita), por motivo si hay o por servicio (legacy) */}
+              {saldo?.requiere && (f.motivo_id || f.servicio_id) ? (
+                sinSaldo ? (
+                  <p className="text-[11.5px] mt-1.5 px-2.5 py-1.5 rounded-lg" style={{ background: '#FEF2F2', color: '#B91C1C' }}>
+                    {saldo.comprado === 0
+                      ? 'Sin venta de este motivo. Registra la venta o el paquete para poder agendar.'
+                      : `Sin sesiones disponibles (compradas ${saldo.comprado}, usadas ${saldo.consumido}).`}
+                  </p>
+                ) : (
+                  <p className="text-[11.5px] mt-1.5 px-2.5 py-1.5 rounded-lg" style={{ background: '#ECFDF5', color: '#15803D' }}>
+                    Sesiones disponibles: <b>{saldo.saldo}</b> <span style={{ color: '#6B7280' }}>(compradas {saldo.comprado}, usadas {saldo.consumido})</span>
+                  </p>
+                )
+              ) : null}
+            </Campo>
+          )}
           <Campo label="Terapeuta *">
             <select className="vx-input" value={f.terapeuta_id || ''} disabled={soloLectura} onChange={e => set('terapeuta_id', Number(e.target.value))}>
               <option value="">{f.servicio_id ? 'Terapeutas de ese servicio…' : 'Selecciona…'}</option>
@@ -550,6 +623,44 @@ function ModalCita({ slug, dia, horaInicial, terapeutaInicial, cita, catalogos, 
             </Campo>
             <Campo label="Hora fin (auto)"><TimeField value={horaFin} onChange={setHoraFin} disabled={soloLectura} /></Campo>
           </div>
+
+          {/* Citas MÚLTIPLES: fechas/horas adicionales (mismo paciente/terapeuta/motivo). */}
+          {!esEdicion && !soloLectura && (
+            <div className="space-y-2">
+              {extras.map((ex, i) => {
+                const fx = ex.fecha || fecha;
+                const libres = slotsParaFecha(fx, ex.key, ex.horaIni).filter(s => !s.ocupado).map(s => s.hhmm);
+                const disp = libres.includes(ex.horaIni);
+                return (
+                  <div key={ex.key} className="rounded-xl p-2.5" style={{ background: '#F6FAF9', border: '1px solid #E5E9E7' }}>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: '#64748B' }}>Cita adicional {i + 2}</span>
+                      <button type="button" onClick={() => setExtras(prev => prev.filter(x => x.key !== ex.key))} style={{ color: '#DC2626' }}><Trash2 size={14} /></button>
+                    </div>
+                    <div className="grid grid-cols-[1fr_120px] gap-2 items-start">
+                      <DateField value={fx} onChange={v => setExtras(prev => prev.map(x => x.key === ex.key ? { ...x, fecha: v } : x))} />
+                      <HoraCombo value={ex.horaIni} opciones={libres} invalido={!!ex.horaIni && !disp}
+                        onChange={v => setExtras(prev => prev.map(x => x.key === ex.key ? { ...x, horaIni: v, horaFin: sumarMin(v, dur) } : x))} />
+                    </div>
+                    {ex.horaIni && !disp && <p className="text-[11px] mt-1" style={{ color: '#B91C1C' }}>Ese horario no está disponible.</p>}
+                  </div>
+                );
+              })}
+              <div className="flex items-center justify-between gap-2">
+                <button type="button" disabled={!puedeAgregarFecha}
+                  onClick={() => setExtras(prev => [...prev, { key: `e${Date.now()}`, fecha, horaIni: '', horaFin: '' }])}
+                  className="text-[12.5px] font-semibold flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed" style={{ color: TEAL }}>
+                  <Plus size={14} /> Agregar otra fecha
+                </button>
+                {limitaSaldo && (
+                  <span className="text-[11px]" style={{ color: puedeAgregarFecha ? '#6B7280' : '#B91C1C' }}>
+                    {totalCitas}/{maxCitas} sesión(es) · {Math.max(0, maxCitas - totalCitas)} libre(s)
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+
           {esEdicion && (
             <Campo label="Estado">
               <select className="vx-input" value={f.estado_id ?? ''} disabled={soloLectura} onChange={e => set('estado_id', Number(e.target.value))}>
@@ -576,7 +687,7 @@ function ModalCita({ slug, dia, horaInicial, terapeutaInicial, cita, catalogos, 
                 <button type="submit" disabled={saving || eliminando || sinSaldo || !horaDisponible}
                   title={sinSaldo ? 'Sin sesiones disponibles de ese servicio' : (!horaDisponible ? 'Ese horario no está disponible' : undefined)}
                   className="px-4 py-2 rounded-xl text-[13px] font-semibold text-white flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed" style={{ background: TEAL }}>
-                  {saving && <Loader2 size={14} className="animate-spin" />} {esEdicion ? 'Guardar cambios' : 'Agendar'}
+                  {saving && <Loader2 size={14} className="animate-spin" />} {esEdicion ? 'Guardar cambios' : (extras.length ? `Agendar ${extras.length + 1} citas` : 'Agendar')}
                 </button>
               )}
             </div>

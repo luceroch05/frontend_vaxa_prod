@@ -350,7 +350,16 @@
       "Bash(grep -rn \"\\\\\"@/\\\\*\\\\\"\\\\|'@/'\\\\|@/\\\\*\\\\|baseUrl\\\\|paths\" tsconfig.json tsconfig.*.json)",
       "PowerShell($p = Get-CimInstance Win32_Process -Filter \"ProcessId = 18728\" -ErrorAction SilentlyContinue; if \\($p\\) { \"$\\($p.Name\\) => $\\($p.CommandLine\\)\" } else { \"PID 18728 ya no existe\" })",
       "Bash(grep -rn \"new WebSocket\\\\|/ws\\\\|wss:\\\\|ws://\\\\|WS_URL\" modules/extensions/terapeutico lib)",
-      "PowerShell(Start-Process \"C:\\\\Users\\\\Lucero\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-Lucero-Desktop-frontend-vaxa-prod\\\\0adbf2a6-cf40-42ea-ae02-3cd6bb56fa9a\\\\scratchpad\\\\mockup-sistemas-vaxa.html\")"
+      "PowerShell(Start-Process \"C:\\\\Users\\\\Lucero\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-Lucero-Desktop-frontend-vaxa-prod\\\\0adbf2a6-cf40-42ea-ae02-3cd6bb56fa9a\\\\scratchpad\\\\mockup-sistemas-vaxa.html\")",
+      "PowerShell(npx --prefix 'C:\\\\Users\\\\Lucero\\\\Desktop\\\\backend-vaxa-prod' tsc -p 'C:\\\\Users\\\\Lucero\\\\Desktop\\\\backend-vaxa-prod\\\\tsconfig.json' --noEmit 2>&1 | Select-Object -First 40; \"EXIT=$LASTEXITCODE\")",
+      "PowerShell(Push-Location 'C:\\\\Users\\\\Lucero\\\\Desktop\\\\backend-vaxa-prod'; $out = & npx tsc --noEmit 2>&1; Pop-Location; $out | Select-Object -First 40; \"EXIT=$LASTEXITCODE\")",
+      "PowerShell(Push-Location 'C:\\\\Users\\\\Lucero\\\\Desktop\\\\frontend_vaxa_prod'; $out = & npx tsc --noEmit 2>&1; Pop-Location; $out | Select-String -Pattern 'terapeutico|Motivos|error TS' | Select-Object -First 40; \"EXIT=$LASTEXITCODE\")",
+      "PowerShell(Push-Location 'C:\\\\Users\\\\Lucero\\\\Desktop\\\\frontend_vaxa_prod'; $out = & npx tsc --noEmit 2>&1; Pop-Location; $out | Select-Object -First 50; \"EXIT=$LASTEXITCODE\")",
+      "PowerShell(Push-Location 'C:\\\\Users\\\\Lucero\\\\Desktop\\\\frontend_vaxa_prod'; $out = & npx tsc --noEmit 2>&1; Pop-Location; $out | Select-Object -First 50; \"FRONT_EXIT=$LASTEXITCODE\"; Push-Location 'C:\\\\Users\\\\Lucero\\\\Desktop\\\\backend-vaxa-prod'; $out2 = & npx tsc --noEmit 2>&1; Pop-Location; $out2 | Select-Object -First 50; \"BACK_EXIT=$LASTEXITCODE\")",
+      "PowerShell(Push-Location 'C:\\\\Users\\\\Lucero\\\\Desktop\\\\frontend_vaxa_prod'; $out = & npx tsc --noEmit 2>&1; Pop-Location; $out | Select-Object -First 40; \"EXIT=$LASTEXITCODE\")",
+      "PowerShell(Push-Location 'C:\\\\Users\\\\Lucero\\\\Desktop\\\\frontend_vaxa_prod'; $out = & npx tsc --noEmit 2>&1; Pop-Location; $out | Select-Object -First 40; \"FRONT=$LASTEXITCODE\"; Push-Location 'C:\\\\Users\\\\Lucero\\\\Desktop\\\\backend-vaxa-prod'; $out2 = & npx tsc --noEmit 2>&1; Pop-Location; $out2 | Select-Object -First 40; \"BACK=$LASTEXITCODE\")",
+      "PowerShell(Push-Location 'C:\\\\Users\\\\Lucero\\\\Desktop\\\\backend-vaxa-prod'; $out = & npx tsc --noEmit 2>&1; Pop-Location; $out | Select-Object -First 40; \"BACK=$LASTEXITCODE\")",
+      "PowerShell(Push-Location 'C:\\\\Users\\\\Lucero\\\\Desktop\\\\frontend_vaxa_prod'; $out = & npx tsc --noEmit 2>&1; Pop-Location; $out | Select-Object -First 30; \"EXIT=$LASTEXITCODE\")"
     ],
     "deny": [],
     "ask": []

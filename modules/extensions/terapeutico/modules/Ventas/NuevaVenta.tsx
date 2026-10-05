@@ -5,7 +5,7 @@ import { useEmpresaSlug } from '@/lib/useEmpresa';
 import { useTerapCtx } from '../../shared/TerapShell';
 import { terapPath } from '@/lib/paths';
 import {
-  terapApi, type Producto, type Servicio, type Paciente, type Venta, type VentaItemDto,
+  terapApi, type Producto, type Motivo, type Paquete, type Paciente, type Venta, type VentaItemDto,
 } from '../../shared/api/terapeutico.api';
 import { imprimirTicket, imprimirA4 } from './comprobante';
 import Combobox, { type ComboOption } from '../../shared/components/Combobox';
@@ -34,8 +34,8 @@ function NumInput({ value, onChange, className, style, min, step, disabled }: {
 /** Fila de la venta en edición (guarda el descuento como monto o %, se resuelve al calcular). */
 interface Fila {
   key: string;
-  tipo: 'servicio' | 'producto';
-  refId: number;         // servicio_id o producto_id
+  tipo: 'servicio' | 'producto' | 'motivo' | 'paquete';
+  refId: number;         // servicio_id | producto_id | motivo_id | paquete_id
   nombre: string;
   precio_unit: number;
   cantidad: number;
@@ -43,6 +43,19 @@ interface Fila {
   descTipo: 'monto' | 'pct';
   descVal: number;
 }
+
+/** Offsets para namespacear los ids en el buscador único (servicio|motivo|paquete en una
+ *  sola lista). Así un mismo combo distingue de qué catálogo salió cada opción. */
+const OFF_MOTIVO = 2_000_000;
+const OFF_PAQUETE = 4_000_000;
+
+/** Etiqueta/colores del badge por tipo de ítem. */
+const BADGE: Record<Fila['tipo'], { label: string; bg: string; fg: string }> = {
+  servicio: { label: 'SERV', bg: '#CCFBF1', fg: '#0F766E' },
+  motivo:   { label: 'MOT',  bg: '#DBEAFE', fg: '#1D4ED8' },
+  paquete:  { label: 'PAQ',  bg: '#F3E8FF', fg: '#7E22CE' },
+  producto: { label: 'PROD', bg: '#FEF3C7', fg: '#B45309' },
+};
 
 const DOC = { '1': 'DNI', '4': 'C.E.', '7': 'Pas.', '6': 'RUC' } as Record<string, string>;
 
@@ -57,7 +70,8 @@ export default function NuevaVenta() {
   const navigate = useNavigate();
   const { centro } = useTerapCtx();
 
-  const [servicios, setServicios] = useState<Servicio[]>([]);
+  const [motivos, setMotivos] = useState<Motivo[]>([]);
+  const [paquetes, setPaquetes] = useState<Paquete[]>([]);
   const [productos, setProductos] = useState<Producto[]>([]);
   const [pacientes, setPacientes] = useState<Paciente[]>([]);
 
@@ -73,14 +87,20 @@ export default function NuevaVenta() {
   const [guardada, setGuardada] = useState<Venta | null>(null);
 
   useEffect(() => {
-    terapApi.listServicios(slug).then((s) => setServicios(s.filter((x) => x.activo))).catch(() => {});
+    terapApi.listMotivos(slug).then(setMotivos).catch(() => {});
+    terapApi.listPaquetes(slug).then(setPaquetes).catch(() => {});
     terapApi.listProductos(slug).then((p) => setProductos(p.filter((x) => x.activo))).catch(() => {});
     terapApi.listPacientes(slug).then(setPacientes).catch(() => {});
   }, [slug]);
 
-  const addServicio = (id: number) => {
-    const s = servicios.find((x) => x.id === id); if (!s) return;
-    setFilas((prev) => [...prev, { key: `s${id}-${Date.now()}`, tipo: 'servicio', refId: s.id, nombre: s.nombre, precio_unit: Number(s.precio) || 0, cantidad: 1, descTipo: 'monto', descVal: 0 }]);
+  const addMotivo = (id: number) => {
+    const m = motivos.find((x) => x.id === id); if (!m) return;
+    setFilas((prev) => [...prev, { key: `m${id}-${Date.now()}`, tipo: 'motivo', refId: m.id, nombre: `${m.servicio_nombre} · ${m.nombre}`, precio_unit: Number(m.precio) || 0, cantidad: 1, descTipo: 'monto', descVal: 0 }]);
+  };
+  const addPaquete = (id: number) => {
+    const p = paquetes.find((x) => x.id === id); if (!p) return;
+    // El precio del paquete es fijo (ya trae el descuento); la cantidad = cuántos paquetes.
+    setFilas((prev) => [...prev, { key: `k${id}-${Date.now()}`, tipo: 'paquete', refId: p.id, nombre: p.nombre, precio_unit: Number(p.precio_total) || 0, cantidad: 1, descTipo: 'monto', descVal: 0 }]);
   };
   const addProducto = (id: number) => {
     const p = productos.find((x) => x.id === id); if (!p) return;
@@ -118,9 +138,28 @@ export default function NuevaVenta() {
     id: p.id, label: `${p.apellidos}, ${p.nombres}`,
     sub: p.num_doc ? `${DOC[p.tipo_doc] ?? 'Doc'} ${p.num_doc}` : undefined,
   })), [pacientes]);
-  const opcServicios = useMemo<ComboOption[]>(() => servicios.map((s) => ({
-    id: s.id, label: s.nombre, sub: soles(Number(s.precio)),
-  })), [servicios]);
+  // Un solo catálogo buscable: paquetes/combos + motivos (el servicio es solo el área,
+  // no se vende suelto: siempre se cobra por un motivo o un paquete).
+  const opcCatalogo = useMemo<ComboOption[]>(() => [
+    ...paquetes.map((p) => ({
+      id: OFF_PAQUETE + p.id, label: p.nombre,
+      sub: `Paquete · ${soles(Number(p.precio_total))}${p.lineas?.length ? ` · ${p.lineas.map((l) => `${l.motivo_servicio_nombre ? `${l.motivo_servicio_nombre} · ` : ''}${l.motivo_nombre} ×${l.cantidad}`).join(' · ')}` : ''}`,
+    })),
+    ...motivos.map((m) => ({ id: OFF_MOTIVO + m.id, label: `${m.servicio_nombre} · ${m.nombre}`, sub: `Motivo · ${soles(Number(m.precio))}` })),
+  ], [paquetes, motivos]);
+
+  /** Despacha según el offset del id elegido en el buscador único. */
+  const addCatalogo = (id: number) => {
+    if (id >= OFF_PAQUETE) addPaquete(id - OFF_PAQUETE);
+    else if (id >= OFF_MOTIVO) addMotivo(id - OFF_MOTIVO);
+  };
+
+  /** Contenido de un paquete ("Terapia de Lenguaje · Sesión ×8 · Informe ×1") con su área. */
+  const contenidoPaquete = (paqueteId: number) => {
+    const p = paquetes.find((x) => x.id === paqueteId);
+    if (!p?.lineas?.length) return null;
+    return p.lineas.map((l) => `${l.motivo_servicio_nombre ? `${l.motivo_servicio_nombre} · ` : ''}${l.motivo_nombre} ×${l.cantidad}`).join('  ·  ');
+  };
   const opcProductos = useMemo<ComboOption[]>(() => productos.filter((p) => p.stock > 0).map((p) => ({
     id: p.id, label: p.nombre, sub: `${soles(Number(p.precio_venta))} · stock ${p.stock}`,
   })), [productos]);
@@ -136,10 +175,13 @@ export default function NuevaVenta() {
       const items: VentaItemDto[] = conCalculo.map((f) => ({
         tipo: f.tipo,
         servicio_id: f.tipo === 'servicio' ? f.refId : null,
+        motivo_id:   f.tipo === 'motivo' ? f.refId : null,
+        paquete_id:  f.tipo === 'paquete' ? f.refId : null,
         producto_id: f.tipo === 'producto' ? f.refId : null,
         cantidad: Math.max(1, f.cantidad),
         precio_unit: f.precio_unit,
-        descuento: +f.desc.toFixed(2),
+        // El paquete trae su precio fijo (el descuento ya está dentro): no se manda descuento de línea.
+        descuento: f.tipo === 'paquete' ? 0 : +f.desc.toFixed(2),
       }));
       const v = await terapApi.createVenta(slug, {
         paciente_id: pacienteId ? Number(pacienteId) : null,
@@ -200,9 +242,9 @@ export default function NuevaVenta() {
           {/* Selectores buscables para agregar (comboboxes, pensados para listas largas) */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-[11.5px] font-semibold mb-1" style={{ color: '#64748B' }}>＋ Agregar servicio</label>
-              <Combobox options={opcServicios} value={0} onChange={(id) => id && addServicio(id)}
-                placeholder="Buscar servicio…" emptyText="Sin servicios" />
+              <label className="block text-[11.5px] font-semibold mb-1" style={{ color: '#64748B' }}>＋ Agregar motivo / paquete</label>
+              <Combobox options={opcCatalogo} value={0} onChange={(id) => id && addCatalogo(id)}
+                placeholder="Buscar motivo o paquete…" emptyText="Sin motivos ni paquetes" />
             </div>
             <div>
               <label className="block text-[11.5px] font-semibold mb-1" style={{ color: '#64748B' }}>＋ Agregar producto</label>
@@ -228,9 +270,13 @@ export default function NuevaVenta() {
               <div key={f.key} className="grid grid-cols-[1fr_92px_96px_110px_92px_32px] gap-2 px-4 py-2.5 items-center" style={{ borderTop: '1px solid #F1F5F4' }}>
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5">
-                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ background: f.tipo === 'servicio' ? '#CCFBF1' : '#FEF3C7', color: f.tipo === 'servicio' ? TEAL : '#B45309' }}>{f.tipo === 'servicio' ? 'SERV' : 'PROD'}</span>
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ background: BADGE[f.tipo].bg, color: BADGE[f.tipo].fg }}>{BADGE[f.tipo].label}</span>
                     <span className="text-[13px] truncate" style={{ color: '#0E1A1A' }}>{f.nombre}</span>
                   </div>
+                  {/* Qué incluye el paquete/combo: sus motivos y cantidades */}
+                  {f.tipo === 'paquete' && contenidoPaquete(f.refId) && (
+                    <span className="block text-[10.5px] mt-0.5" style={{ color: '#7E22CE' }}>Incluye: {contenidoPaquete(f.refId)}</span>
+                  )}
                   {f.desc > 0 && <span className="text-[10.5px]" style={{ color: '#B45309' }}>−{soles(f.desc)} desc.</span>}
                 </div>
 
@@ -242,15 +288,23 @@ export default function NuevaVenta() {
                   <button type="button" onClick={() => setFila(i, { cantidad: f.cantidad + 1 })} className="h-6 w-6 rounded-md text-[15px] leading-none" style={{ background: '#F1F5F4', color: '#374151' }}>+</button>
                 </div>
 
-                <NumInput min={0} step="0.01" className="text-right text-[13px] rounded-md py-1 px-1.5" style={{ border: '1px solid #E5E9E7' }}
-                  value={f.precio_unit} onChange={(n) => setFila(i, { precio_unit: n })} />
+                {f.tipo === 'paquete' ? (
+                  <span className="text-right text-[13px] tabular-nums" style={{ color: '#6B7280' }}>{soles(f.precio_unit)}</span>
+                ) : (
+                  <NumInput min={0} step="0.01" className="text-right text-[13px] rounded-md py-1 px-1.5" style={{ border: '1px solid #E5E9E7' }}
+                    value={f.precio_unit} onChange={(n) => setFila(i, { precio_unit: n })} />
+                )}
 
-                {/* Descuento por ítem con toggle S/ ↔ % */}
-                <div className="flex items-center gap-1 justify-end">
-                  <button type="button" onClick={() => setFila(i, { descTipo: f.descTipo === 'monto' ? 'pct' : 'monto' })} className="h-6 w-7 rounded-md text-[11px] font-bold" style={{ background: '#F1F5F4', color: TEAL }}>{f.descTipo === 'monto' ? 'S/' : '%'}</button>
-                  <NumInput min={0} step="0.01" className="w-14 text-right text-[13px] rounded-md py-1 px-1.5" style={{ border: '1px solid #E5E9E7' }}
-                    value={f.descVal} onChange={(n) => setFila(i, { descVal: n })} />
-                </div>
+                {/* Descuento por ítem con toggle S/ ↔ %. El paquete ya trae el descuento dentro. */}
+                {f.tipo === 'paquete' ? (
+                  <span className="text-right text-[10.5px]" style={{ color: '#7E22CE' }}>incluido</span>
+                ) : (
+                  <div className="flex items-center gap-1 justify-end">
+                    <button type="button" onClick={() => setFila(i, { descTipo: f.descTipo === 'monto' ? 'pct' : 'monto' })} className="h-6 w-7 rounded-md text-[11px] font-bold" style={{ background: '#F1F5F4', color: TEAL }}>{f.descTipo === 'monto' ? 'S/' : '%'}</button>
+                    <NumInput min={0} step="0.01" className="w-14 text-right text-[13px] rounded-md py-1 px-1.5" style={{ border: '1px solid #E5E9E7' }}
+                      value={f.descVal} onChange={(n) => setFila(i, { descVal: n })} />
+                  </div>
+                )}
 
                 <span className="text-right text-[13px] font-semibold" style={{ color: '#0E1A1A' }}>{soles(f.neto)}</span>
                 <button type="button" onClick={() => delFila(i)} className="flex justify-center" style={{ color: '#DC2626' }}><Trash2 size={15} /></button>

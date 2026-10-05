@@ -4,6 +4,8 @@ import { authStorage } from '@/lib/auth';
 import { useEmpresaSlug } from '@/lib/useEmpresa';
 import { terapApi, type Servicio, type Terapeuta } from '../../shared/api/terapeutico.api';
 import { Overlay, Cabecera, Campo } from '../../shared/finanzas';
+import MotivosCentro from './Motivos';
+import PaquetesCentro from './Paquetes';
 
 const TEAL = '#0F766E';
 const gestiona = (rol?: string) => ['ADMINISTRADOR', 'ADMISION'].includes((rol ?? '').toUpperCase());
@@ -43,6 +45,8 @@ export default function Servicios() {
       </div>
 
       <CatalogoServicios slug={slug} servicios={servicios} onChange={setServicios} />
+      <MotivosCentro slug={slug} servicios={servicios} />
+      <PaquetesCentro slug={slug} servicios={servicios} />
       <TerapeutasServicios slug={slug} servicios={servicios.filter(s => s.activo)} terapeutas={terapeutas} />
     </div>
   );

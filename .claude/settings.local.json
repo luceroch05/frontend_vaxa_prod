@@ -359,7 +359,9 @@
       "PowerShell(Push-Location 'C:\\\\Users\\\\Lucero\\\\Desktop\\\\frontend_vaxa_prod'; $out = & npx tsc --noEmit 2>&1; Pop-Location; $out | Select-Object -First 40; \"EXIT=$LASTEXITCODE\")",
       "PowerShell(Push-Location 'C:\\\\Users\\\\Lucero\\\\Desktop\\\\frontend_vaxa_prod'; $out = & npx tsc --noEmit 2>&1; Pop-Location; $out | Select-Object -First 40; \"FRONT=$LASTEXITCODE\"; Push-Location 'C:\\\\Users\\\\Lucero\\\\Desktop\\\\backend-vaxa-prod'; $out2 = & npx tsc --noEmit 2>&1; Pop-Location; $out2 | Select-Object -First 40; \"BACK=$LASTEXITCODE\")",
       "PowerShell(Push-Location 'C:\\\\Users\\\\Lucero\\\\Desktop\\\\backend-vaxa-prod'; $out = & npx tsc --noEmit 2>&1; Pop-Location; $out | Select-Object -First 40; \"BACK=$LASTEXITCODE\")",
-      "PowerShell(Push-Location 'C:\\\\Users\\\\Lucero\\\\Desktop\\\\frontend_vaxa_prod'; $out = & npx tsc --noEmit 2>&1; Pop-Location; $out | Select-Object -First 30; \"EXIT=$LASTEXITCODE\")"
+      "PowerShell(Push-Location 'C:\\\\Users\\\\Lucero\\\\Desktop\\\\frontend_vaxa_prod'; $out = & npx tsc --noEmit 2>&1; Pop-Location; $out | Select-Object -First 30; \"EXIT=$LASTEXITCODE\")",
+      "PowerShell(Push-Location \"C:\\\\Users\\\\Lucero\\\\Desktop\\\\backend-vaxa-prod\"; npx tsc --noEmit; \"EXIT=$LASTEXITCODE\"; Pop-Location)",
+      "PowerShell(npm run *)"
     ],
     "deny": [],
     "ask": []

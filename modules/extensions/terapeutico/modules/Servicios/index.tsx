@@ -61,7 +61,6 @@ function CatalogoServicios({ slug, servicios, onChange }: {
 }) {
   const [nombre, setNombre] = useState('');
   const [desc, setDesc] = useState('');
-  const [precio, setPrecio] = useState('');
   const [dur, setDur] = useState('45');
   const [saving, setSaving] = useState(false);
   const [editar, setEditar] = useState<Servicio | null>(null);
@@ -70,8 +69,9 @@ function CatalogoServicios({ slug, servicios, onChange }: {
     e.preventDefault();
     if (!nombre.trim()) return;
     setSaving(true);
-    const s = await terapApi.createServicio(slug, { nombre, descripcion: desc || null, precio: Number(precio) || 0, duracion_min: Number(dur) || 45 });
-    onChange([...servicios, s]); setNombre(''); setDesc(''); setPrecio(''); setDur('45'); setSaving(false);
+    // El servicio es solo el ÁREA: NO lleva precio (el precio va en cada motivo de cita).
+    const s = await terapApi.createServicio(slug, { nombre, descripcion: desc || null, duracion_min: Number(dur) || 45 });
+    onChange([...servicios, s]); setNombre(''); setDesc(''); setDur('45'); setSaving(false);
   };
   const toggle = async (s: Servicio) => {
     const upd = await terapApi.updateServicio(slug, s.id, { activo: !s.activo });
@@ -97,10 +97,6 @@ function CatalogoServicios({ slug, servicios, onChange }: {
           <label className="flex-1 min-w-[160px]">
             <span className="block text-[10.5px] font-semibold uppercase tracking-wider mb-1" style={{ color: '#64748B' }}>Descripción (opcional)</span>
             <input className="vx-input" value={desc} onChange={e => setDesc(e.target.value)} />
-          </label>
-          <label className="w-[110px]">
-            <span className="block text-[10.5px] font-semibold uppercase tracking-wider mb-1" style={{ color: '#64748B' }}>Precio (S/)</span>
-            <input className="vx-input" type="number" min={0} step="0.01" value={precio} onChange={e => setPrecio(e.target.value)} placeholder="0.00" />
           </label>
           <label className="w-[110px]">
             <span className="block text-[10.5px] font-semibold uppercase tracking-wider mb-1" style={{ color: '#64748B' }}>Duración (min)</span>
@@ -135,7 +131,6 @@ function CatalogoServicios({ slug, servicios, onChange }: {
                 </div>
                 <div className="flex items-center gap-3 shrink-0">
                   <span className="text-[11.5px] font-semibold px-2 py-0.5 rounded-full" style={{ background: '#F1F5F4', color: '#475569' }}>{s.duracion_min ?? 45} min</span>
-                  <span className="text-[15px] font-extrabold" style={{ color: TEAL }}>S/ {Number(s.precio).toFixed(2)}</span>
                   <button onClick={() => setEditar(s)} className="h-8 w-8 rounded-lg flex items-center justify-center hover:bg-[#F1F5F4] transition-colors" style={{ color: '#64748B' }} title="Editar">
                     <Pencil size={15} />
                   </button>
@@ -169,7 +164,6 @@ function ModalEditarServicio({ slug, servicio, onClose, onSaved }: {
 }) {
   const [nombre, setNombre] = useState(servicio.nombre);
   const [desc, setDesc] = useState(servicio.descripcion ?? '');
-  const [precio, setPrecio] = useState(String(servicio.precio ?? 0));
   const [dur, setDur] = useState(String(servicio.duracion_min ?? 45));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -179,8 +173,9 @@ function ModalEditarServicio({ slug, servicio, onClose, onSaved }: {
     if (!nombre.trim()) { setError('El nombre es obligatorio.'); return; }
     setSaving(true); setError(null);
     try {
+      // El precio no se toca aquí: vive en los motivos de cita.
       const upd = await terapApi.updateServicio(slug, servicio.id, {
-        nombre: nombre.trim(), descripcion: desc || null, precio: Number(precio) || 0, duracion_min: Number(dur) || 45,
+        nombre: nombre.trim(), descripcion: desc || null, duracion_min: Number(dur) || 45,
       });
       onSaved(upd);
     } catch (err: any) { setError(err?.message ?? 'No se pudo guardar'); setSaving(false); }
@@ -194,17 +189,9 @@ function ModalEditarServicio({ slug, servicio, onClose, onSaved }: {
         <Campo label="Descripción (opcional)">
           <textarea className="vx-input" rows={3} value={desc} onChange={e => setDesc(e.target.value)} placeholder="¿Qué incluye este servicio?" />
         </Campo>
-        <div className="grid grid-cols-2 gap-3">
-          <Campo label="Precio">
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[13px] font-bold" style={{ color: TEAL }}>S/</span>
-              <input className="vx-input" style={{ paddingLeft: '2.2rem' }} type="number" min={0} step="0.01" value={precio} onChange={e => setPrecio(e.target.value)} placeholder="0.00" />
-            </div>
-          </Campo>
-          <Campo label="Duración (min)">
-            <input className="vx-input" type="number" min={5} step="5" value={dur} onChange={e => setDur(e.target.value)} placeholder="45" />
-          </Campo>
-        </div>
+        <Campo label="Duración (min) · por defecto para sus citas">
+          <input className="vx-input" type="number" min={5} step="5" value={dur} onChange={e => setDur(e.target.value)} placeholder="45" />
+        </Campo>
         {error && <p className="text-[12.5px] px-3 py-2 rounded-lg" style={{ background: '#FEF2F2', color: '#B91C1C' }}>{error}</p>}
         <div className="flex gap-2 pt-1">
           <button type="button" onClick={onClose} className="flex-1 py-2.5 rounded-xl text-[13px] font-semibold transition-colors hover:bg-[#E9EDEC]" style={{ background: '#F1F5F4', color: '#374151' }}>Cancelar</button>

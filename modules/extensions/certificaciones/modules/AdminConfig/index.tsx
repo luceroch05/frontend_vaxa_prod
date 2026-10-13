@@ -12,6 +12,7 @@ import { logosApi }  from '../../shared/api/logos.api';
 import { firmasApi } from '../../shared/api/firmas.api';
 import { configApi } from '../../shared/api/config.api';
 import { unidadesApi } from '../../shared/api/unidades.api';
+import { notasApi } from '../../shared/api/notas.api';
 import { useProgramas } from '../../shared/hooks/useProgramas';
 import { useGrupos }    from '../../shared/hooks/useGrupos';
 import { usePlan }      from '../../shared/hooks/usePlan';
@@ -20,8 +21,56 @@ import { VARIABLES_CERTIFICADO } from '../../shared/utils/certVariables';
 import EditorLienzo from '../../personalizado/EditorLienzo';
 import InspectorLienzo from '../../personalizado/InspectorLienzo';
 import EditorEnfocado from '../../personalizado/EditorEnfocado';
-import { LayoutLienzo, layoutActivo, layoutPorDefecto, parseLayout, modoFechaAula, ajustarFechasLayout } from '../../personalizado/layout';
-import type { Logo, Firma, Unidad } from '../../shared/types';
+import { LayoutLienzo, layoutActivo, layoutPorDefecto, parseLayout, modoFechaAula, ajustarFechasLayout, actaEsLienzo } from '../../personalizado/layout';
+import type { Logo, Firma, Unidad, ActaConfig } from '../../shared/types';
+
+/** Parseo seguro del JSON de acta_config. */
+function parseActa(raw: string | null | undefined): ActaConfig | null {
+  if (!raw) return null;
+  try { const a = JSON.parse(raw); return a && typeof a === 'object' ? a as ActaConfig : null; }
+  catch { return null; }
+}
+
+/* ── Panel de configuración del acta (2ª hoja) ──────────────────
+ * Permite elegir qué datos muestra el acta, cambiar su título y agregar
+ * un texto extra. Se guarda como JSON en config.acta_config. */
+function ActaConfigPanel({ value, tituloAuto, onChange }: {
+  value: ActaConfig | null;
+  tituloAuto: string;                 // título por defecto según el modo (ACTA DE NOTAS / TEMARIO…)
+  onChange: (a: ActaConfig) => void;
+}) {
+  const a = value ?? {};
+  const set = (patch: Partial<ActaConfig>) => onChange({ ...a, ...patch });
+  const Toggle = ({ label, k }: { label: string; k: 'mostrarDocumento' | 'mostrarGrupo' | 'mostrarPeriodo' | 'mostrarQr' }) => (
+    <label className="flex items-center gap-2 text-[12px] cursor-pointer" style={{ color: '#374151' }}>
+      <input type="checkbox" checked={a[k] !== false} onChange={e => set({ [k]: e.target.checked })} />
+      {label}
+    </label>
+  );
+  return (
+    <div className="rounded-xl p-3.5 mt-3" style={{ background: '#FAFAF8', border: '1px solid #EEECE6' }}>
+      <p className="text-[11px] font-semibold uppercase tracking-wider mb-2" style={{ color: '#374151' }}>Acta (2ª hoja)</p>
+      <div className="mb-2.5">
+        <label className="block text-[10.5px] font-semibold mb-1" style={{ color: '#9CA3AF' }}>Título del acta</label>
+        <input type="text" maxLength={80} value={a.titulo ?? ''} onChange={e => set({ titulo: e.target.value })}
+          placeholder={tituloAuto} className="vx-input" style={{ padding: '0.4rem 0.6rem', fontSize: 13 }} />
+      </div>
+      <p className="text-[10.5px] font-semibold mb-1.5" style={{ color: '#9CA3AF' }}>Datos que se muestran</p>
+      <div className="flex flex-wrap gap-x-4 gap-y-1.5 mb-2.5">
+        <Toggle label="Documento" k="mostrarDocumento" />
+        <Toggle label="Grupo"     k="mostrarGrupo" />
+        <Toggle label="Periodo"   k="mostrarPeriodo" />
+        <Toggle label="Código QR" k="mostrarQr" />
+      </div>
+      <div>
+        <label className="block text-[10.5px] font-semibold mb-1" style={{ color: '#9CA3AF' }}>Texto extra <span className="font-normal">(opcional, al pie)</span></label>
+        <textarea rows={2} maxLength={300} value={a.textoExtra ?? ''} onChange={e => set({ textoExtra: e.target.value })}
+          placeholder="Ej: El presente documento forma parte del certificado…"
+          className="vx-input resize-none" style={{ padding: '0.4rem 0.6rem', fontSize: 13 }} />
+      </div>
+    </div>
+  );
+}
 
 /* ── Textarea que crece solo conforme se escribe (sin scroll ni arrastrar) ──── */
 function AutoTextarea({ value, style, ...rest }: React.ComponentProps<'textarea'>) {
@@ -576,6 +625,8 @@ type ProgramCfg = {
   firmas: number[];
   /** Modo "Diseño Personalizado (Lienzo)". null = diseño por defecto de Vaxa. */
   layout: LayoutLienzo | null;
+  /** Config del acta (qué datos muestra, título y texto extra). null = acta por defecto. */
+  acta: ActaConfig | null;
 };
 
 /** Fondo + logos + firmas que acompañan a la plantilla base (viajan dentro del JSON
@@ -774,6 +825,9 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
   const [gruposConCfg, setGruposConCfg] = useState<Record<number, Set<number>>>({});
   /* Unidades por programa (para el gate y la vista de ejemplo del acta en la Hoja 2). */
   const [unidadesPorPrograma, setUnidadesPorPrograma] = useState<Record<number, Unidad[]>>({});
+  /** Muestra REAL (un alumno del aula + sus notas) por grupo, para la vista previa. */
+  type Muestra = { nombre: string; documento: string; grupo: string; notas: Record<number, number>; promedio: string; condicion: string };
+  const [muestras, setMuestras] = useState<Record<number, Muestra | null>>({});
   /* Hoja que muestra la vista previa inline por programa (1 = certificado, 2 = acta). */
   const [previewPagina, setPreviewPagina] = useState<Record<number, number>>({});
   /* Cuál grupo se está editando para cada programa (0 = default) */
@@ -875,13 +929,14 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
 
   const cfgKey = (progId: number, grupoId: number) => `${progId}-${grupoId}`;
   const cfg = (progId: number, grupoId: number = 0): ProgramCfg =>
-    configs[cfgKey(progId, grupoId)] ?? { plantilla_url: '', texto_personalizado: '', logos: [], firmas: [], layout: null };
+    configs[cfgKey(progId, grupoId)] ?? { plantilla_url: '', texto_personalizado: '', logos: [], firmas: [], layout: null, acta: null };
 
   /* Firma normalizada de una config para comparar cambios (orden de ids no importa). */
   const normCfg = (c: ProgramCfg) => JSON.stringify({
     plantilla_url: c.plantilla_url ?? '',
     texto_personalizado: c.texto_personalizado ?? '',
     layout: c.layout ?? null,
+    acta: c.acta ?? null,
     logos: [...c.logos].sort((a, b) => a - b),
     firmas: [...c.firmas].sort((a, b) => a - b),
   });
@@ -912,6 +967,7 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
             plantilla_url:      c.plantilla_url ?? '',
             texto_personalizado: c.texto_personalizado ?? '',
             layout: parseLayout(c.layout_personalizado),
+            acta: parseActa(c.acta_config),
             logos:  c.logos?.map(l => l.id)  ?? [],
             firmas: c.firmas?.map(f => f.id) ?? [],
           };
@@ -919,7 +975,7 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
           setBaselines(prev => ({ ...prev, [cfgKey(p.id, 0)]: normCfg(cargado) }));
         })
         .catch(() => {
-          const vacio: ProgramCfg = { plantilla_url: '', texto_personalizado: '', logos: [], firmas: [], layout: null };
+          const vacio: ProgramCfg = { plantilla_url: '', texto_personalizado: '', logos: [], firmas: [], layout: null, acta: null };
           setConfigs(prev => ({ ...prev, [cfgKey(p.id, 0)]: vacio }));
           setBaselines(prev => ({ ...prev, [cfgKey(p.id, 0)]: normCfg(vacio) }));
         });
@@ -944,6 +1000,7 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
         plantilla_url:      c.plantilla_url ?? '',
         texto_personalizado: c.texto_personalizado ?? '',
         layout: parseLayout(c.layout_personalizado),
+        acta: parseActa(c.acta_config),
         logos:  c.logos?.map(l => l.id)  ?? [],
         firmas: c.firmas?.map(f => f.id) ?? [],
       };
@@ -951,7 +1008,7 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
       setBaselines(prev => ({ ...prev, [cfgKey(progId, grupoId)]: normCfg(cargado) }));
     } catch {
       // Si el grupo no tiene config, arrancamos vacío
-      const vacio: ProgramCfg = { plantilla_url: '', texto_personalizado: '', logos: [], firmas: [], layout: null };
+      const vacio: ProgramCfg = { plantilla_url: '', texto_personalizado: '', logos: [], firmas: [], layout: null, acta: null };
       setConfigs(prev => ({ ...prev, [cfgKey(progId, grupoId)]: vacio }));
       setBaselines(prev => ({ ...prev, [cfgKey(progId, grupoId)]: normCfg(vacio) }));
     }
@@ -1022,6 +1079,7 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
         plantilla_url:      c.plantilla_url || null,
         texto_personalizado: c.texto_personalizado || null,
         layout_personalizado: c.layout ? JSON.stringify(c.layout) : null,
+        acta_config: c.acta ? JSON.stringify(c.acta) : null,
         logo_ids:  logoIds,
         firma_ids: firmaIds,
         grupo_id:  g,
@@ -1056,6 +1114,36 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [configs, expandedId, grupoSelected]);
+
+  /* Muestra REAL para la vista previa: toma un alumno del aula abierta (o de la 1ª
+   * aula del programa si estás en la config base) con sus notas reales. Así la
+   * plantilla se ve con datos de verdad y no con "Ana María Torres López". */
+  useEffect(() => {
+    if (expandedId == null) return;
+    const g = grupoActivo(expandedId);
+    const gruposProg = grupos.filter(gr => gr.programa_id === expandedId && gr.activo);
+    const gid = g !== 0 ? g : gruposProg[0]?.id;
+    if (!gid || muestras[gid] !== undefined) return;   // ya cargada (o en caché)
+    let cancel = false;
+    notasApi.matrizGrupo(empresa, gid)
+      .then(m => {
+        if (cancel) return;
+        const fila = m.filas?.[0];
+        const cond = m.es_creditos ? '' : (fila && fila.promedio != null && m.nota_minima != null
+          ? (fila.promedio >= m.nota_minima ? 'APROBADO' : 'DESAPROBADO') : '');
+        setMuestras(prev => ({ ...prev, [gid]: fila ? {
+          nombre:    fila.participante_nombre,
+          documento: fila.numero_documento,
+          grupo:     m.nombre_grupo,
+          notas:     fila.notas ?? {},
+          promedio:  fila.promedio == null ? '' : Number(fila.promedio).toFixed(2),
+          condicion: cond,
+        } : { nombre: '', documento: '', grupo: m.nombre_grupo, notas: {}, promedio: '', condicion: '' } }));
+      })
+      .catch(() => { if (!cancel) setMuestras(prev => ({ ...prev, [gid]: null })); });
+    return () => { cancel = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [empresa, expandedId, grupoSelected, grupos]);
 
   /* Eliminar config del grupo → vuelve a heredar del programa */
   const handleEliminarConfigGrupo = async (progId: number, grupoId: number) => {
@@ -1164,6 +1252,14 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
         // Aula seleccionada (si es un grupo concreto): sus fechas reales van a la vista
         // previa para que muestre las fechas correctas y no las de ejemplo.
         const aulaSel = g !== 0 ? gruposProg.find(gr => gr.id === g) : undefined;
+        // Evaluación EFECTIVA de lo que se está editando: si es un aula con override,
+        // manda el aula; si es la config base (g=0) o el aula hereda, manda el programa.
+        // Así, en el MISMO programa, un aula puede ir con notas y otra como temario.
+        const rnEfectivo = aulaSel?.requiere_notas ?? p.requiere_notas ?? 1;
+        const actaTemario = Number(rnEfectivo) === 0 && p.unidad_label?.trim() !== 'Crédito';
+        // Muestra REAL (alumno + notas) del aula abierta (o 1ª del programa) para el preview.
+        const sampleGid = g !== 0 ? g : gruposProg.find(gr => gr.activo)?.id;
+        const muestra = (sampleGid ? muestras[sampleGid] : null) ?? null;
         // Logos/firmas seleccionados (en el orden definido) para la vista previa en vivo.
         const selLogos  = orderedLogos.map(id => logos.find(l => l.id === id)).filter(Boolean) as Logo[];
         const selFirmas = c.firmas.map(id => firmas.find(f => f.id === id)).filter(Boolean) as Firma[];
@@ -1328,7 +1424,7 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
                           Vista previa
                         </p>
                         {/* Cambiar entre certificado (hoja 1) y acta (hoja 2) en la vista previa. */}
-                        {modoLienzo && tieneActaP && (
+                        {tieneActaP && (
                           <div className="flex items-center gap-1">
                             {[1, 2].map(n => (
                               <button key={n} type="button"
@@ -1373,6 +1469,9 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
                         displayWidth={canvasW}
                         pagina={pv}
                         actaUnidades={unidadesPorPrograma[p.id] ?? []}
+                        actaEsTemario={actaTemario}
+                        actaConfig={c.acta}
+                        muestra={muestra}
                         editable={permiteDiseno && !modoLienzo}
                         onLayoutChange={l => setCfg(p.id, g, { layout: l })}
                         selectedKey={selectedKey}
@@ -1405,6 +1504,9 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
                         numFirmas={selFirmas.length}
                         tieneActa={(unidadesPorPrograma[p.id]?.length ?? 0) > 0}
                         actaUnidades={unidadesPorPrograma[p.id] ?? []}
+                        actaEsTemario={actaTemario}
+                        actaConfig={c.acta}
+                        muestra={muestra}
                         logoObligIndex={logoObligIndex}
                         selectedKey={selectedKey}
                         onSelectField={setSelectedKey}
@@ -1422,6 +1524,25 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
                   </div>
                 );
               })()}
+
+              {/* Personalizar el ACTA fija (Hoja 2) — qué datos muestra, título y texto extra.
+                  Solo si el programa tiene acta (unidades) Y el acta NO está como lienzo:
+                  en modo lienzo todo se controla desde el Diseño Personalizado, así que este
+                  panel sobraría (duplicaría el título/datos). */}
+              {(unidadesPorPrograma[p.id]?.length ?? 0) > 0 && !actaEsLienzo(c.layout) && (
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-wider mb-2" style={{ color: '#374151' }}>
+                    Acta (Hoja 2) — qué muestra, título y texto
+                  </p>
+                  <ActaConfigPanel
+                    value={c.acta}
+                    tituloAuto={actaTemario
+                      ? 'TEMARIO DEL PROGRAMA'
+                      : p.unidad_label?.trim() === 'Crédito' ? 'ACTA DE CRÉDITOS' : 'ACTA DE NOTAS'}
+                    onChange={acta => setCfg(p.id, g, { acta })}
+                  />
+                </div>
+              )}
 
               {/* Fondo + Texto en dos columnas */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

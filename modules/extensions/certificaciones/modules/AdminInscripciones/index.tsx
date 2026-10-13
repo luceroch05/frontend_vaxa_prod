@@ -7,6 +7,7 @@ import {
 } from '@/components/ui/icon';
 import { useInscripciones } from '../../shared/hooks/useInscripciones';
 import { useGrupos }        from '../../shared/hooks/useGrupos';
+import { useProgramas }     from '../../shared/hooks/useProgramas';
 import { usePagination }    from '../../shared/hooks/usePagination';
 import { useConfirm }       from '../../shared/hooks/useConfirm';
 import { useEsAdmin }       from '../../shared/hooks/useEsAdmin';
@@ -147,6 +148,7 @@ export default function AdminInscripciones() {
 
   const { inscripciones, loading, error, cambiarEstado, cambiarEstadoMasivo, eliminar, refetch } = useInscripciones(empresa!, grupoId);
   const { grupos } = useGrupos(empresa!);
+  const { programas } = useProgramas(empresa!);
   const confirm = useConfirm();
 
   const [filtroEstado, setFiltroEstado] = useState<number | 'todos'>('todos');
@@ -169,8 +171,14 @@ export default function AdminInscripciones() {
   });
   const clearSel = () => setSelected(new Set());
 
-  // ¿El programa del grupo seleccionado tiene unidades? → define si Aprobado/Desaprobado son manuales.
-  const programaId = grupoId ? grupos.find(g => g.id === grupoId)?.programa_id : undefined;
+  // ¿El aula seleccionada USA notas? → define si Aprobado/Desaprobado son manuales.
+  // "Usa notas" = el programa tiene unidades Y la evaluación efectiva está activa
+  // (override del aula si lo tiene; si no, lo del programa). Si no usa notas, se
+  // aprueba a mano (por asistencia).
+  const grupoSel  = grupoId ? grupos.find(g => g.id === grupoId) : undefined;
+  const programaId = grupoSel?.programa_id;
+  const programaSel = programaId ? programas.find(p => p.id === programaId) : undefined;
+  const rnEfectivo = grupoSel?.requiere_notas ?? programaSel?.requiere_notas ?? 1;
   const [tieneUnidades, setTieneUnidades] = useState<boolean | null>(null);
   useEffect(() => {
     if (!programaId) { setTieneUnidades(null); return; }
@@ -180,6 +188,8 @@ export default function AdminInscripciones() {
       .catch(() => { if (!cancel) setTieneUnidades(null); });
     return () => { cancel = true; };
   }, [empresa, programaId]);
+  // Gate de "aprobar a mano": solo cuando el aula realmente evalúa con notas.
+  const usaNotas: boolean | null = tieneUnidades == null ? null : (tieneUnidades && Number(rnEfectivo) === 1);
 
   const handleCambiarEstado = async (id: number, estado: number) => {
     setAccionError(null);
@@ -417,7 +427,7 @@ export default function AdminInscripciones() {
 
       {/* Aprobar a todos de golpe — para programas por asistencia (sin notas).
           Se oculta si el programa usa notas (la aprobación va por las notas). */}
-      {!loading && tieneUnidades !== true && candidatosAprobar.length > 0 && (
+      {!loading && usaNotas !== true && candidatosAprobar.length > 0 && (
         <div
           className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3 rounded-2xl"
           style={{ background: '#F0FDF4', border: '1px solid #BBF7D0' }}
@@ -499,7 +509,7 @@ export default function AdminInscripciones() {
               onCambiarEstado={handleCambiarEstado}
               onEliminar={handleEliminar}
               isLast={idx === pageItems.length - 1}
-              tieneUnidades={tieneUnidades}
+              tieneUnidades={usaNotas}
               esAdmin={esAdmin}
               selected={selected.has(i.id)}
               onToggleSel={() => toggleOne(i.id)}

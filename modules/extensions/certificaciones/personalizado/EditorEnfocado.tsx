@@ -40,6 +40,12 @@ interface Props {
   tieneActa?: boolean;
   /** Unidades del programa → réplica del acta real en la Hoja 2. */
   actaUnidades?: { id: number; nombre: string; creditos?: number }[];
+  /** El programa no lleva evaluación → la Hoja 2 se muestra como temario (sin notas). */
+  actaEsTemario?: boolean;
+  /** Config del acta (qué datos muestra, título y texto extra). */
+  actaConfig?: import('../shared/types').ActaConfig | null;
+  /** Muestra REAL (alumno + notas) para la vista previa. */
+  muestra?: { nombre: string; documento: string; grupo: string; notas: Record<number, number>; promedio: string; condicion: string } | null;
   /** Índice 0-based del logo OBLIGATORIO de la empresa (es_default) dentro de los
    *  logos seleccionados. Su slot no se puede ocultar ni borrar. -1/null = ninguno. */
   logoObligIndex?: number | null;
@@ -59,6 +65,11 @@ export default function EditorEnfocado(props: Props) {
   const { onClose } = props;
   const areaRef = useRef<HTMLDivElement>(null);
   const [canvasW, setCanvasW] = useState(760);
+  // Zoom de la hoja: 1 = ajustada al área. Se puede acercar/alejar (con scroll al acercar).
+  const [zoom, setZoom] = useState(1);
+  const ZOOM_MIN = 0.5, ZOOM_MAX = 3;
+  const clampZoom = (z: number) => Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, Math.round(z * 100) / 100));
+  const dispW = Math.max(240, Math.round(canvasW * zoom));
   // Hoja que se está editando: 1 (principal) o 2 (acta/créditos, en blanco).
   // La Hoja 2 solo existe si el programa tiene acta (unidades).
   const tieneActa = props.tieneActa ?? false;
@@ -171,35 +182,60 @@ export default function EditorEnfocado(props: Props) {
           pagina={pagina}
           numLogos={props.logos.length}
           logoObligIndex={props.logoObligIndex}
+          conActa={tieneActa}
         />
       </div>
 
       {/* Lienzo grande (centro) + Propiedades (derecha) */}
       <div className="flex-1 flex min-h-0">
-        <div ref={areaRef} className="flex-1 min-w-0 flex items-center justify-center p-5 overflow-hidden">
-          <div style={{ boxShadow: '0 10px 40px rgba(0,0,0,0.18)' }}>
-            <CertificadoPreview
-              plantillaUrl={props.plantillaUrl}
-              logos={props.logos}
-              firmas={props.firmas}
-              texto={props.texto}
-              tipoPrograma={props.tipoPrograma}
-              programaNombre={props.programaNombre}
-              horas={props.horas}
-              creditos={props.creditos}
-              fechaInicio={props.fechaInicio}
-              fechaFin={props.fechaFin}
-              fechaDia2={props.fechaDia2}
-              fechaDia3={props.fechaDia3}
-              layout={props.layout}
-              displayWidth={canvasW}
-              editable
-              onLayoutChange={props.onLayoutChange}
-              selectedKey={props.selectedKey}
-              onSelectField={props.onSelectField}
-              pagina={pagina}
-              actaUnidades={props.actaUnidades}
-            />
+        <div
+          ref={areaRef}
+          className="flex-1 min-w-0 relative overflow-auto"
+          onWheel={e => { if (e.ctrlKey || e.metaKey) { e.preventDefault(); setZoom(z => clampZoom(z - e.deltaY * 0.0015)); } }}
+        >
+          {/* min-width:min-content evita que el centrado recorte la hoja cuando el zoom la hace más grande que el área (se scrollea). */}
+          <div className="flex items-center justify-center p-5" style={{ minWidth: 'min-content', minHeight: '100%' }}>
+            <div style={{ boxShadow: '0 10px 40px rgba(0,0,0,0.18)', flexShrink: 0 }}>
+              <CertificadoPreview
+                plantillaUrl={props.plantillaUrl}
+                logos={props.logos}
+                firmas={props.firmas}
+                texto={props.texto}
+                tipoPrograma={props.tipoPrograma}
+                programaNombre={props.programaNombre}
+                horas={props.horas}
+                creditos={props.creditos}
+                fechaInicio={props.fechaInicio}
+                fechaFin={props.fechaFin}
+                fechaDia2={props.fechaDia2}
+                fechaDia3={props.fechaDia3}
+                layout={props.layout}
+                displayWidth={dispW}
+                editable
+                onLayoutChange={props.onLayoutChange}
+                selectedKey={props.selectedKey}
+                onSelectField={props.onSelectField}
+                pagina={pagina}
+                actaUnidades={props.actaUnidades}
+                actaEsTemario={props.actaEsTemario}
+                actaConfig={props.actaConfig}
+                muestra={props.muestra}
+              />
+            </div>
+          </div>
+
+          {/* Control de zoom (flotante, abajo al centro) */}
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1 px-1.5 py-1 rounded-xl shadow-lg select-none"
+            style={{ background: '#fff', border: '1px solid #E5E7EB' }}>
+            <button type="button" onClick={() => setZoom(z => clampZoom(z - 0.1))} disabled={zoom <= ZOOM_MIN}
+              className="w-7 h-7 rounded-lg flex items-center justify-center text-[16px] font-bold disabled:opacity-40"
+              style={{ background: '#F6F6F8', color: '#4B5563' }} title="Alejar (Ctrl + rueda)">−</button>
+            <button type="button" onClick={() => setZoom(1)}
+              className="min-w-[52px] text-[12px] font-semibold px-1.5 py-1 rounded-lg"
+              style={{ color: '#4B5563' }} title="Ajustar a la pantalla (100%)">{Math.round(zoom * 100)}%</button>
+            <button type="button" onClick={() => setZoom(z => clampZoom(z + 0.1))} disabled={zoom >= ZOOM_MAX}
+              className="w-7 h-7 rounded-lg flex items-center justify-center text-[16px] font-bold disabled:opacity-40"
+              style={{ background: '#F6F6F8', color: '#4B5563' }} title="Acercar (Ctrl + rueda)">+</button>
           </div>
         </div>
         <div className="w-[300px] shrink-0 overflow-y-auto p-3" style={{ background: '#F7F7F9', borderLeft: '1px solid #E5E7EB' }}>

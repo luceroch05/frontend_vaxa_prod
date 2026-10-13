@@ -121,6 +121,46 @@ export default function NotasGrupo({ empresa, grupoId, onEstadoCambiado }: {
 
   const label = matriz.unidad_label || 'Unidad';
 
+  // Programa sin evaluación: no se registran notas. Si tiene unidades, se muestran
+  // como un temario (lo que saldrá en el acta); si no, solo el certificado.
+  if (matriz.requiere_notas === 0 && !matriz.es_creditos) {
+    return (
+      <>
+        <div className="flex items-start gap-2 text-[13px] px-4 py-3 rounded-xl mb-3"
+          style={{ background: '#F3F0FF', border: '1px solid #DDD6FE', color: '#5B21B6' }}>
+          <GraduationCap size={16} className="flex-shrink-0 mt-0.5" />
+          <span>
+            <strong>Sin evaluación.</strong> No hay notas que registrar.
+            {matriz.unidades.length > 0
+              ? ' Estas unidades saldrán como un temario en el acta (sin notas ni promedio).'
+              : ' Al emitir saldrá solo el certificado, sin acta.'}
+            {' '}Aprueba a los alumnos por asistencia desde <strong>Inscripciones</strong>.
+          </span>
+        </div>
+        {matriz.unidades.length > 0 && (
+          <div className="bg-white rounded-2xl overflow-hidden" style={{ border: '1px solid #EEECE6' }}>
+            <table className="w-full" style={{ borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ background: '#FAFAF8', borderBottom: '1px solid #EEECE6' }}>
+                  <th className="text-left px-4 py-3 text-[11px] font-semibold uppercase tracking-wider" style={{ color: '#9CA3AF', width: 60 }}>N°</th>
+                  <th className="text-left px-4 py-3 text-[11px] font-semibold uppercase tracking-wider" style={{ color: '#9CA3AF' }}>{label}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {matriz.unidades.map((u, idx) => (
+                  <tr key={u.id} style={{ borderBottom: idx < matriz.unidades.length - 1 ? '1px solid #F5F4F0' : undefined }}>
+                    <td className="px-4 py-2.5 text-[13px] font-bold" style={{ color: '#2563EB' }}>{idx + 1}</td>
+                    <td className="px-4 py-2.5 text-[13px]" style={{ color: '#0D0E12' }}>{u.nombre}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </>
+    );
+  }
+
   // Programa sin unidades configuradas
   if (matriz.unidades.length === 0) {
     return (

@@ -12,8 +12,8 @@ export function useProgramas(empresa: string, incluirInactivos = false) {
     setError(null);
     try {
       const data = await programasApi.list(empresa, incluirInactivos);
-      // Más reciente primero (id autoincremental: id mayor = más nuevo)
-      setProgramas([...data].sort((a, b) => b.id - a.id));
+      // Activos arriba, inactivos (archivados) abajo; dentro de cada grupo, el más reciente primero.
+      setProgramas([...data].sort((a, b) => (Number(b.activo) - Number(a.activo)) || (b.id - a.id)));
     } catch (e: unknown) {
       setError((e as Error).message);
     } finally {

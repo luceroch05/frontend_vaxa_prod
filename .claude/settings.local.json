@@ -361,7 +361,14 @@
       "PowerShell(Push-Location 'C:\\\\Users\\\\Lucero\\\\Desktop\\\\backend-vaxa-prod'; $out = & npx tsc --noEmit 2>&1; Pop-Location; $out | Select-Object -First 40; \"BACK=$LASTEXITCODE\")",
       "PowerShell(Push-Location 'C:\\\\Users\\\\Lucero\\\\Desktop\\\\frontend_vaxa_prod'; $out = & npx tsc --noEmit 2>&1; Pop-Location; $out | Select-Object -First 30; \"EXIT=$LASTEXITCODE\")",
       "PowerShell(Push-Location \"C:\\\\Users\\\\Lucero\\\\Desktop\\\\backend-vaxa-prod\"; npx tsc --noEmit; \"EXIT=$LASTEXITCODE\"; Pop-Location)",
-      "PowerShell(npm run *)"
+      "PowerShell(npm run *)",
+      "Bash(nslookup -type=mx vaxa.com.pe)",
+      "Bash(nslookup mail.vaxa.com.pe)",
+      "PowerShell(Push-Location 'C:\\\\Users\\\\Lucero\\\\Desktop\\\\backend-vaxa-prod'; npx tsc --noEmit; Write-Output \"EXIT: $LASTEXITCODE\"; Pop-Location)",
+      "PowerShell(Push-Location 'C:\\\\Users\\\\Lucero\\\\Desktop\\\\frontend_vaxa_prod'; npx tsc --noEmit; Write-Output \"EXIT: $LASTEXITCODE\"; Pop-Location)",
+      "WebFetch(domain:pe.indeed.com)",
+      "PowerShell(Push-Location 'C:\\\\Users\\\\Lucero\\\\Desktop\\\\backend-vaxa-prod'; npx tsc --noEmit; Write-Output \"BACK EXIT: $LASTEXITCODE\"; Pop-Location)",
+      "PowerShell(Push-Location 'C:\\\\Users\\\\Lucero\\\\Desktop\\\\frontend_vaxa_prod'; npx tsc --noEmit; Write-Output \"FRONT EXIT: $LASTEXITCODE\"; Pop-Location)"
     ],
     "deny": [],
     "ask": []

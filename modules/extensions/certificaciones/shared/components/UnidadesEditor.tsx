@@ -41,6 +41,8 @@ export default function UnidadesEditor({
   const [credEdits, setCredEdits] = useState<Record<number, string>>({});
   /** unidad_id que acaba de guardar su crédito (para el ✓ efímero). */
   const [savedCred, setSavedCred] = useState<number | null>(null);
+  /** ¿El programa lleva evaluación (notas + acta)? Si no, solo se emite el certificado. */
+  const [requiereNotas, setRequiereNotas] = useState<boolean>((programa.requiere_notas ?? 1) === 1);
 
   const esCreditos = label.trim() === LABEL_CREDITOS;
   // En modo créditos cada fila es un tema del temario (no "una crédito").
@@ -75,6 +77,11 @@ export default function UnidadesEditor({
   const cambiarTipo = (nuevoLabel: string) => {
     setLabel(nuevoLabel);
     void guardarConfig({ unidad_label: nuevoLabel || 'Unidad' });
+  };
+
+  const cambiarRequiereNotas = (val: boolean) => {
+    setRequiereNotas(val);
+    void guardarConfig({ requiere_notas: val ? 1 : 0 });
   };
 
   const guardarNotaMin = () => {
@@ -132,6 +139,28 @@ export default function UnidadesEditor({
         </div>
       )}
 
+      {/* Interruptor: ¿el programa lleva evaluación? */}
+      <div className="flex items-start justify-between gap-3 rounded-xl px-3.5 py-3 mb-4 bg-white" style={{ border: '1px solid #EEECE6' }}>
+        <div className="min-w-0">
+          <p className="text-[13px] font-semibold" style={{ color: '#0D0E12' }}>Este programa lleva evaluación</p>
+          <p className="text-[12px] mt-0.5" style={{ color: '#9CA3AF' }}>
+            {requiereNotas
+              ? 'Se registran notas y el acta sale como 2ª hoja del certificado.'
+              : 'Sin evaluación: no se registran notas. Las unidades que agregues salen como temario en el acta; si no agregas ninguna, se emite solo el certificado.'}
+          </p>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={requiereNotas}
+          onClick={() => cambiarRequiereNotas(!requiereNotas)}
+          className="relative flex-shrink-0 rounded-full transition-colors"
+          style={{ width: 42, height: 24, background: requiereNotas ? '#7C3AED' : '#D1D5DB' }}
+        >
+          <span className="absolute top-0.5 rounded-full bg-white transition-all" style={{ width: 20, height: 20, left: requiereNotas ? 20 : 2 }} />
+        </button>
+      </div>
+
       {/* Config: tipo de evaluación + nota mínima */}
       <div className="flex items-end gap-3 flex-wrap mb-4">
         <div>
@@ -147,7 +176,7 @@ export default function UnidadesEditor({
             {OPCIONES_LABEL.map(o => <option key={o} value={o}>{o}</option>)}
           </select>
         </div>
-        {!esCreditos && (
+        {requiereNotas && !esCreditos && (
           <div>
             <label className="block text-[11px] font-semibold uppercase tracking-wider mb-1" style={{ color: '#9CA3AF' }}>
               Nota mínima (0–20)
@@ -172,6 +201,15 @@ export default function UnidadesEditor({
           style={{ background: '#F3F0FF', border: '1px solid #DDD6FE', color: '#5B21B6' }}>
           Modo créditos: no se registran notas. Cada tema del temario otorga sus créditos por asistencia
           y el acta muestra el total. La aprobación se marca por asistencia en la lista de inscripciones.
+        </p>
+      )}
+
+      {!requiereNotas && !esCreditos && (
+        <p className="text-[12px] px-3 py-2 rounded-xl mb-3"
+          style={{ background: '#FAFAF8', border: '1px solid #EEECE6', color: '#6B7280' }}>
+          Sin evaluación: no se registran notas. Las {plural(itemNoun.toLowerCase())} que agregues abajo saldrán como
+          un <strong>temario</strong> en el acta (sin notas ni promedio). Si no agregas ninguna, se emite solo el certificado.
+          Para emitir, marca a los alumnos como <strong>Aprobado</strong> (por asistencia) desde <strong>Inscripciones</strong>.
         </p>
       )}
 

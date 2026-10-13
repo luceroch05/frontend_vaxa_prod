@@ -50,6 +50,8 @@ export interface Programa {
   creditos: number;
   unidad_label: string;
   nota_minima: number;
+  /** 1 = lleva evaluación (notas + acta). 0 = sin evaluación (solo certificado). */
+  requiere_notas: number;
   activo: number;
 }
 
@@ -61,6 +63,8 @@ export interface CreateProgramaDto {
   creditos?: number;
   unidad_label?: string;
   nota_minima?: number;
+  /** 1 = lleva evaluación (notas + acta). 0 = sin evaluación (solo certificado). */
+  requiere_notas?: number;
 }
 
 // ── Unidades y Notas ─────────────────────────────────────────────────────────
@@ -103,6 +107,8 @@ export interface NotasMatriz {
   unidad_label: string;
   /** true si la evaluación es por créditos (sin notas). */
   es_creditos?: boolean;
+  /** 1 = lleva evaluación (notas + acta). 0 = sin evaluación (solo certificado). */
+  requiere_notas?: number;
   nota_minima: number;
   unidades: { id: number; nombre: string; orden: number; creditos: number }[];
   filas: NotasFila[];
@@ -124,6 +130,8 @@ export interface Grupo {
   hora_fin?: string | null;      // "HH:MM"
   modalidad_id: number;
   modalidad_nombre: string;
+  /** Override de evaluación por aula: null = hereda del programa, 1 = con notas, 0 = sin notas. */
+  requiere_notas?: number | null;
   activo: number;
 }
 
@@ -138,6 +146,8 @@ export interface CreateGrupoDto {
   hora_inicio?: string | null;
   hora_fin?: string | null;
   modalidad_id: number;
+  /** Override de evaluación por aula: null = hereda del programa, 1 = con notas, 0 = sin notas. */
+  requiere_notas?: number | null;
 }
 
 // ── Participante ─────────────────────────────────────────────────────────────
@@ -292,6 +302,8 @@ export interface ConfigCertificado {
   texto_personalizado: string | null;
   /** JSON del modo "Diseño Personalizado (Lienzo)". null = diseño por defecto. */
   layout_personalizado?: string | null;
+  /** JSON de la configuración del acta (qué datos muestra, título y texto extra). */
+  acta_config?: string | null;
   logos:               ConfigLogoItem[];
   firmas:              ConfigFirmaItem[];
 }
@@ -301,8 +313,20 @@ export interface UpsertConfigDto {
   texto_personalizado?: string | null;
   /** JSON (string) del modo "Diseño Personalizado (Lienzo)". */
   layout_personalizado?: string | null;
+  /** JSON (string) de la configuración del acta. */
+  acta_config?: string | null;
   logo_ids?:  number[];
   firma_ids?: number[];
   /** 0 = config del programa (default). >0 = config específica de un grupo */
   grupo_id?: number;
+}
+
+/** Config del acta (2ª hoja): qué datos muestra, título propio y texto extra. */
+export interface ActaConfig {
+  titulo?: string;
+  mostrarDocumento?: boolean;
+  mostrarGrupo?: boolean;
+  mostrarPeriodo?: boolean;
+  mostrarQr?: boolean;
+  textoExtra?: string;
 }

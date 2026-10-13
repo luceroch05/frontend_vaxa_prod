@@ -8,18 +8,18 @@ import { participantesApi } from '../../shared/api/participantes.api';
 import { inscripcionesApi } from '../../shared/api/inscripciones.api';
 import { useCatalogos } from '../../shared/hooks/useCatalogos';
 import { useCalidades } from '../../shared/hooks/useCalidades';
+import { gradosApi } from '../../shared/api/grados.api';
 import { useGrupos } from '../../shared/hooks/useGrupos';
 import { usePagination } from '../../shared/hooks/usePagination';
 import Pagination from '../../shared/components/Pagination';
 import ProgramaGrupoPicker from '../../shared/components/ProgramaGrupoPicker';
 import PhoneField from '../../shared/components/PhoneField';
-import SelectVx from '../../shared/components/SelectVx';
 import { isPossiblePhoneNumber } from 'libphonenumber-js';
 import type { Participante, Inscripcion } from '../../shared/types';
 
 /** Grados académicos que se pueden anteponer al nombre en el certificado (multi-select). */
 const GRADOS_OPCIONES = [
-  'Bach.', 'Lic.', 'Ing.', 'Mag.', 'Dr.', 'Dra.', 'Abog.', 'Psic.',
+  'Bach.', 'Lic.', 'Ing.', 'Mag.', 'Mg.', 'Dr.', 'Dra.', 'Abog.', 'Psic.',
   'C.D.', 'Q.F.', 'T.M.', 'Obst.', 'Enf.', 'Prof.', 'Mtro.', 'Ph.D.',
 ];
 
@@ -27,23 +27,57 @@ const GRADOS_OPCIONES = [
 const parseGrados = (csv?: string | null): string[] =>
   String(csv ?? '').split(',').map(s => s.trim()).filter(Boolean);
 
-/** Multi-select de grados en chips: clic para marcar/desmarcar. Sale antes del nombre. */
+/** Multi-select de grados en chips: clic para marcar/desmarcar. Sale antes del nombre.
+ *  Además deja AGREGAR un grado propio (ej. "Mg", "Esp.", "MBA") que se guarda por
+ *  empresa (en este navegador) para reutilizarlo con los demás alumnos. */
 function GradosPicker({ value, onChange, disabled }: {
   value: string[];
   onChange: (v: string[]) => void;
   disabled?: boolean;
 }) {
+  const { empresa } = useParams<{ empresa: string }>();
+  // Grados EXTRA del catálogo de la empresa (server) → los ven TODOS los usuarios.
+  const [customs, setCustoms] = useState<string[]>([]);
+  const [nuevo, setNuevo] = useState('');
+  const [addErr, setAddErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!empresa) return;
+    let cancel = false;
+    gradosApi.list(empresa)
+      .then(rows => { if (!cancel) setCustoms(rows.map(r => r.nombre)); })
+      .catch(() => { /* si falla, solo se ven los base */ });
+    return () => { cancel = true; };
+  }, [empresa]);
+
+  // Opciones = base + los del catálogo de la empresa + los que el alumno ya tenga.
+  const opciones = Array.from(new Set([...GRADOS_OPCIONES, ...customs, ...value]));
+
   const toggle = (g: string) => {
     if (disabled) return;
     onChange(value.includes(g) ? value.filter(x => x !== g) : [...value, g]);
   };
+
+  const agregarCustom = async () => {
+    const g = nuevo.trim();
+    if (!g || disabled || !empresa) return;
+    setAddErr(null);
+    if (!value.includes(g)) onChange([...value, g]);   // queda marcado al toque
+    setNuevo('');
+    // Guardar en el catálogo de la empresa (para todos), salvo que ya sea base.
+    if (!GRADOS_OPCIONES.includes(g) && !customs.includes(g)) {
+      try { await gradosApi.create(empresa, g); setCustoms(prev => [...prev, g]); }
+      catch (e: unknown) { setAddErr((e as Error).message); }
+    }
+  };
+
   return (
     <div>
       <label className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: '#9CA3AF' }}>
         Grado(s) académico(s) <span className="normal-case font-normal">— salen antes del nombre</span>
       </label>
       <div className="flex flex-wrap gap-1.5 mt-1.5">
-        {GRADOS_OPCIONES.map(g => {
+        {opciones.map(g => {
           const on = value.includes(g);
           return (
             <button key={g} type="button" onClick={() => toggle(g)} disabled={disabled}
@@ -56,6 +90,27 @@ function GradosPicker({ value, onChange, disabled }: {
           );
         })}
       </div>
+      {/* Agregar un grado propio */}
+      {!disabled && (
+        <div className="flex items-center gap-1.5 mt-2">
+          <input
+            value={nuevo}
+            onChange={e => setNuevo(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); agregarCustom(); } }}
+            placeholder="Otro grado (ej. Mg, Esp., MBA)"
+            maxLength={12}
+            className="vx-input"
+            style={{ padding: '0.3rem 0.55rem', fontSize: 12, width: 190 }}
+          />
+          <button type="button" onClick={agregarCustom} disabled={!nuevo.trim()}
+            className="text-[12px] font-semibold px-2.5 py-1 rounded-lg disabled:opacity-50"
+            style={{ background: '#EEF2FF', color: '#4338CA', border: '1px solid #C7D2FE' }}>
+            + Agregar
+          </button>
+          <span className="text-[10.5px]" style={{ color: '#9CA3AF' }}>se guarda para todos</span>
+        </div>
+      )}
+      {addErr && <p className="text-[11px] mt-1" style={{ color: '#B91C1C' }}>{addErr}</p>}
       {value.length > 0 && (
         <p className="text-[11px] mt-1.5" style={{ color: '#6B7280' }}>
           Vista: <b style={{ color: '#0D0E12' }}>{value.join(' ')} Nombre Apellido</b>
@@ -282,21 +337,28 @@ function InscribirModal({ empresa, onClose, onDone }: {
           <ProgramaGrupoPicker grupos={grupos} value={grupoId} onChange={setGrupoId} />
 
           {/* Calidad de participación — sale en el certificado ("en calidad de: ___").
-              Desplegable cerrado con las 4 opciones. La web pública siempre queda Participante. */}
+              Campo EDITABLE con sugerencias: elige una existente o ESCRIBE un término
+              nuevo (Ponente, Moderador, Expositor…); al inscribir queda guardado en la
+              empresa (backend resolverId) para reutilizarlo después. */}
           <div>
             <label className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: '#9CA3AF' }}>
               Calidad de participación
             </label>
             <div className="mt-1">
-              <SelectVx
+              <input
+                list="calidades-registro"
                 value={calidad}
-                onChange={v => setCalidad(v)}
-                options={calidadNombres.map(n => ({ value: n, label: n }))}
+                onChange={e => setCalidad(e.target.value)}
                 placeholder="Participante"
+                maxLength={40}
+                className="vx-input w-full"
               />
+              <datalist id="calidades-registro">
+                {calidadNombres.map(n => <option key={n} value={n} />)}
+              </datalist>
             </div>
             <p className="text-[11px] mt-1" style={{ color: '#B0A898' }}>
-              Aparece en el certificado ("en calidad de: ___"). Por defecto "Participante".
+              Elige una o <b>escribe un término nuevo</b> (ej. Ponente, Moderador). Se guarda en la empresa y aparecerá la próxima vez. Por defecto "Participante".
             </p>
           </div>
         </div>

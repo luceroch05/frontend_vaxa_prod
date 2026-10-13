@@ -9,7 +9,7 @@
  * ──────────────────────────────────────────────────────────────── */
 import { useState, useEffect, useRef } from 'react';
 import {
-  CampoFirma, CampoLinea, CampoLogo, CampoQR, CampoTexto, LayoutLienzo,
+  CampoActaTabla, CampoFirma, CampoLinea, CampoLogo, CampoQR, CampoTexto, LayoutLienzo,
   VARIABLES_LIENZO, labelCampo, tipoCampo, indiceLogo, indiceFirma,
   separarTextoFirma, unirTextoFirma, fontEsPesoUnico,
 } from './layout';
@@ -100,14 +100,15 @@ function chipLabel(key: string, c: CampoTexto): string {
   if (t === 'firma') return `Firma ${indiceFirma(key) + 1}`;
   if (t === 'firmatexto') return `Texto firma ${indiceFirma(key) + 1}`;
   if (t === 'linea') return 'Línea';
+  if (t === 'actatabla') return 'Tabla acta';
   return key;
 }
 
 export default function InspectorLienzo({ layout, selectedKey, onChange, onSelect, logoObligKey, tieneActa = false }: Props) {
-  const campos = (layout?.campos ?? {}) as Record<string, CampoTexto & CampoQR & CampoLogo & CampoFirma & CampoLinea>;
+  const campos = (layout?.campos ?? {}) as Record<string, CampoTexto & CampoQR & CampoLogo & CampoFirma & CampoLinea & CampoActaTabla>;
   const entries = Object.entries(campos);
 
-  const setCampo = (key: string, patch: Partial<CampoTexto & CampoQR & CampoLogo & CampoFirma & CampoLinea>) =>
+  const setCampo = (key: string, patch: Partial<CampoTexto & CampoQR & CampoLogo & CampoFirma & CampoLinea & CampoActaTabla>) =>
     onChange({ ...(layout ?? {}), activo: true, campos: { ...campos, [key]: { ...(campos[key] ?? {}), ...patch } } });
 
   const removeCampo = (key: string) => {
@@ -521,6 +522,46 @@ export default function InspectorLienzo({ layout, selectedKey, onChange, onSelec
                 </div>
               );
             })()}
+
+            {/* ── TABLA DEL ACTA (notas / temario / créditos) ── */}
+            {t === 'actatabla' && (
+              <div className="space-y-2">
+                <div className="flex flex-wrap items-end gap-2">
+                  <NumBox label="X" value={c.x} onChange={n => setCampo(sel, { x: n })} />
+                  <NumBox label="Y" value={c.y} onChange={n => setCampo(sel, { y: n })} />
+                  <NumBox label="Ancho" value={c.w} min={200} max={1122} onChange={n => setCampo(sel, { w: n })} />
+                  <NumBox label="Tamaño" value={c.size} min={8} max={40} onChange={n => setCampo(sel, { size: n })} />
+                  <ColorBox label="Texto" value={c.color} fallback="#0f172a" onChange={v => setCampo(sel, { color: v })} />
+                </div>
+                {/* Títulos editables de la cabecera (vacío = automático). */}
+                <div className="rounded-lg p-2" style={{ background: '#FAFAF8', border: '1px solid #EEECE6' }}>
+                  <p className="text-[10px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: '#9CA3AF' }}>Títulos de la cabecera</p>
+                  <div className="flex flex-wrap gap-2">
+                    <label style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                      <span className="text-[10px] font-semibold" style={{ color: '#9CA3AF' }}>N°</span>
+                      <input type="text" value={c.hNum ?? ''} placeholder="N°"
+                        onChange={e => setCampo(sel, { hNum: e.target.value })}
+                        className="vx-input" style={{ padding: '5px 8px', fontSize: 12, width: 70 }} />
+                    </label>
+                    <label style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                      <span className="text-[10px] font-semibold" style={{ color: '#9CA3AF' }}>Unidad / Tema</span>
+                      <input type="text" value={c.hUni ?? ''} placeholder="UNIDAD"
+                        onChange={e => setCampo(sel, { hUni: e.target.value })}
+                        className="vx-input" style={{ padding: '5px 8px', fontSize: 12, width: 130 }} />
+                    </label>
+                    <label style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                      <span className="text-[10px] font-semibold" style={{ color: '#9CA3AF' }}>Nota / Créditos</span>
+                      <input type="text" value={c.hVal ?? ''} placeholder="NOTA"
+                        onChange={e => setCampo(sel, { hVal: e.target.value })}
+                        className="vx-input" style={{ padding: '5px 8px', fontSize: 12, width: 110 }} />
+                    </label>
+                  </div>
+                </div>
+                <p className="text-[10.5px]" style={{ color: '#9CA3AF' }}>
+                  Las filas se llenan solas con las unidades/temas del programa (y las notas del alumno). Muévela con X/Y o arrástrala; <b>ocúltala</b> con el check de arriba. Deja un título vacío para el automático.
+                </p>
+              </div>
+            )}
 
             {/* ── QR ── */}
             {t === 'qr' && (

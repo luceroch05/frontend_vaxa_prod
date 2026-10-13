@@ -6,7 +6,7 @@ import { imgUrl } from '@/lib/api/client';
 import LienzoCampos from '../../personalizado/LienzoCampos';
 import LienzoDragLayer from '../../personalizado/LienzoDragLayer';
 import ActaPreview from '../../personalizado/ActaPreview';
-import { LayoutLienzo, layoutActivo } from '../../personalizado/layout';
+import { LayoutLienzo, layoutActivo, actaEsLienzo } from '../../personalizado/layout';
 
 interface PreviewLogo  { id: number; imagen_logo: string; nombre?: string | null }
 interface PreviewFirma { id: number; imagen_firma: string; nombre_autoridad: string; cargo: string }
@@ -43,6 +43,12 @@ interface Props {
   pagina?: number;
   /** Unidades del programa → réplica del acta real en la Hoja 2. */
   actaUnidades?: { id: number; nombre: string; creditos?: number }[];
+  /** El programa no lleva evaluación → la Hoja 2 se muestra como temario (sin notas). */
+  actaEsTemario?: boolean;
+  /** Config del acta (qué datos muestra, título y texto extra) para reflejarla en la Hoja 2. */
+  actaConfig?: import('../types').ActaConfig | null;
+  /** Muestra REAL (un alumno del aula + sus notas) para que la vista previa use datos de verdad. */
+  muestra?: { nombre: string; documento: string; grupo: string; notas: Record<number, number>; promedio: string; condicion: string } | null;
 }
 
 /* Datos de ejemplo: así el usuario VE cómo queda con un alumno real.
@@ -66,9 +72,16 @@ const EJEMPLO = {
 export default function CertificadoPreview({
   plantillaUrl, logos, firmas, texto, tipoPrograma, programaNombre, horas, creditos,
   fechaInicio, fechaFin, fechaDia2, fechaDia3, layout, displayWidth = 460,
-  editable = false, onLayoutChange, selectedKey, onSelectField, pagina = 1, actaUnidades = [],
+  editable = false, onLayoutChange, selectedKey, onSelectField, pagina = 1, actaUnidades = [], actaEsTemario = false, actaConfig = null, muestra = null,
 }: Props) {
   const scale = displayWidth / W;
+  // Datos de la vista previa: REALES si hay muestra (un alumno del aula), si no de ejemplo.
+  const nombreMuestra    = muestra?.nombre?.trim()    || EJEMPLO.participante;
+  const docMuestra       = muestra?.documento?.trim() || EJEMPLO.documento;
+  const grupoMuestra     = muestra?.grupo?.trim()     || 'Grupo 2026 - 1';
+  const promedioMuestra  = muestra?.promedio?.trim()  || '16.00';
+  const condicionMuestra = muestra?.condicion?.trim() || 'APROBADO';
+  const notasMuestra     = muestra?.notas ?? {};
   const esHoja2 = pagina === 2;   // la hoja 2 (acta/créditos) va en blanco, sin fondo del cert
   // ¿El QR fue movido a la hoja 2? Entonces el acta no dibuja su QR fijo (lo pone el diseño).
   const qrCampo = layout?.campos?.qr as { on?: boolean; pagina?: number } | undefined;
@@ -90,17 +103,20 @@ export default function CertificadoPreview({
   const periodoReal = periodoCurso(fechaInicio, fechaFin, fechaDia2, fechaDia3)
     || 'los días 15, 18 y 22 de agosto de 2026';
 
-  // Variables de ejemplo para los campos del lienzo (así el admin ve cómo queda).
+  // Variables para los campos del lienzo: REALES si hay muestra, si no de ejemplo.
   const varsLienzo: Record<string, string> = {
-    nombre: EJEMPLO.participante, participante: EJEMPLO.participante,
-    nombreCorto: nombreCortoDe(EJEMPLO.participante),
+    nombre: nombreMuestra, participante: nombreMuestra,
+    nombreCorto: nombreCortoDe(nombreMuestra),
     calidad: 'Participante',
-    tipoDocumento: EJEMPLO.tipoDocumento, documento: EJEMPLO.documento,
+    tipoDocumento: EJEMPLO.tipoDocumento, documento: docMuestra,
     programa, curso: programa, tipo,
     fecha: fEmision, fechaemision: fEmision, fechaInicio: fInicio, fechaFin: fFin, periodo: periodoReal,
     mesEmision: fMesEmision,
     horas: String(horas ?? 40), creditos: creditos ? String(creditos) : '', codigo: 'CERT-EJEMPLO',
+    // Variables del ACTA (hoja 2).
+    grupo: grupoMuestra, promedio: promedioMuestra, condicion: condicionMuestra, notaminima: '11.00',
   };
+  const actaMode: 'notas' | 'temario' = actaEsTemario ? 'temario' : 'notas';
 
   const periodo = `, realizado ${periodoReal || 'los días 15, 18 y 22 de agosto de 2026'}`;
   const cuerpoDefault = `Por haber completado satisfactoriamente ${tipo} "${programa}" con una duración de ${horas ?? 40} horas académicas${periodo}.`;
@@ -154,8 +170,8 @@ export default function CertificadoPreview({
           <>
             {/* Hoja 2: debajo va el ACTA real (referencia, como sale al emitir) y encima
                 las cositas que agregues en la hoja 2. */}
-            {esHoja2 && <ActaPreview unidades={actaUnidades} programa={programa} participante={EJEMPLO.participante} periodo={periodoReal} mostrarQr={!qrEnHoja2} />}
-            <LienzoCampos layout={layout!} vars={varsLienzo} codigo="CERT-EJEMPLO" logos={logos} firmas={firmas} pagina={pagina} />
+            {esHoja2 && !actaEsLienzo(layout) && <ActaPreview unidades={actaUnidades} programa={programa} participante={nombreMuestra} documento={docMuestra} grupo={grupoMuestra} notas={notasMuestra} periodo={periodoReal} mostrarQr={!qrEnHoja2} esTemario={actaEsTemario} acta={actaConfig} />}
+            <LienzoCampos layout={layout!} vars={varsLienzo} codigo="CERT-EJEMPLO" logos={logos} firmas={firmas} pagina={pagina} actaUnidades={actaUnidades} actaMode={actaMode} actaNotas={notasMuestra} />
             {editable && onLayoutChange && (
               <LienzoDragLayer
                 layout={layout!}
@@ -178,6 +194,9 @@ export default function CertificadoPreview({
               />
             )}
           </>
+        ) : esHoja2 ? (
+          /* ── Modo normal, Hoja 2: el acta real (sin lienzo) ── */
+          <ActaPreview unidades={actaUnidades} programa={programa} participante={nombreMuestra} documento={docMuestra} grupo={grupoMuestra} notas={notasMuestra} periodo={periodoReal} esTemario={actaEsTemario} acta={actaConfig} />
         ) : (
         <>
         {/* Logos — fila centrada (hasta 10, sin encimarse) */}
@@ -192,7 +211,7 @@ export default function CertificadoPreview({
           <p style={{ margin: '28px 0 0', fontSize: 18, color: '#475569' }}>Se otorga a:</p>
           <p style={{ margin: '10px 0 0', fontSize: 42, fontWeight: 700, color: '#0f172a', lineHeight: 1.15, fontFamily: 'Georgia, "Times New Roman", serif' }}>
             {/* En el certificado va el nombre corto (un nombre + apellidos); el completo es para validar. */}
-            Ana Torres López
+            {nombreCortoDe(nombreMuestra)}
           </p>
           <p style={{ margin: '35px 0 0', fontSize: cuerpoSize, color: '#475569', lineHeight: 1.65, maxWidth: 700, whiteSpace: 'pre-wrap' }}>
             {cuerpo}

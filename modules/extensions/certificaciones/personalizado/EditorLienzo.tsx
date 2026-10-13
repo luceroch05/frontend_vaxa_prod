@@ -11,9 +11,9 @@
  * ──────────────────────────────────────────────────────────────── */
 import {
   LayoutLienzo, layoutActivo, layoutPorDefecto, nuevoCampoTexto, nuevaLinea, nuevaFirma,
-  contarFirmas, MAX_FIRMAS,
+  contarFirmas, MAX_FIRMAS, presetActa,
 } from './layout';
-import { Type, Minus, FileSignature, ImageIcon, QrCode, Save, CheckCircle, Loader2, Sparkles } from '@/components/ui/icon';
+import { Type, Minus, FileSignature, ImageIcon, QrCode, Save, CheckCircle, Loader2, Sparkles, ClipboardList } from '@/components/ui/icon';
 
 interface Props {
   value: LayoutLienzo | null;
@@ -35,6 +35,8 @@ interface Props {
   numLogos?: number;
   /** Índice del logo obligatorio (se queda en la hoja 1, no se mueve con el botón). */
   logoObligIndex?: number | null;
+  /** ¿El programa tiene acta? Habilita el botón "Acta" en la hoja 2. */
+  conActa?: boolean;
 }
 
 /** Botón de herramienta tipo Canva: icono + etiqueta chica, con tooltip (tema claro). */
@@ -61,7 +63,7 @@ function Tool({ icon: Icon, label, onClick, disabled, loading, badge, title, ton
 }
 
 export default function EditorLienzo({
-  value, onChange, onSelect, baseLayout, onSaveBase, onAplicarBase, savingBase, baseSaved, compact = false, firmasAuto = false, pagina = 1, numLogos = 0, logoObligIndex = null,
+  value, onChange, onSelect, baseLayout, onSaveBase, onAplicarBase, savingBase, baseSaved, compact = false, firmasAuto = false, pagina = 1, numLogos = 0, logoObligIndex = null, conActa = false,
 }: Props) {
   const layout: LayoutLienzo = value ?? { activo: false, campos: {} };
   const campos = layout.campos ?? {};
@@ -118,6 +120,14 @@ export default function EditorLienzo({
     onChange({ ...layout, activo: true, campos: { ...campos, qr: { ...base, on: true, pagina } } });
     onSelect?.('qr');
   };
+  // Convierte el ACTA en lienzo: inyecta los campos del acta (título, datos, tabla,
+  // resumen, QR) en la hoja 2 para poder moverlos/ocultarlos uno por uno.
+  const actaYaEsLienzo = !!layout.actaCustom;
+  const addActa = () => {
+    const preset = presetActa();
+    onChange({ ...layout, activo: true, actaCustom: true, campos: { ...campos, ...preset } });
+    onSelect?.('actatabla');
+  };
   const toggleActivo = (on: boolean) => {
     if (!on) { onChange({ ...layout, activo: false }); onSelect?.(null); return; }
     if (entries.length > 0) { onChange({ ...layout, activo: true }); return; }
@@ -147,6 +157,15 @@ export default function EditorLienzo({
         )}
         <Tool icon={QrCode} label="QR" onClick={addQR} disabled={qrEnEstaPag}
           title={qrEnEstaPag ? 'El QR ya está en esta hoja' : 'Coloca el QR (movible) en esta hoja'} />
+
+        {/* Acta como lienzo: solo en la hoja 2 y si el programa tiene acta. */}
+        {pagina === 2 && conActa && (
+          <Tool icon={ClipboardList} label={actaYaEsLienzo ? 'Acta ✓' : 'Acta'} onClick={addActa}
+            tone={actaYaEsLienzo ? 'ok' : 'default'}
+            title={actaYaEsLienzo
+              ? 'El acta ya está como lienzo: arrastra/oculta cada elemento (título, datos, tabla, resumen). Vuelve a pulsar para restablecer posiciones.'
+              : 'Convierte el acta en lienzo: título, datos, TABLA y resumen pasan a ser elementos que puedes mover y ocultar uno por uno.'} />
+        )}
 
         <span style={{ width: 1, height: 34, background: '#E5E7EB', margin: '0 2px' }} />
 

@@ -8,7 +8,7 @@
  * ──────────────────────────────────────────────────────────────── */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { imgUrl } from '@/lib/api/client';
-import { CampoFirma, CampoFirmaTexto, CampoLinea, CampoLogo, CampoQR, CampoTexto, LayoutLienzo, expandirLienzo, fontFamilyCss, fontEsPesoUnico, tipoCampo, indiceLogo, indiceFirma, paginaDe, segmentosBold, quitarBold } from './layout';
+import { CampoActaTabla, CampoFirma, CampoFirmaTexto, CampoLinea, CampoLogo, CampoQR, CampoTexto, LayoutLienzo, expandirLienzo, fontFamilyCss, fontEsPesoUnico, tipoCampo, indiceLogo, indiceFirma, paginaDe, segmentosBold, quitarBold } from './layout';
 
 interface Props {
   layout: LayoutLienzo;
@@ -23,6 +23,12 @@ interface Props {
   firmas?: { imagen_firma: string; nombre_autoridad: string; cargo: string }[];
   /** Hoja a dibujar: 1 (principal, default) o 2 (acta/créditos). */
   pagina?: number;
+  /** Unidades para la TABLA del acta (campo `actatabla`). */
+  actaUnidades?: { id: number; nombre: string }[];
+  /** Modo de la tabla del acta: 'notas' (col NOTA), 'temario' (sin valor), 'creditos' (col CRÉDITOS). */
+  actaMode?: 'notas' | 'temario' | 'creditos';
+  /** Notas REALES por unidad (unidadId → nota) de la muestra. Vacío = valor de ejemplo. */
+  actaNotas?: Record<number, number>;
 }
 
 /* Mide el ancho del texto con una fuente dada y encoge el tamaño hasta que
@@ -137,8 +143,9 @@ function useFuentesListas(familias: string): void {
   }, [familias]);
 }
 
-export default function LienzoCampos({ layout, vars, codigo, qrDataUrl, logos = [], firmas = [], pagina = 1 }: Props) {
+export default function LienzoCampos({ layout, vars, codigo, qrDataUrl, logos = [], firmas = [], pagina = 1, actaUnidades = [], actaMode = 'notas', actaNotas = {} }: Props) {
   const campos = layout.campos ?? {};
+  const hayNotas = Object.keys(actaNotas).length > 0;
 
   // Familias realmente usadas por los campos → se cargan y, al estar listas, se
   // re-mide el ancho para que la "línea debajo" coincida con el texto.
@@ -248,6 +255,34 @@ export default function LienzoCampos({ layout, vars, codigo, qrDataUrl, logos = 
           }
           return (
             <div key={key} style={{ position: 'absolute', left, top: c.y ?? 0, width, borderTop: `${c.thickness ?? 1.5}px solid ${c.color ?? '#c9a24b'}` }} />
+          );
+        }
+
+        // ── TABLA DEL ACTA (notas / temario / créditos) ──
+        if (tipoCampo(key) === 'actatabla') {
+          const c = raw as CampoActaTabla;
+          const x = c.x ?? 60, y = c.y ?? 210, w = c.w ?? 1002, size = c.size ?? 13, color = c.color ?? '#0f172a';
+          const NAVY = '#12294d';
+          const esTemario = actaMode === 'temario';
+          const esCreditos = actaMode === 'creditos';
+          const colNum = 60, colValor = esTemario ? 0 : 140, colUni = w - colNum - colValor;
+          const filas = actaUnidades.length ? actaUnidades : [{ id: 0, nombre: 'Unidad de ejemplo' }];
+          const rowH = 28;
+          return (
+            <div key={key} style={{ position: 'absolute', left: x, top: y, width: w }}>
+              <div style={{ position: 'relative', height: rowH, background: NAVY }}>
+                <span style={{ position: 'absolute', left: 14, top: 7, fontSize: 12, fontWeight: 700, color: '#fff' }}>{c.hNum?.trim() || 'N°'}</span>
+                <span style={{ position: 'absolute', left: colNum + 14, top: 7, fontSize: 12, fontWeight: 700, color: '#fff' }}>{c.hUni?.trim() || (esCreditos ? 'TEMA' : 'UNIDAD')}</span>
+                {!esTemario && <span style={{ position: 'absolute', left: colNum + colUni, top: 7, width: colValor - 14, fontSize: 12, fontWeight: 700, color: '#fff', textAlign: 'right' }}>{c.hVal?.trim() || (esCreditos ? 'CRÉDITOS' : 'NOTA')}</span>}
+              </div>
+              {filas.map((u, i) => (
+                <div key={u.id} style={{ position: 'relative', height: rowH, background: i % 2 === 0 ? '#fff' : '#f6f8fb' }}>
+                  <span style={{ position: 'absolute', left: 14, top: 7, fontSize: size, fontWeight: 700, color: '#2563eb' }}>{i + 1}</span>
+                  <span style={{ position: 'absolute', left: colNum + 14, top: 7, width: colUni - 28, fontSize: size, color }}>{u.nombre}</span>
+                  {!esTemario && <span style={{ position: 'absolute', left: colNum + colUni, top: 7, width: colValor - 14, fontSize: size, fontWeight: 700, color, textAlign: 'right' }}>{esCreditos ? '2' : (hayNotas ? (actaNotas[u.id] != null ? Number(actaNotas[u.id]).toFixed(2) : '—') : '16.00')}</span>}
+                </div>
+              ))}
+            </div>
           );
         }
 

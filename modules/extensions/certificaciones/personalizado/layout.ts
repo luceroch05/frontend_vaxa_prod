@@ -141,9 +141,32 @@ export interface CampoLinea {
   pagina?:    number;  // hoja 1 (default) o 2
 }
 
+/** Tabla del acta (notas / temario / créditos) como elemento MOVIBLE del lienzo.
+ *  Los datos (unidades, notas, modo) salen del acta real; aquí solo se posiciona. */
+export interface CampoActaTabla {
+  on?:     boolean;
+  x?:      number;  // px
+  y?:      number;  // px
+  w?:      number;  // px (ancho de la tabla)
+  size?:   number;  // px del texto de las filas
+  color?:  string;  // #hex del texto
+  pagina?: number;  // normalmente 2 (acta)
+  /** Títulos editables de la cabecera. Vacío = automático (N° / UNIDAD / NOTA·CRÉDITOS). */
+  hNum?:   string;  // título de la columna del número
+  hUni?:   string;  // título de la columna de la unidad/tema
+  hVal?:   string;  // título de la columna del valor (nota/créditos)
+}
+
 export interface LayoutLienzo {
   activo?: boolean;
-  campos?: Record<string, CampoTexto | CampoQR | CampoLogo | CampoFirma | CampoFirmaTexto | CampoLinea>;
+  /** true si el acta se arma con campos del lienzo (no con el acta fija). */
+  actaCustom?: boolean;
+  campos?: Record<string, CampoTexto | CampoQR | CampoLogo | CampoFirma | CampoFirmaTexto | CampoLinea | CampoActaTabla>;
+}
+
+/** true si el acta (hoja 2) se dibuja con el lienzo en vez de la plantilla fija. */
+export function actaEsLienzo(l: LayoutLienzo | null | undefined): boolean {
+  return !!l?.actaCustom;
 }
 
 /** Hoja del certificado en la que va un campo (1 = principal, 2 = acta/créditos). */
@@ -158,8 +181,9 @@ export function tieneHoja2(layout: LayoutLienzo | null | undefined): boolean {
 }
 
 /** Tipo de un campo según su clave. */
-export function tipoCampo(key: string): 'texto' | 'qr' | 'logo' | 'firma' | 'firmatexto' | 'linea' {
+export function tipoCampo(key: string): 'texto' | 'qr' | 'logo' | 'firma' | 'firmatexto' | 'linea' | 'actatabla' {
   if (key === 'qr') return 'qr';
+  if (key === 'actatabla') return 'actatabla';   // tabla del acta (notas/temario)
   if (/^logo\d+$/i.test(key))       return 'logo';
   if (/^firmatexto\d+$/i.test(key)) return 'firmatexto';  // nombre+cargo separados del garabato
   if (/^firma\d+$/i.test(key))      return 'firma';       // firma1/firma2 = imagen (+ línea, + texto si no está separado)
@@ -209,6 +233,10 @@ export function campoBox(
 ): Box {
   const x = campo.x ?? 0, y = campo.y ?? 0;
   switch (tipoCampo(key)) {
+    case 'actatabla': {
+      const w = campo.w ?? 1002;
+      return { x, y, w, h: 160 };   // alto aproximado para poder agarrarla (las filas son dinámicas)
+    }
     case 'logo': {
       const s = campo.size ?? 100;
       return { x, y, w: s, h: s };
@@ -288,6 +316,7 @@ export function labelCampo(key: string, campo: CampoTexto | CampoQR | CampoLogo)
   if (tipoCampo(key) === 'firma')      return `Firma ${indiceFirma(key) + 1} (imagen${(campo as CampoFirma).soloImagen ? '' : ' + nombre + cargo'})`;
   if (tipoCampo(key) === 'firmatexto') return `Texto de la firma ${indiceFirma(key) + 1} (nombre + cargo)`;
   if (tipoCampo(key) === 'linea')      return 'Línea decorativa';
+  if (tipoCampo(key) === 'actatabla')  return 'Tabla del acta (notas / temario)';
   return key;
 }
 
@@ -308,7 +337,33 @@ export const VARIABLES_LIENZO: { token: string; desc: string }[] = [
   { token: '{horas}',       desc: 'Horas académicas' },
   { token: '{creditos}',    desc: 'Créditos' },
   { token: '{codigo}',      desc: 'Código único del certificado' },
+  // Variables del ACTA (hoja 2) — se llenan solas con los datos del alumno/aula.
+  { token: '{grupo}',       desc: 'Acta: nombre del grupo/aula' },
+  { token: '{promedio}',    desc: 'Acta: promedio final del alumno' },
+  { token: '{condicion}',   desc: 'Acta: condición (APROBADO / DESAPROBADO / PENDIENTE)' },
+  { token: '{notaminima}',  desc: 'Acta: nota mínima de aprobación' },
 ];
+
+/**
+ * Preset del ACTA como lienzo (hoja 2): convierte cada elemento del acta en un
+ * campo movible/ocultable. Posiciones iniciales ≈ a las del acta fija; de ahí el
+ * admin arrastra y oculta lo que quiera. La TABLA es el campo `actatabla`.
+ */
+export function presetActa(titulo = 'ACTA DE NOTAS'): Record<string, CampoTexto | CampoQR | CampoActaTabla> {
+  const fila = (label: string, text: string, y: number): CampoTexto =>
+    ({ on: true, pagina: 2, label, text, x: 60, y, w: 900, size: 13, color: '#0f172a', align: 'left' });
+  return {
+    actaTitulo:       { on: true, pagina: 2, label: 'Título del acta', text: titulo, x: 60, y: 46, w: 1002, size: 26, color: '#12294d', align: 'center', bold: true },
+    actaParticipante: fila('Participante', '**Participante:** {nombre}',   110),
+    actaDocumento:    fila('Documento',    '**Documento:** {documento}',    128),
+    actaPrograma:     fila('Programa',     '**Programa:** {programa}',      146),
+    actaGrupo:        fila('Grupo',        '**Grupo:** {grupo}',            164),
+    actaPeriodo:      fila('Periodo',      '**Periodo:** {periodo}',        182),
+    actatabla:        { on: true, pagina: 2, x: 60, y: 210, w: 1002, size: 13, color: '#0f172a' },
+    actaResumen:      { on: true, pagina: 2, label: 'Resumen', text: 'Promedio final: **{promedio}**\n(Nota mínima: {notaminima})\nCondición: **{condicion}**', x: 60, y: 470, w: 900, size: 13, color: '#0f172a', align: 'left' },
+    qr:               { on: true, pagina: 2, x: 980, y: 110, size: 80, showCodigo: true },
+  };
+}
 
 /** Layout inicial razonable al activar el modo (el admin luego ajusta X/Y). */
 export function layoutPorDefecto(): LayoutLienzo {

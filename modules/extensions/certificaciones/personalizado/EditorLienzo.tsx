@@ -13,7 +13,7 @@ import {
   LayoutLienzo, layoutActivo, layoutPorDefecto, nuevoCampoTexto, nuevaLinea, nuevaFirma,
   contarFirmas, MAX_FIRMAS, presetActa,
 } from './layout';
-import { Type, Minus, FileSignature, ImageIcon, QrCode, Save, CheckCircle, Loader2, Sparkles, ClipboardList } from '@/components/ui/icon';
+import { Type, Minus, FileSignature, ImageIcon, QrCode, Save, CheckCircle, Loader2, Sparkles, ClipboardList, RefreshCw } from '@/components/ui/icon';
 
 interface Props {
   value: LayoutLienzo | null;
@@ -158,12 +158,12 @@ export default function EditorLienzo({
         <Tool icon={QrCode} label="QR" onClick={addQR} disabled={qrEnEstaPag}
           title={qrEnEstaPag ? 'El QR ya está en esta hoja' : 'Coloca el QR (movible) en esta hoja'} />
 
-        {/* Acta como lienzo: solo en la hoja 2 y si el programa tiene acta. */}
+        {/* Hoja 2: el acta ya entra EDITABLE sola (auto-conversión al abrir la hoja).
+            Este botón ya no hace falta para editar; sirve para RESTABLECER posiciones. */}
         {pagina === 2 && conActa && (
-          <Tool icon={ClipboardList} label={actaYaEsLienzo ? 'Acta ✓' : 'Acta'} onClick={addActa}
-            tone={actaYaEsLienzo ? 'ok' : 'default'}
+          <Tool icon={actaYaEsLienzo ? RefreshCw : ClipboardList} label={actaYaEsLienzo ? 'Reset acta' : 'Acta'} onClick={addActa}
             title={actaYaEsLienzo
-              ? 'El acta ya está como lienzo: arrastra/oculta cada elemento (título, datos, tabla, resumen). Vuelve a pulsar para restablecer posiciones.'
+              ? 'Restablece el acta a sus posiciones por defecto (título, datos, tabla y resumen).'
               : 'Convierte el acta en lienzo: título, datos, TABLA y resumen pasan a ser elementos que puedes mover y ocultar uno por uno.'} />
         )}
 

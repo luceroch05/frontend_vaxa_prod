@@ -16,6 +16,7 @@ import UnidadesEditor from '../../shared/components/UnidadesEditor';
 import CopyLinkButton from '../../shared/components/CopyLinkButton';
 import ImportarExcelModal from '../../shared/components/ImportarExcelModal';
 import type { CreateGrupoDto, Grupo, CreateProgramaDto } from '../../shared/types';
+import { duracionTexto } from '../../shared/utils/certVariables';
 
 /** Base pública de links para compartir (inscripción / validación). */
 const publicBase = (empresa: string) => publicCertUrl(empresa);
@@ -36,7 +37,7 @@ function fmtHorario(g: { dias_semana?: string | null; hora_inicio?: string | nul
 }
 
 /* ── Fila de aula ───────────────────────────────────────────────── */
-function AulaRow({ aula, empresa, puedeImportar, esAdmin, onVerInscritos, onImportar, onEditar, onToggleActivo, onEliminar, isLast }: { aula: Grupo; empresa: string; puedeImportar: boolean; esAdmin: boolean; onVerInscritos: (g: Grupo) => void; onImportar: (g: Grupo) => void; onEditar: (g: Grupo) => void; onToggleActivo: (g: Grupo) => void; onEliminar: (g: Grupo) => void; isLast: boolean }) {
+function AulaRow({ aula, empresa, puedeImportar, esAdmin, onVerInscritos, onEvaluacion, onImportar, onEditar, onToggleActivo, onEliminar, isLast }: { aula: Grupo; empresa: string; puedeImportar: boolean; esAdmin: boolean; onVerInscritos: (g: Grupo) => void; onEvaluacion: (g: Grupo) => void; onImportar: (g: Grupo) => void; onEditar: (g: Grupo) => void; onToggleActivo: (g: Grupo) => void; onEliminar: (g: Grupo) => void; isLast: boolean }) {
   return (
     <div
       className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-4 transition-colors"
@@ -90,6 +91,15 @@ function AulaRow({ aula, empresa, puedeImportar, esAdmin, onVerInscritos, onImpo
           onMouseLeave={e => { e.currentTarget.style.background = '#EFF6FF'; e.currentTarget.style.color = '#2563EB'; }}
         >
           <Users size={12} /> Inscritos <ChevronRight size={11} />
+        </button>
+        {/* Evaluación de ESTA aula (notas/créditos/unidades propias) */}
+        <button
+          onClick={() => onEvaluacion(aula)}
+          className="flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-xl transition-all"
+          style={{ background: '#F3F0FF', color: '#7C3AED', border: '1px solid #DDD6FE' }}
+          title="Configura notas, créditos y unidades de esta aula"
+        >
+          <ClipboardList size={12} /> Evaluación
         </button>
         {/* Importar participantes por Excel (carga masiva) — solo planes Profesional+ */}
         {puedeImportar && (
@@ -159,11 +169,14 @@ export default function AdminProgramaDetalle() {
   const [tab,       setTab]       = useState<'aulas' | 'evaluacion'>('aulas');
   const [showForm,  setShowForm]  = useState(false);
   const [editAula,  setEditAula]  = useState<Grupo | null>(null);   // aula en edición
+  const [evalAula,  setEvalAula]  = useState<Grupo | null>(null);   // aula cuya evaluación se edita
   const [saving,    setSaving]    = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [importAula, setImportAula] = useState<Grupo | null>(null);   // aula sobre la que se importa por Excel
   const [editProg,  setEditProg]  = useState(false);                  // form de edición del programa
   const [progForm,  setProgForm]  = useState<CreateProgramaDto | null>(null);
+  // Créditos como TEXTO mientras se teclea (si no, "2." → 2 y no deja poner el decimal).
+  const [creditosStr, setCreditosStr] = useState('');
 
   const programa = programas.find(p => p.id === pid);
   const aulas    = grupos.filter(g => g.programa_id === pid);
@@ -253,8 +266,10 @@ export default function AdminProgramaDetalle() {
       nombre:           programa.nombre,
       descripcion:      programa.descripcion ?? '',
       horas_academicas: programa.horas_academicas,
+      minutos_academicos: programa.minutos_academicos,
       creditos:         programa.creditos,
     });
+    setCreditosStr(programa.creditos ? String(programa.creditos) : '');
     setEditProg(true);
   };
 
@@ -268,6 +283,23 @@ export default function AdminProgramaDetalle() {
 
   const handleVerInscritos = (g: Grupo) =>
     navigate(certPath(empresa!, `/panel/inscripciones?grupo=${g.id}&nombre=${encodeURIComponent(g.nombre_grupo)}`));
+
+  // Guarda overrides de evaluación de un aula: parte de los datos actuales del aula + el patch.
+  // Las fechas se recortan a YYYY-MM-DD (vienen como ISO completo y la columna es DATE).
+  const soloYmd = (s?: string | null) => (s ? s.substring(0, 10) : null);
+  const grupoToDto = (g: Grupo): CreateGrupoDto => ({
+    programa_id: g.programa_id, nombre_grupo: g.nombre_grupo,
+    fecha_inicio: soloYmd(g.fecha_inicio) ?? '',
+    fecha_fin: soloYmd(g.fecha_fin), fecha_dia2: soloYmd(g.fecha_dia2), fecha_dia3: soloYmd(g.fecha_dia3),
+    modalidad_id: g.modalidad_id, dias_semana: g.dias_semana ?? null,
+    hora_inicio: g.hora_inicio ?? null, hora_fin: g.hora_fin ?? null,
+    requiere_notas: g.requiere_notas ?? null, es_creditos: g.es_creditos ?? null, nota_minima: g.nota_minima ?? null,
+  });
+  const guardarEvalAula = async (id: number, patch: Partial<CreateGrupoDto>) => {
+    const aula = aulas.find(a => a.id === id);
+    if (!aula) return;
+    await updateAula(id, { ...grupoToDto(aula), ...patch });
+  };
 
   /* Cargando el programa */
   if (progLoading && !programa) {
@@ -323,8 +355,8 @@ export default function AdminProgramaDetalle() {
             <span className="text-[12px] font-medium px-2 py-0.5 rounded-full" style={{ background: '#F5F3FF', color: '#7C3AED' }}>
               {programa!.tipo_programa_nombre}
             </span>
-            {programa!.horas_academicas > 0 && (
-              <span className="text-[12px]" style={{ color: '#9CA3AF' }}>{programa!.horas_academicas}h</span>
+            {duracionTexto(programa!.horas_academicas, programa!.minutos_academicos) && (
+              <span className="text-[12px]" style={{ color: '#9CA3AF' }}>{duracionTexto(programa!.horas_academicas, programa!.minutos_academicos)}</span>
             )}
             {programa!.creditos > 0 && (
               <span className="text-[12px]" style={{ color: '#9CA3AF' }}>{programa!.creditos} créditos</span>
@@ -413,15 +445,24 @@ export default function AdminProgramaDetalle() {
               </div>
               <div>
                 <label className="block text-[12px] font-semibold mb-1.5 uppercase tracking-wider" style={{ color: '#374151' }}>
-                  Horas académicas <span className="ml-1.5 normal-case font-normal tracking-normal" style={{ color: '#9CA3AF' }}>(opcional)</span>
+                  Duración <span className="ml-1.5 normal-case font-normal tracking-normal" style={{ color: '#9CA3AF' }}>(opcional)</span>
                 </label>
-                <input type="number" min={0} value={progForm.horas_academicas || ''} onChange={e => setProgForm(f => f && ({ ...f, horas_academicas: +e.target.value }))} className="vx-input" placeholder="Ej: 40" />
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <input type="number" min={0} value={progForm.horas_academicas || ''} onChange={e => setProgForm(f => f && ({ ...f, horas_academicas: +e.target.value }))} className="vx-input pr-8" placeholder="Horas" />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[12px] pointer-events-none" style={{ color: '#9CA3AF' }}>h</span>
+                  </div>
+                  <div className="relative flex-1">
+                    <input type="number" min={0} max={59} value={progForm.minutos_academicos || ''} onChange={e => setProgForm(f => f && ({ ...f, minutos_academicos: Math.min(59, Math.max(0, +e.target.value)) }))} className="vx-input pr-10" placeholder="Min" />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[12px] pointer-events-none" style={{ color: '#9CA3AF' }}>min</span>
+                  </div>
+                </div>
               </div>
               <div>
                 <label className="block text-[12px] font-semibold mb-1.5 uppercase tracking-wider" style={{ color: '#374151' }}>
                   Créditos <span className="ml-1.5 normal-case font-normal tracking-normal" style={{ color: '#9CA3AF' }}>(opcional)</span>
                 </label>
-                <input type="number" min={0} value={progForm.creditos || ''} onChange={e => setProgForm(f => f && ({ ...f, creditos: +e.target.value }))} className="vx-input" placeholder="Ej: 12" />
+                <input type="number" min={0} step="any" value={creditosStr} onChange={e => { setCreditosStr(e.target.value); setProgForm(f => f && ({ ...f, creditos: e.target.value === '' ? 0 : (parseFloat(e.target.value) || 0) })); }} className="vx-input" placeholder="Ej: 12 o 2.5" />
               </div>
             </div>
 
@@ -557,8 +598,31 @@ export default function AdminProgramaDetalle() {
           {!gruposLoading && aulas.length > 0 && (
             <div className="bg-white rounded-2xl overflow-hidden" style={{ border: '1px solid #EEECE6' }}>
               {aulas.map((a, i) => (
-                <AulaRow key={a.id} aula={a} empresa={empresa!} puedeImportar={puedeImportar} esAdmin={esAdmin} onVerInscritos={handleVerInscritos} onImportar={setImportAula} onEditar={abrirEditAula} onToggleActivo={handleToggleAula} onEliminar={handleEliminarAula} isLast={i === aulas.length - 1} />
+                <AulaRow key={a.id} aula={a} empresa={empresa!} puedeImportar={puedeImportar} esAdmin={esAdmin} onVerInscritos={handleVerInscritos} onEvaluacion={setEvalAula} onImportar={setImportAula} onEditar={abrirEditAula} onToggleActivo={handleToggleAula} onEliminar={handleEliminarAula} isLast={i === aulas.length - 1} />
               ))}
+            </div>
+          )}
+
+          {/* Evaluación de UN aula (notas/créditos/unidades propias) */}
+          {evalAula && (
+            <div className="bg-white rounded-2xl p-5" style={{ border: '1px solid #EEECE6', boxShadow: '0 4px 20px rgba(0,0,0,0.06)' }}>
+              <div className="flex items-center justify-between mb-2">
+                <div>
+                  <p className="text-[15px] font-bold" style={{ color: '#0D0E12' }}>Evaluación · {evalAula.nombre_grupo}</p>
+                  <p className="text-[12px] mt-0.5" style={{ color: '#9CA3AF' }}>Notas, créditos y unidades propias de esta aula. Si no agregas unidades, hereda las del programa.</p>
+                </div>
+                <button onClick={() => setEvalAula(null)} className="p-1.5 rounded-lg hover:bg-[#F5F3EE] transition-colors" style={{ color: '#9CA3AF' }}>
+                  <X size={16} />
+                </button>
+              </div>
+              <UnidadesEditor
+                key={evalAula.id}
+                empresa={empresa!}
+                programa={programa!}
+                grupo={evalAula}
+                onSaveProg={update}
+                onSaveGrupo={guardarEvalAula}
+              />
             </div>
           )}
         </div>
@@ -566,7 +630,13 @@ export default function AdminProgramaDetalle() {
 
       {/* ── Pestaña: Evaluación ── */}
       {tab === 'evaluacion' && (
-        <UnidadesEditor empresa={empresa!} programa={programa!} onSaveProg={update} />
+        <>
+          <div className="text-[12px] px-3.5 py-2.5 rounded-xl mb-3" style={{ background: '#FFF7ED', border: '1px solid #FED7AA', color: '#9A3412' }}>
+            Esta es la <strong>plantilla por defecto del programa</strong>. Las aulas que no configuren su propia
+            evaluación la heredan. Para personalizar un aula, usa el botón <strong>Evaluación</strong> en su fila (pestaña Aulas).
+          </div>
+          <UnidadesEditor empresa={empresa!} programa={programa!} onSaveProg={update} />
+        </>
       )}
 
       {/* Modal de carga masiva por Excel */}

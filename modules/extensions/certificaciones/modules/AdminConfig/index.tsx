@@ -4,7 +4,7 @@ import {
   Upload, Trash2, Loader2, ImageIcon, FileSignature,
   AlertCircle, Plus, X, Settings, CheckCircle, BookOpen,
   ChevronDown, ChevronUp, Search, Lock, Layers, Save,
-  ChevronLeft, ChevronRight, Pencil,
+  ChevronLeft, ChevronRight, Pencil, RefreshCw,
 } from '@/components/ui/icon';
 import { imgUrl } from '@/lib/api/client';
 import { useConfirm } from '../../shared/hooks/useConfirm';
@@ -17,11 +17,11 @@ import { useProgramas } from '../../shared/hooks/useProgramas';
 import { useGrupos }    from '../../shared/hooks/useGrupos';
 import { usePlan }      from '../../shared/hooks/usePlan';
 import CertificadoPreview from '../../shared/components/CertificadoPreview';
-import { VARIABLES_CERTIFICADO } from '../../shared/utils/certVariables';
+import { VARIABLES_CERTIFICADO, duracionTexto } from '../../shared/utils/certVariables';
 import EditorLienzo from '../../personalizado/EditorLienzo';
 import InspectorLienzo from '../../personalizado/InspectorLienzo';
 import EditorEnfocado from '../../personalizado/EditorEnfocado';
-import { LayoutLienzo, layoutActivo, layoutPorDefecto, parseLayout, modoFechaAula, ajustarFechasLayout, actaEsLienzo } from '../../personalizado/layout';
+import { LayoutLienzo, layoutActivo, layoutPorDefecto, parseLayout, modoFechaAula, ajustarFechasLayout } from '../../personalizado/layout';
 import type { Logo, Firma, Unidad, ActaConfig } from '../../shared/types';
 
 /** Parseo seguro del JSON de acta_config. */
@@ -1128,7 +1128,16 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
     notasApi.matrizGrupo(empresa, gid)
       .then(m => {
         if (cancel) return;
-        const fila = m.filas?.[0];
+        // Elegimos al alumno con MÁS datos llenos (documento + nombre + notas completas),
+        // para que la plantilla se vea con un ejemplo real bien lleno. Empate → el más
+        // reciente (mayor inscripcion_id). Si el aula no tiene alumnos → ficticios.
+        const score = (f: typeof m.filas[number]) =>
+          (f.numero_documento ? 1 : 0) +
+          (f.participante_nombre?.trim() ? 1 : 0) +
+          (f.completo ? 2 : 0) +
+          Object.keys(f.notas ?? {}).length;
+        const fila = [...(m.filas ?? [])]
+          .sort((a, b) => score(b) - score(a) || (b.inscripcion_id - a.inscripcion_id))[0];
         const cond = m.es_creditos ? '' : (fila && fila.promedio != null && m.nota_minima != null
           ? (fila.promedio >= m.nota_minima ? 'APROBADO' : 'DESAPROBADO') : '');
         setMuestras(prev => ({ ...prev, [gid]: fila ? {
@@ -1256,7 +1265,9 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
         // manda el aula; si es la config base (g=0) o el aula hereda, manda el programa.
         // Así, en el MISMO programa, un aula puede ir con notas y otra como temario.
         const rnEfectivo = aulaSel?.requiere_notas ?? p.requiere_notas ?? 1;
-        const actaTemario = Number(rnEfectivo) === 0 && p.unidad_label?.trim() !== 'Crédito';
+        const actaTemario = Number(rnEfectivo) === 0;   // sin notas (créditos es aparte)
+        const ecEfectivo  = aulaSel?.es_creditos ?? p.lleva_creditos ?? 0;
+        const actaLlevaCreditos = Number(ecEfectivo) === 1;
         // Muestra REAL (alumno + notas) del aula abierta (o 1ª del programa) para el preview.
         const sampleGid = g !== 0 ? g : gruposProg.find(gr => gr.activo)?.id;
         const muestra = (sampleGid ? muestras[sampleGid] : null) ?? null;
@@ -1289,7 +1300,7 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
               <div className="flex-1 min-w-0">
                 <p className="text-[14px] font-bold truncate" style={{ color: '#0D0E12' }}>{p.nombre}</p>
                 <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                  <span className="text-[11px]" style={{ color: '#9CA3AF' }}>{p.tipo_programa_nombre} · {p.horas_academicas}h</span>
+                  <span className="text-[11px]" style={{ color: '#9CA3AF' }}>{p.tipo_programa_nombre}{duracionTexto(p.horas_academicas, p.minutos_academicos) ? ` · ${duracionTexto(p.horas_academicas, p.minutos_academicos)}` : ''}</span>
                   {hasFondo  && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md" style={{ background: '#F0FDF4', color: '#15803D' }}>Fondo</span>}
                   {hasTexto  && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md" style={{ background: '#F5F3FF', color: '#7C3AED' }}>Texto</span>}
                   {(logosSel + (defaultLogo ? 1 : 0)) > 0 && (() => { const t = logosSel + (defaultLogo ? 1 : 0); return <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md" style={{ background: '#EFF6FF', color: '#2563EB' }}>{t} {t === 1 ? 'logo' : 'logos'}</span>; })()}
@@ -1382,6 +1393,28 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
                       Usar la del programa
                     </button>
                   )}
+
+                  {/* Restaurar al diseño POR DEFECTO (como al inicio, sin configuración).
+                      El default se arma solo según la configuración del programa. */}
+                  <button
+                    onClick={async () => {
+                      const ok = await confirm({
+                        title: 'Restaurar plantilla por defecto',
+                        message: `El certificado de ${g === 0 ? `"${p.nombre}"` : 'este grupo'} volverá al diseño POR DEFECTO, como al inicio (sin configuración): se quitan el fondo, el texto propio, el diseño personalizado, y los logos y firmas seleccionados. El diseño por defecto se arma solo según cómo esté configurado el programa (notas / temario / créditos). No se borra el programa ni sus datos.`,
+                        confirmText: 'Restaurar por defecto',
+                        variant: 'danger',
+                      });
+                      if (!ok) return;
+                      setCfg(p.id, g, { plantilla_url: '', texto_personalizado: '', logos: [], firmas: [], layout: null, acta: null });
+                      setSelectedKey(null);
+                    }}
+                    className="flex items-center gap-1.5 text-[12px] font-semibold px-3 py-2 rounded-xl transition-all ml-auto"
+                    style={{ background: '#FFF7ED', color: '#C2410C', border: '1px solid #FED7AA' }}
+                    title="Deja el certificado como al inicio (sin configuración) y usa el diseño por defecto según la configuración del programa"
+                  >
+                    <RefreshCw size={12} />
+                    Plantilla por defecto
+                  </button>
                 </div>
 
                 {/* Mini-explicación */}
@@ -1460,6 +1493,7 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
                         tipoPrograma={p.tipo_programa_nombre}
                         programaNombre={p.nombre}
                         horas={p.horas_academicas}
+                        minutos={p.minutos_academicos}
                         creditos={p.creditos}
                         fechaInicio={aulaSel?.fecha_inicio}
                         fechaFin={aulaSel?.fecha_fin}
@@ -1470,6 +1504,7 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
                         pagina={pv}
                         actaUnidades={unidadesPorPrograma[p.id] ?? []}
                         actaEsTemario={actaTemario}
+                        actaEsCreditos={actaLlevaCreditos}
                         actaConfig={c.acta}
                         muestra={muestra}
                         editable={permiteDiseno && !modoLienzo}
@@ -1494,6 +1529,7 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
                         tipoPrograma={p.tipo_programa_nombre}
                         programaNombre={p.nombre}
                         horas={p.horas_academicas}
+                        minutos={p.minutos_academicos}
                         creditos={p.creditos}
                         fechaInicio={aulaSel?.fecha_inicio}
                         fechaFin={aulaSel?.fecha_fin}
@@ -1505,6 +1541,7 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
                         tieneActa={(unidadesPorPrograma[p.id]?.length ?? 0) > 0}
                         actaUnidades={unidadesPorPrograma[p.id] ?? []}
                         actaEsTemario={actaTemario}
+                        actaEsCreditos={actaLlevaCreditos}
                         actaConfig={c.acta}
                         muestra={muestra}
                         logoObligIndex={logoObligIndex}
@@ -1526,10 +1563,10 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
               })()}
 
               {/* Personalizar el ACTA fija (Hoja 2) — qué datos muestra, título y texto extra.
-                  Solo si el programa tiene acta (unidades) Y el acta NO está como lienzo:
-                  en modo lienzo todo se controla desde el Diseño Personalizado, así que este
+                  Solo si el programa tiene acta (unidades) Y el Diseño Personalizado NO está
+                  activo: con el lienzo prendido todo se modifica desde ahí, así que este
                   panel sobraría (duplicaría el título/datos). */}
-              {(unidadesPorPrograma[p.id]?.length ?? 0) > 0 && !actaEsLienzo(c.layout) && (
+              {(unidadesPorPrograma[p.id]?.length ?? 0) > 0 && !layoutActivo(c.layout) && (
                 <div>
                   <p className="text-[11px] font-semibold uppercase tracking-wider mb-2" style={{ color: '#374151' }}>
                     Acta (Hoja 2) — qué muestra, título y texto
@@ -1592,7 +1629,11 @@ function SeccionPlantillas({ empresa, refreshKey }: { empresa: string; refreshKe
                 <TextoCertificadoField
                   value={c.texto_personalizado}
                   onChange={v => setCfg(p.id, g, { texto_personalizado: v })}
-                  placeholder={`Por haber completado satisfactoriamente el programa "${p.nombre}" con una duración de ${p.horas_academicas} horas académicas...`}
+                  placeholder={`Por haber completado satisfactoriamente el programa "${p.nombre}"${
+                    duracionTexto(p.horas_academicas, p.minutos_academicos) ? ` con una duración de ${duracionTexto(p.horas_academicas, p.minutos_academicos)}` : ''
+                  }${
+                    p.creditos > 0 ? `, como valor académico: ${p.creditos} créditos` : ''
+                  }...`}
                 />
               </div>
 

@@ -297,8 +297,18 @@ export default function TechProDashboard({
 
         {/* Footer */}
         <div className="text-center mt-12 pt-8 border-t border-gray-200">
-          <p className="text-sm text-gray-500">
-            Powered by <strong className="text-gray-900">VAXA</strong> · Sistema de Gestión Empresarial
+          <p className="flex items-center justify-center gap-1.5 text-sm text-gray-500">
+            Powered by{' '}
+            <a
+              href="https://vaxasys.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center hover:opacity-80 transition-opacity"
+              aria-label="Vaxa"
+            >
+              <img src="/vaxa-log.png" alt="Vaxa" style={{ height: 16, width: 'auto', objectFit: 'contain' }} />
+            </a>{' '}
+            · Sistema de Gestión Empresarial
           </p>
         </div>
 

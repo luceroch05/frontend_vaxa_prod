@@ -8,8 +8,13 @@ const opts = (empresa: string) => ({
 });
 
 export const unidadesApi = {
+  /** Lista por programa (plantilla) o por aula (propias del grupo). */
   list: (empresa: string, programaId: number) =>
     api.get<Unidad[]>(`/api/certificados/unidades?programa_id=${programaId}`, opts(empresa)),
+
+  /** Unidades PROPIAS de un aula (grupo_id); vacío = hereda la plantilla del programa. */
+  listByGrupo: (empresa: string, grupoId: number) =>
+    api.get<Unidad[]>(`/api/certificados/unidades?grupo_id=${grupoId}`, opts(empresa)),
 
   create: (empresa: string, data: CreateUnidadDto) =>
     api.post<Unidad>('/api/certificados/unidades', data, opts(empresa)),

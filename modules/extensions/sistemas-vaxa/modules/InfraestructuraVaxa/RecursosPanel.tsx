@@ -20,11 +20,13 @@ export default function RecursosPanel({ recursos, onChange }: { recursos: InfraR
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [delId, setDelId] = useState<number | null>(null);
+  const [tipoNuevo, setTipoNuevo] = useState(false);     // escribiendo un tipo nuevo en el select
+  const [customTipos, setCustomTipos] = useState<string[]>([]);  // tipos agregados en esta sesión
   const editando = typeof modal === 'number';
 
-  const abrirNuevo = () => { setForm({ tipo: 'Hosting', moneda: 'PEN', ciclo: 'mensual', activo: 1 }); setModal('nuevo'); setError(null); };
-  const abrirEditar = (r: InfraRecurso) => { setForm({ ...r }); setModal(r.id); setError(null); };
-  const cerrar = () => setModal(null);
+  const abrirNuevo = () => { setForm({ tipo: 'Hosting', moneda: 'PEN', ciclo: 'mensual', activo: 1 }); setTipoNuevo(false); setModal('nuevo'); setError(null); };
+  const abrirEditar = (r: InfraRecurso) => { setForm({ ...r }); setTipoNuevo(false); setModal(r.id); setError(null); };
+  const cerrar = () => { setModal(null); setTipoNuevo(false); };
   const set = (k: keyof InfraRecurso, v: any) => setForm((f) => ({ ...f, [k]: v }));
 
   const guardar = async (e: React.FormEvent) => {
@@ -52,6 +54,18 @@ export default function RecursosPanel({ recursos, onChange }: { recursos: InfraR
     if (delId == null) return;
     try { await infraRecursosApi.remove(delId); setDelId(null); onChange(); }
     catch (e) { setError((e as Error).message); }
+  };
+
+  // Tipos del select: los fijos + los que ya usaste + los que agregaste en esta sesión.
+  const tipoOptions = [...new Set([...TIPOS, ...recursos.map((r) => r.tipo).filter(Boolean), ...customTipos])];
+
+  // Confirma el tipo nuevo escrito: lo agrega a la lista y lo deja seleccionado.
+  const confirmarTipo = () => {
+    const t = (form.tipo ?? '').trim();
+    if (!t) { setTipoNuevo(false); set('tipo', tipoOptions[0] || 'Hosting'); return; }
+    setCustomTipos((prev) => (prev.includes(t) ? prev : [...prev, t]));
+    set('tipo', t);
+    setTipoNuevo(false);
   };
 
   return (
@@ -120,9 +134,23 @@ export default function RecursosPanel({ recursos, onChange }: { recursos: InfraR
             <form onSubmit={guardar} className="space-y-3.5">
               <div className="grid grid-cols-2 gap-3">
                 <Campo label="Tipo">
-                  <select className="vx-input w-full" value={form.tipo ?? 'Hosting'} onChange={(e) => set('tipo', e.target.value)}>
-                    {TIPOS.map((t) => <option key={t} value={t}>{t}</option>)}
-                  </select>
+                  {tipoNuevo ? (
+                    <div className="flex gap-1.5">
+                      <input className="vx-input w-full" autoFocus value={form.tipo ?? ''} placeholder="Nuevo tipo…"
+                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); confirmarTipo(); } }}
+                        onChange={(e) => set('tipo', e.target.value)} />
+                      <button type="button" title="Agregar" onClick={confirmarTipo}
+                        className="px-2.5 rounded-lg flex items-center justify-center flex-shrink-0 text-white" style={{ background: GREEN }}><Plus size={16} /></button>
+                      <button type="button" title="Cancelar" onClick={() => { setTipoNuevo(false); set('tipo', tipoOptions[0] || 'Hosting'); }}
+                        className="px-2.5 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: '#F1F4F3', color: '#374151' }}><X size={16} /></button>
+                    </div>
+                  ) : (
+                    <select className="vx-input w-full" value={form.tipo ?? ''}
+                      onChange={(e) => { if (e.target.value === '__add__') { setTipoNuevo(true); set('tipo', ''); } else set('tipo', e.target.value); }}>
+                      {tipoOptions.map((t) => <option key={t} value={t}>{t}</option>)}
+                      <option value="__add__">Agregar nuevo tipo…</option>
+                    </select>
+                  )}
                 </Campo>
                 <Campo label="Proveedor">
                   <input className="vx-input w-full" value={form.proveedor ?? ''} placeholder="Hostinger, GoDaddy…" onChange={(e) => set('proveedor', e.target.value)} />

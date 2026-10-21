@@ -1,4 +1,4 @@
-import { api } from '@/lib/api/client';
+import { api, API_URL } from '@/lib/api/client';
 import { authStorage } from '@/lib/auth';
 
 const ROOT_TENANT = 'vaxa';
@@ -57,7 +57,8 @@ export interface VaxaTestimonio {
   cargo?: string | null;         // puesto / rol (ej. "CEO")
   empresa?: string | null;       // nombre de la empresa (fallback si no hay alianza)
   alianza_id?: number | null;    // reutiliza el logo de esta alianza
-  logo_url?: string | null;      // resuelto desde la alianza (solo lectura, público)
+  logo_url?: string | null;      // logo mostrado: el propio si hay, si no el de la alianza (resuelto)
+  logo_propio?: string | null;   // logo propio del testimonio (a color), crudo — para el editor
   calificacion?: number;         // 1..5 estrellas
   orden?: number;
   activo?: number;
@@ -81,4 +82,25 @@ export function fileToBase64(file: File): Promise<string> {
     r.onerror = reject;
     r.readAsDataURL(file);
   });
+}
+
+/**
+ * Sube una imagen como ARCHIVO ADJUNTO (binario crudo, sin base64). El backend la
+ * escribe en /uploads/vaxa y devuelve la RUTA pública, que se guarda como logo.
+ */
+export async function uploadVaxaImagen(file: File): Promise<string> {
+  const res = await fetch(`${API_URL}/api/admin/vaxa-upload`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': file.type || 'application/octet-stream',
+      'x-tenant-id': ROOT_TENANT,
+      Authorization: `Bearer ${authStorage.getToken(ROOT_TENANT) ?? ''}`,
+    },
+    body: file,
+  });
+  if (!res.ok) {
+    const e = await res.json().catch(() => ({}));
+    throw new Error((e as { error?: string }).error ?? 'No se pudo subir la imagen');
+  }
+  return ((await res.json()) as { url: string }).url;
 }

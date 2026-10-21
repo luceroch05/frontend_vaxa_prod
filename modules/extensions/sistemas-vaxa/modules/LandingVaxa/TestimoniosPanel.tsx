@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import { Plus, Loader2, X, Pencil, Trash2, Save, Star } from '@/components/ui/icon';
 import { imgUrl } from '@/lib/api/client';
 import {
-  testimoniosAdminApi, alianzasAdminApi,
+  testimoniosAdminApi, alianzasAdminApi, uploadVaxaImagen,
   type VaxaTestimonio, type VaxaAlianza,
 } from '../../shared/api/landing.admin.api';
 
@@ -45,6 +45,7 @@ export default function TestimoniosPanel() {
     setForm({
       comentario: t.comentario, autor: t.autor, cargo: t.cargo ?? '',
       empresa: t.empresa ?? '', alianza_id: t.alianza_id ?? null,
+      logo_propio: t.logo_propio ?? null,
       calificacion: t.calificacion ?? 5, activo: t.activo ?? 1,
     });
     setModal(t.id); setError(null);
@@ -64,6 +65,8 @@ export default function TestimoniosPanel() {
         cargo: form.cargo?.trim() || null,
         empresa: form.empresa?.trim() || null,
         alianza_id: form.alianza_id || null,
+        // Logo propio (a color) del testimonio. Si lo quitó, se manda null y cae al de la alianza.
+        logo_url: form.logo_propio || null,
         calificacion: form.calificacion ?? 5,
         activo: form.activo ? 1 : 0,
       };
@@ -168,6 +171,32 @@ export default function TestimoniosPanel() {
                     onChange={(e) => set('empresa', e.target.value)} />
                 </div>
               )}
+              <div>
+                <label className="block text-[11px] font-semibold uppercase tracking-wider mb-1" style={{ color: '#6B7280' }}>Logo a color (opcional)</label>
+                <div className="flex items-center gap-3">
+                  <span className="inline-flex items-center justify-center rounded-lg flex-shrink-0 overflow-hidden" style={{ width: 46, height: 46, background: '#fff', border: '1px solid #E5E7EB' }}>
+                    {form.logo_propio
+                      ? <img src={imgUrl(form.logo_propio)} alt="" style={{ maxHeight: '100%', maxWidth: '100%', objectFit: 'contain', padding: 4 }} />
+                      : <span className="text-[16px] font-bold" style={{ color: '#CBD5D1' }}>{(form.empresa || form.autor)?.[0] ?? '?'}</span>}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12.5px] font-semibold cursor-pointer" style={{ background: '#F1F4F3', color: '#374151' }}>
+                      Subir imagen
+                      <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
+                        const f = e.target.files?.[0];
+                        e.target.value = '';
+                        if (!f) return;
+                        try { set('logo_propio', await uploadVaxaImagen(f)); }
+                        catch (err) { setError((err as Error).message); }
+                      }} />
+                    </label>
+                    {form.logo_propio && (
+                      <button type="button" onClick={() => set('logo_propio', null)} className="px-2.5 py-1.5 rounded-lg text-[12.5px] font-semibold" style={{ background: '#FEF2F2', color: '#B91C1C' }}>Quitar</button>
+                    )}
+                  </div>
+                </div>
+                <p className="text-[11.5px] mt-1.5" style={{ color: '#9CA3AF' }}>Logo propio del testimonio (opcional). Si no subes, se usa el logo de la alianza enlazada.</p>
+              </div>
               <div>
                 <label className="block text-[11px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: '#6B7280' }}>Calificación</label>
                 <div className="flex items-center gap-1">

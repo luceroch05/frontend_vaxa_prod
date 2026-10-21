@@ -9,6 +9,7 @@ import { useEsAdmin }    from '../../shared/hooks/useEsAdmin';
 import { usePagination } from '../../shared/hooks/usePagination';
 import Pagination from '../../shared/components/Pagination';
 import type { CreateProgramaDto, Programa } from '../../shared/types';
+import { duracionTexto } from '../../shared/utils/certVariables';
 
 const NOMBRE_MAX = 500;
 const DESC_MAX   = 300;
@@ -30,8 +31,11 @@ function ProgramaForm({
     nombre:            initial?.nombre ?? '',
     descripcion:       initial?.descripcion ?? '',
     horas_academicas:  initial?.horas_academicas ?? 0,
+    minutos_academicos: initial?.minutos_academicos ?? 0,
     creditos:          initial?.creditos ?? 0,
   });
+  // Créditos como TEXTO mientras se teclea (si no, "2." → 2 y no deja poner el decimal).
+  const [creditosStr, setCreditosStr] = useState(initial?.creditos ? String(initial.creditos) : '');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -82,17 +86,34 @@ function ProgramaForm({
 
           <div>
             <label className="block text-[12px] font-semibold mb-1.5 uppercase tracking-wider" style={{ color: '#374151' }}>
-              Horas académicas
+              Duración
               <span className="ml-1.5 normal-case font-normal tracking-normal" style={{ color: '#9CA3AF' }}>(opcional)</span>
             </label>
-            <input
-              type="number"
-              min={0}
-              value={form.horas_academicas || ''}
-              onChange={e => setForm(f => ({ ...f, horas_academicas: +e.target.value }))}
-              className="vx-input"
-              placeholder="Ej: 40"
-            />
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <input
+                  type="number"
+                  min={0}
+                  value={form.horas_academicas || ''}
+                  onChange={e => setForm(f => ({ ...f, horas_academicas: +e.target.value }))}
+                  className="vx-input pr-8"
+                  placeholder="Horas"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[12px] pointer-events-none" style={{ color: '#9CA3AF' }}>h</span>
+              </div>
+              <div className="relative flex-1">
+                <input
+                  type="number"
+                  min={0}
+                  max={59}
+                  value={form.minutos_academicos || ''}
+                  onChange={e => setForm(f => ({ ...f, minutos_academicos: Math.min(59, Math.max(0, +e.target.value)) }))}
+                  className="vx-input pr-10"
+                  placeholder="Min"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[12px] pointer-events-none" style={{ color: '#9CA3AF' }}>min</span>
+              </div>
+            </div>
           </div>
 
           <div>
@@ -103,10 +124,11 @@ function ProgramaForm({
             <input
               type="number"
               min={0}
-              value={form.creditos || ''}
-              onChange={e => setForm(f => ({ ...f, creditos: +e.target.value }))}
+              step="any"
+              value={creditosStr}
+              onChange={e => { setCreditosStr(e.target.value); setForm(f => ({ ...f, creditos: e.target.value === '' ? 0 : (parseFloat(e.target.value) || 0) })); }}
               className="vx-input"
-              placeholder="Ej: 12"
+              placeholder="Ej: 12 o 2.5"
             />
           </div>
         </div>
@@ -350,7 +372,7 @@ export default function AdminProgramas() {
         >
           {/* Table header */}
           <div
-            className="hidden sm:grid grid-cols-[1fr_140px_80px_80px_70px_200px] px-5 py-3 border-b"
+            className="hidden sm:grid grid-cols-[1fr_140px_110px_80px_70px_200px] px-5 py-3 border-b"
             style={{ background: '#FAFAF8', borderColor: 'rgba(15,24,41,0.07)' }}
           >
             {['Programa', 'Tipo', 'Horas', 'Créditos', 'Estado'].map(h => (
@@ -364,7 +386,7 @@ export default function AdminProgramas() {
           {pageItems.map((p, idx) => (
             <div
               key={p.id}
-              className="flex flex-col sm:grid sm:grid-cols-[1fr_140px_80px_80px_70px_200px] items-start sm:items-center px-5 py-4 transition-colors cursor-pointer"
+              className="flex flex-col sm:grid sm:grid-cols-[1fr_140px_110px_80px_70px_200px] items-start sm:items-center px-5 py-4 transition-colors cursor-pointer"
               style={{ borderBottom: idx < pageItems.length - 1 ? '1px solid rgba(15,24,41,0.05)' : undefined }}
               onClick={() => abrirPrograma(p.id)}
               onMouseEnter={e => { e.currentTarget.style.background = '#F7F6F3'; }}
@@ -398,7 +420,7 @@ export default function AdminProgramas() {
                   Horas:
                 </span>
                 <p className="text-[13px] font-medium tabular-nums" style={{ color: '#4B5563' }}>
-                  {p.horas_academicas > 0 ? `${p.horas_academicas}h` : '—'}
+                  {duracionTexto(p.horas_academicas, p.minutos_academicos) || '—'}
                 </p>
               </div>
 

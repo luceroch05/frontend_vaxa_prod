@@ -42,18 +42,18 @@ export default function GrupoForm({ onSubmit, onCancel, loading, lockedPrograma,
     fecha_dia3: soloFecha(initial.fecha_dia3),
     modalidad_id: initial.modalidad_id, dias_semana: initial.dias_semana ?? '',
     hora_inicio: soloHora(initial.hora_inicio), hora_fin: soloHora(initial.hora_fin),
+    // Overrides de evaluación: se conservan tal cual (se editan en "Evaluación" del aula).
     requiere_notas: initial.requiere_notas ?? null,
+    es_creditos: initial.es_creditos ?? null,
+    nota_minima: initial.nota_minima ?? null,
   } : {
     programa_id: lockedPrograma?.id ?? 0, nombre_grupo: '', fecha_inicio: '', fecha_dia2: '', fecha_dia3: '', fecha_fin: '', modalidad_id: 0,
-    dias_semana: '', hora_inicio: '', hora_fin: '', requiere_notas: null,
+    dias_semana: '', hora_inicio: '', hora_fin: '', requiere_notas: null, es_creditos: null, nota_minima: null,
   });
   const [dias, setDias] = useState<number[]>(() =>
     initial?.dias_semana ? initial.dias_semana.split(',').map(Number).filter(Boolean) : []);
   const [formError, setFormError] = useState<string | null>(null);
   const set = (k: keyof CreateGrupoDto, v: string | number) => setForm(f => ({ ...f, [k]: v }));
-  // Evaluación por aula: 'herencia' = null (según el programa), 'si' = 1, 'no' = 0.
-  const rnValue = form.requiere_notas == null ? 'herencia' : form.requiere_notas ? 'si' : 'no';
-  const setRN = (v: string) => setForm(f => ({ ...f, requiere_notas: v === 'herencia' ? null : v === 'si' ? 1 : 0 }));
   const toggleDia = (n: number) => setDias(d => (d.includes(n) ? d.filter(x => x !== n) : [...d, n].sort((a, b) => a - b)));
 
   // Requeridos: Día 1 obligatorio. Día 2 y Día 3 son puntuales opcionales.
@@ -235,19 +235,8 @@ export default function GrupoForm({ onSubmit, onCancel, loading, lockedPrograma,
           </div>
         </div>
 
-        {/* Evaluación de esta aula: override del programa */}
-        <div>
-          <label className="block text-[11px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: '#374151' }}>Evaluación de esta aula</label>
-          <select value={rnValue} onChange={e => setRN(e.target.value)} className="vx-input">
-            <option value="herencia">Según el programa</option>
-            <option value="si">Sí lleva evaluación (notas + acta)</option>
-            <option value="no">No lleva evaluación (temario / solo certificado)</option>
-          </select>
-          <p className="text-[10.5px] mt-1.5" style={{ color: '#9CA3AF' }}>
-            Déjalo en <strong>“Según el programa”</strong> para usar lo configurado en el programa. Cámbialo solo si ESTA aula debe
-            llevar notas distinto al resto (ej. un grupo con examen y otro solo por asistencia).
-          </p>
-        </div>
+        {/* La evaluación de cada aula (notas/créditos/unidades) se configura con el
+            botón "Evaluación" del aula, no acá. */}
 
         {formError && (
           <div className="flex items-center gap-2 text-[12px] px-3.5 py-2.5 rounded-xl"

@@ -3,16 +3,16 @@
  * que el sistema fue desarrollado por Vaxa. */
 export default function VaxaFooter() {
   return (
-    <p className="text-center text-[12.5px] mt-4 tracking-wide" style={{ color: '#6B6459' }}>
+    <p className="flex items-center justify-center gap-1.5 text-center text-[12.5px] mt-4 tracking-wide" style={{ color: '#6B6459' }}>
       Desarrollado por{' '}
       <a
         href="https://vaxasys.com"
         target="_blank"
         rel="noopener noreferrer"
-        className="font-bold hover:underline"
-        style={{ color: '#C9962C' }}
+        className="inline-flex items-center hover:opacity-80 transition-opacity"
+        aria-label="Vaxa"
       >
-        VAXA
+        <img src="/vaxa-log.png" alt="Vaxa" style={{ height: 16, width: 'auto', objectFit: 'contain' }} />
       </a>
     </p>
   );

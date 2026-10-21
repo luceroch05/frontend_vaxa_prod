@@ -4,7 +4,7 @@ import jsPDF from 'jspdf';
 import QRCode from 'qrcode';
 import { Download, X } from '@/components/ui/icon';
 import type { Certificado, ConfigCertificado } from '../types';
-import { expandirVariablesCertificado, periodoCurso } from '../utils/certVariables';
+import { expandirVariablesCertificado, periodoCurso, duracionTexto } from '../utils/certVariables';
 import { publicCertUrl } from '@/lib/paths';
 import { imgUrl } from '@/lib/api/client';
 import LienzoCampos from '../../personalizado/LienzoCampos';
@@ -198,11 +198,10 @@ export function CertificadoPDF({ certificado, config, onClose }: Props) {
   // el backend (pdf.service) para que el PDF real y esta vista coincidan.
   const periodoFrase = periodoCurso(certificado.fecha_inicio, certificado.fecha_fin, certificado.fecha_dia2, certificado.fecha_dia3);
   const periodo     = periodoFrase ? `, realizado ${periodoFrase}` : '';
+  const durTexto = duracionTexto(certificado.horas_academicas, certificado.minutos_academicos);
   const cuerpoDefault = `Por haber completado satisfactoriamente ${
     certificado.tipo_programa_nombre ?? 'el programa'
-  } "${certificado.programa_nombre}" con una duración de ${
-    certificado.horas_academicas ?? ''
-  } horas académicas${periodo}.`;
+  } "${certificado.programa_nombre}"${durTexto ? ` con una duración de ${durTexto}` : ''}${periodo}.`;
   const cuerpoBase  = config.texto_personalizado?.trim() || cuerpoDefault;
   const docNum  = (certificado as any).numero_documento ?? '';
   const docTipo = (certificado as any).tipo_doc_codigo ?? (certificado as any).tipo_documento ?? '';
@@ -211,7 +210,7 @@ export function CertificadoPDF({ certificado, config, onClose }: Props) {
   const cuerpoTexto = expandirVariablesCertificado(cuerpoBase, {
     participante: nombreMostrar,
     programa:     certificado.programa_nombre,
-    horas:        certificado.horas_academicas ?? '',
+    horas:        durTexto,
     creditos:     certificado.creditos ?? '',
     tipoPrograma: certificado.tipo_programa_nombre ?? 'Certificado',
     tipoDocumento: docTipo,
@@ -239,7 +238,7 @@ export function CertificadoPDF({ certificado, config, onClose }: Props) {
     tipo: certificado.tipo_programa_nombre ?? 'Certificado',
     fecha: fmtDate(certificado.fecha_emision), fechaInicio, fechaFin, periodo: periodoFrase,
     mesEmision: fmtMesAnio(certificado.fecha_emision),
-    horas: String(certificado.horas_academicas ?? ''),
+    horas: durTexto,
     creditos: certificado.creditos ? String(certificado.creditos) : '',
     codigo: certificado.codigo_unico,
   };

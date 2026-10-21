@@ -66,6 +66,17 @@ export function mesAnioISO(iso?: string | null): string {
   const p = ymd(iso);
   return p ? `${MESES_LARGO[p.m - 1]} ${p.y}` : '';
 }
+/** Duración del programa en texto: "40 h 30 min", "40 h", "30 min" o "" (vacía).
+ *  Es lo que se inyecta en la variable {horas} del certificado. */
+export function duracionTexto(horas?: number | null, minutos?: number | null): string {
+  const h = Math.max(0, Math.floor(Number(horas) || 0));
+  const m = Math.max(0, Math.floor(Number(minutos) || 0));
+  if (h && m) return `${h} h ${m} min`;
+  if (h)      return `${h} h`;
+  if (m)      return `${m} min`;
+  return '';
+}
+
 const unirDias = (arr: string[]) =>
   arr.length === 2 ? `${arr[0]} y ${arr[1]}` : `${arr.slice(0, -1).join(', ')} y ${arr[arr.length - 1]}`;
 

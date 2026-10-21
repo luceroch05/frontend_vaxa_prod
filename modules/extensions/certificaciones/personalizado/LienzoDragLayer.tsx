@@ -115,7 +115,7 @@ export default function LienzoDragLayer({ layout, scale, onMove, onResize, selec
   // Arrastre en curso: qué campo y desde dónde (coords del campo + puntero en pantalla).
   const drag = useRef<{ key: string; startX: number; startY: number; cx: number; cy: number } | null>(null);
   // Redimensionado en curso (tirador de la esquina): tipo, caja y tamaños iniciales.
-  const resize = useRef<{ key: string; type: string; box: Box; cx: number; cy: number; size: number; w: number; h: number } | null>(null);
+  const resize = useRef<{ key: string; type: string; mode: 'corner' | 'width'; box: Box; cx: number; cy: number; size: number; w: number; h: number } | null>(null);
   // Pila de deshacer: posición previa de cada movimiento (una entrada por gesto).
   const undoStack = useRef<{ key: string; x: number; y: number }[]>([]);
 
@@ -213,13 +213,13 @@ export default function LienzoDragLayer({ layout, scale, onMove, onResize, selec
   /* ── Redimensionar desde la esquina (tipo Canva) ──────────────── */
   const clampN = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, Math.round(v)));
 
-  const onHandleDown = (e: ReactPointerEvent, key: string, c: Campo, box: Box) => {
+  const onHandleDown = (e: ReactPointerEvent, key: string, c: Campo, box: Box, mode: 'corner' | 'width' = 'corner') => {
     e.stopPropagation();                 // no inicia arrastre ni deselecciona
     if (!onResize) return;
     setSelectedKey(key);
     rootRef.current?.focus();
     resize.current = {
-      key, type: tipoCampo(key), box, cx: e.clientX, cy: e.clientY,
+      key, type: tipoCampo(key), mode, box, cx: e.clientX, cy: e.clientY,
       size: c.size ?? 0, w: c.w ?? 0, h: c.h ?? 0,
     };
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
@@ -236,8 +236,9 @@ export default function LienzoDragLayer({ layout, scale, onMove, onResize, selec
     const diag = (fw + fh) / 2;
     const clampF = (f: number) => (!Number.isFinite(f) || f < 0.15) ? 0.15 : f;
     if (r.type === 'texto') {
-      // El texto crece por su ALTO (= tamaño de fuente); el ancho de caja no cuenta.
-      onResize(r.key, { size: clampN((r.size || 20) * clampF(fh), 6, 320) });
+      // Tirador lateral (ancho) = ancho de la caja de texto; tirador de esquina = tamaño de letra.
+      if (r.mode === 'width') onResize(r.key, { w: clampN(r.box.w + dx, 40, W) });
+      else                    onResize(r.key, { size: clampN((r.size || 20) * clampF(fh), 6, 320) });
     } else if (r.type === 'logo') {
       onResize(r.key, { size: clampN((r.size || 100) * clampF(diag), 20, 900) });
     } else if (r.type === 'qr') {
@@ -324,11 +325,12 @@ export default function LienzoDragLayer({ layout, scale, onMove, onResize, selec
                 background: sel ? 'rgba(234,88,12,0.08)' : 'transparent',
               }}
             >
-              {/* Tirador de la esquina inferior-derecha: arrástralo para agrandar/achicar. */}
+              {/* Tirador de la esquina inferior-derecha: arrástralo para agrandar/achicar
+                  (en texto = tamaño de letra). */}
               {sel && redimensionable && onResize && (
                 <div
-                  title="Arrastra para cambiar el tamaño"
-                  onPointerDown={e => onHandleDown(e, key, c, box)}
+                  title={tipoCampo(key) === 'texto' ? 'Arrastra para cambiar el tamaño de letra' : 'Arrastra para cambiar el tamaño'}
+                  onPointerDown={e => onHandleDown(e, key, c, box, 'corner')}
                   onPointerMove={onHandleMove}
                   onPointerUp={endResize}
                   onPointerCancel={endResize}
@@ -336,6 +338,23 @@ export default function LienzoDragLayer({ layout, scale, onMove, onResize, selec
                     position: 'absolute', right: -7, bottom: -7, width: 14, height: 14,
                     background: '#fff', border: '2px solid #EA580C', borderRadius: '50%',
                     cursor: 'nwse-resize', zIndex: 25, boxShadow: '0 1px 3px rgba(0,0,0,0.25)',
+                  }}
+                />
+              )}
+
+              {/* Tirador lateral derecho: SOLO texto, arrástralo para cambiar el ANCHO
+                  de la caja (dónde corta el renglón). */}
+              {sel && onResize && tipoCampo(key) === 'texto' && (
+                <div
+                  title="Arrastra para cambiar el ancho del cuadro de texto"
+                  onPointerDown={e => onHandleDown(e, key, c, box, 'width')}
+                  onPointerMove={onHandleMove}
+                  onPointerUp={endResize}
+                  onPointerCancel={endResize}
+                  style={{
+                    position: 'absolute', right: -7, top: '50%', transform: 'translateY(-50%)',
+                    width: 12, height: 22, background: '#fff', border: '2px solid #EA580C', borderRadius: 4,
+                    cursor: 'ew-resize', zIndex: 25, boxShadow: '0 1px 3px rgba(0,0,0,0.25)',
                   }}
                 />
               )}

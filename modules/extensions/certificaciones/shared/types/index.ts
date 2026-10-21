@@ -47,11 +47,15 @@ export interface Programa {
   nombre: string;
   descripcion: string | null;
   horas_academicas: number;
+  /** Minutos de duración (0-59), complementan a horas_academicas. */
+  minutos_academicos: number;
   creditos: number;
   unidad_label: string;
   nota_minima: number;
   /** 1 = lleva evaluación (notas + acta). 0 = sin evaluación (solo certificado). */
   requiere_notas: number;
+  /** 1 = cada unidad otorga créditos (acta con columna CRÉD.). Independiente de las notas. */
+  lleva_creditos?: number;
   activo: number;
 }
 
@@ -60,11 +64,14 @@ export interface CreateProgramaDto {
   nombre: string;
   descripcion?: string;
   horas_academicas: number;
+  minutos_academicos?: number;
   creditos?: number;
   unidad_label?: string;
   nota_minima?: number;
   /** 1 = lleva evaluación (notas + acta). 0 = sin evaluación (solo certificado). */
   requiere_notas?: number;
+  /** 1 = cada unidad otorga créditos (independiente de las notas). */
+  lleva_creditos?: number;
 }
 
 // ── Unidades y Notas ─────────────────────────────────────────────────────────
@@ -72,15 +79,23 @@ export interface Unidad {
   id: number;
   empresa_id: number;
   programa_id: number;
+  /** NULL = unidad de la plantilla del programa; con valor = propia de ese aula. */
+  grupo_id?: number | null;
+  /** 'nota' = se califica · 'credito' = otorga créditos. Listas separadas. */
+  tipo?: string;
   nombre: string;
   orden: number;
-  /** Créditos que otorga la unidad (solo modo "Crédito"). */
+  /** Créditos que otorga la unidad (cuando el programa/aula lleva créditos). */
   creditos: number;
   activo: number;
 }
 
 export interface CreateUnidadDto {
   programa_id: number;
+  /** Si viene, la unidad es PROPIA de ese aula (si no, es de la plantilla del programa). */
+  grupo_id?: number | null;
+  /** 'nota' (default) o 'credito'. */
+  tipo?: string;
   nombre: string;
   orden?: number;
   creditos?: number;
@@ -132,6 +147,10 @@ export interface Grupo {
   modalidad_nombre: string;
   /** Override de evaluación por aula: null = hereda del programa, 1 = con notas, 0 = sin notas. */
   requiere_notas?: number | null;
+  /** Override de modo créditos por aula: null = hereda del programa, 1 = con créditos, 0 = sin créditos. */
+  es_creditos?: number | null;
+  /** Override de nota mínima por aula: null = hereda del programa. */
+  nota_minima?: number | null;
   activo: number;
 }
 
@@ -148,6 +167,10 @@ export interface CreateGrupoDto {
   modalidad_id: number;
   /** Override de evaluación por aula: null = hereda del programa, 1 = con notas, 0 = sin notas. */
   requiere_notas?: number | null;
+  /** Override de modo créditos por aula: null = hereda del programa, 1 = con créditos, 0 = sin créditos. */
+  es_creditos?: number | null;
+  /** Override de nota mínima por aula: null = hereda del programa. */
+  nota_minima?: number | null;
 }
 
 // ── Participante ─────────────────────────────────────────────────────────────
@@ -227,6 +250,7 @@ export interface Certificado {
   programa_nombre: string;
   tipo_programa_nombre?: string;
   horas_academicas?: number;
+  minutos_academicos?: number;
   creditos?: number;
   grupo_id?: number;
   nombre_grupo: string;
@@ -247,6 +271,7 @@ export interface CertificadoPublico {
   programa_nombre: string;
   tipo_programa: string;
   horas_academicas: number;
+  minutos_academicos?: number;
   nombre_grupo: string;
   fecha_inicio: string;
   fecha_fin?: string | null;

@@ -412,9 +412,10 @@ export default function HomePage() {
                   <div className="flex gap-1 mb-4">{Array.from({ length: estrellas }).map((_, s) => <Star key={s} size={15} style={{ color: GREEN_BRIGHT, fill: GREEN_BRIGHT }} />)}</div>
                   <p className="text-[14.5px] leading-relaxed flex-1" style={{ color: TEXT }}>“{t.comentario}”</p>
                   <div className="mt-6 pt-5 flex items-center gap-3" style={{ borderTop: `1px solid ${BORDER}` }}>
-                    {/* Logo de la empresa (reutilizado de la alianza) en vez de foto de la persona */}
+                    {/* Logo de la empresa (reutilizado de la alianza) en vez de foto de la persona.
+                        Chip OSCURO: los logos suelen ser la versión clara del muro, así se ven. */}
                     {t.logo_url ? (
-                      <span className="inline-flex items-center justify-center rounded-xl flex-shrink-0" style={{ background: '#fff', width: 46, height: 46, padding: 6 }}>
+                      <span className="inline-flex items-center justify-center rounded-xl flex-shrink-0" style={{ background: 'rgba(255,255,255,0.06)', border: `1px solid ${BORDER}`, width: 46, height: 46, padding: 7 }}>
                         <img src={imgUrl(t.logo_url)} alt={t.empresa ?? ''} style={{ maxHeight: '100%', maxWidth: '100%', objectFit: 'contain' }} />
                       </span>
                     ) : (

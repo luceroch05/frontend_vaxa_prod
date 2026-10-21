@@ -155,6 +155,8 @@ export interface CampoActaTabla {
   hNum?:   string;  // título de la columna del número
   hUni?:   string;  // título de la columna de la unidad/tema
   hVal?:   string;  // título de la columna del valor (nota/créditos)
+  /** Oculta la columna de valor (notas o créditos) y su total: solo queda la lista. */
+  ocultarValor?: boolean;
 }
 
 export interface LayoutLienzo {
@@ -183,7 +185,7 @@ export function tieneHoja2(layout: LayoutLienzo | null | undefined): boolean {
 /** Tipo de un campo según su clave. */
 export function tipoCampo(key: string): 'texto' | 'qr' | 'logo' | 'firma' | 'firmatexto' | 'linea' | 'actatabla' {
   if (key === 'qr') return 'qr';
-  if (key === 'actatabla') return 'actatabla';   // tabla del acta (notas/temario)
+  if (key === 'actatabla' || key === 'actatablacred') return 'actatabla';   // tablas del acta (notas / créditos)
   if (/^logo\d+$/i.test(key))       return 'logo';
   if (/^firmatexto\d+$/i.test(key)) return 'firmatexto';  // nombre+cargo separados del garabato
   if (/^firma\d+$/i.test(key))      return 'firma';       // firma1/firma2 = imagen (+ línea, + texto si no está separado)
@@ -316,7 +318,7 @@ export function labelCampo(key: string, campo: CampoTexto | CampoQR | CampoLogo)
   if (tipoCampo(key) === 'firma')      return `Firma ${indiceFirma(key) + 1} (imagen${(campo as CampoFirma).soloImagen ? '' : ' + nombre + cargo'})`;
   if (tipoCampo(key) === 'firmatexto') return `Texto de la firma ${indiceFirma(key) + 1} (nombre + cargo)`;
   if (tipoCampo(key) === 'linea')      return 'Línea decorativa';
-  if (tipoCampo(key) === 'actatabla')  return 'Tabla del acta (notas / temario)';
+  if (tipoCampo(key) === 'actatabla')  return key === 'actatablacred' ? 'Tabla de créditos' : 'Tabla de notas / temario';
   return key;
 }
 
@@ -361,6 +363,8 @@ export function presetActa(titulo = 'ACTA DE NOTAS'): Record<string, CampoTexto 
     actaPeriodo:      fila('Periodo',      '**Periodo:** {periodo}',        182),
     actatabla:        { on: true, pagina: 2, x: 60, y: 210, w: 1002, size: 13, color: '#0f172a' },
     actaResumen:      { on: true, pagina: 2, label: 'Resumen', text: 'Promedio final: **{promedio}**\n(Nota mínima: {notaminima})\nCondición: **{condicion}**', x: 60, y: 470, w: 900, size: 13, color: '#0f172a', align: 'left' },
+    // Tabla de CRÉDITOS: elemento aparte, movible/ocultable por su cuenta. Solo pinta si el programa lleva créditos.
+    actatablacred:    { on: true, pagina: 2, x: 60, y: 560, w: 1002, size: 13, color: '#0f172a' },
     qr:               { on: true, pagina: 2, x: 980, y: 110, size: 80, showCodigo: true },
   };
 }
@@ -421,7 +425,9 @@ export const PRESETS_LIENZO: { key: string; label: string; make: () => LayoutLie
 export function nuevoCampoTexto(n: number): { key: string; campo: CampoTexto } {
   return {
     key: `campo_${Date.now().toString(36)}`,
-    campo: { on: true, label: `Campo ${n}`, text: 'Texto', x: 61, y: 300, w: 1000, size: 18, color: '#0f172a', align: 'center' },
+    // Nace con un ancho acotado (no todo el lienzo) y centrado; de ahí se ajusta
+    // con el tirador lateral o moviéndolo. Antes salía con w:1000 ("anchazo").
+    campo: { on: true, label: `Campo ${n}`, text: 'Texto', x: Math.round((LIENZO_W - 320) / 2), y: 300, w: 320, size: 18, color: '#0f172a', align: 'center' },
   };
 }
 

@@ -100,7 +100,7 @@ function chipLabel(key: string, c: CampoTexto): string {
   if (t === 'firma') return `Firma ${indiceFirma(key) + 1}`;
   if (t === 'firmatexto') return `Texto firma ${indiceFirma(key) + 1}`;
   if (t === 'linea') return 'Línea';
-  if (t === 'actatabla') return 'Tabla acta';
+  if (t === 'actatabla') return key === 'actatablacred' ? 'Tabla créd.' : 'Tabla notas';
   return key;
 }
 
@@ -557,6 +557,10 @@ export default function InspectorLienzo({ layout, selectedKey, onChange, onSelec
                     </label>
                   </div>
                 </div>
+                <label className="flex items-center gap-2 cursor-pointer select-none" style={{ fontSize: 12, color: '#374151' }}>
+                  <input type="checkbox" checked={!!c.ocultarValor} onChange={e => setCampo(sel, { ocultarValor: e.target.checked })} />
+                  Ocultar la columna de valor (solo los nombres, sin {sel === 'actatablacred' ? 'créditos ni total' : 'notas'})
+                </label>
                 <p className="text-[10.5px]" style={{ color: '#9CA3AF' }}>
                   Las filas se llenan solas con las unidades/temas del programa (y las notas del alumno). Muévela con X/Y o arrástrala; <b>ocúltala</b> con el check de arriba. Deja un título vacío para el automático.
                 </p>

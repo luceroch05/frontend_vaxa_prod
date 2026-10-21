@@ -3,109 +3,113 @@ import { Plus, Loader2, AlertCircle, Save, Trash2, CheckCircle } from '@/compone
 import { useConfirm }  from '../hooks/useConfirm';
 import { useEsAdmin }  from '../hooks/useEsAdmin';
 import { unidadesApi } from '../api/unidades.api';
-import type { CreateProgramaDto, Programa, Unidad } from '../types';
+import type { CreateProgramaDto, CreateGrupoDto, Programa, Grupo, Unidad } from '../types';
 
-/* ── Editor de evaluación por unidades ──────────────────────────
- * Configura cómo se evalúa un programa (tipo de evaluación + nota mínima)
- * y administra la lista de unidades/ciclos/módulos. Usado en el detalle del
- * programa (pestaña "Evaluación").
- *
- * El tipo de evaluación se elige de una lista fija. La opción "Crédito" activa
- * el MODO CRÉDITOS: no se ponen notas, cada unidad otorga sus créditos por
- * asistencia y el acta muestra los créditos de cada unidad + el total.
+/* ── Editor de evaluación ────────────────────────────────────────
+ * DOS interruptores independientes + DOS listas separadas:
+ *   · Lleva notas   → lista de EVALUACIONES (nombre; la nota se pone por alumno).
+ *   · Otorga créditos → lista de CURSOS/MÓDULOS (nombre + créditos).
+ * Pueden ir juntos → el acta sale en 2 secciones.
+ * Sirve para el PROGRAMA (plantilla) y para un AULA (prop `grupo`).
  * ─────────────────────────────────────────────────────────────── */
-const OPCIONES_LABEL = ['Unidad', 'Módulo', 'Ciclo', 'Semestre', 'Crédito'];
-const LABEL_CREDITOS = 'Crédito';
-/** Plural simple en español: vocal final → +s, consonante → +es. */
-const plural = (s: string) => /[aeiouáéíóú]$/i.test(s) ? `${s}s` : `${s}es`;
+function Toggle({ on, onClick }: { on: boolean; onClick: () => void }) {
+  return (
+    <button type="button" role="switch" aria-checked={on} onClick={onClick}
+      className="relative flex-shrink-0 rounded-full transition-colors mt-0.5"
+      style={{ width: 42, height: 24, background: on ? '#7C3AED' : '#D1D5DB' }}>
+      <span className="absolute top-0.5 rounded-full bg-white transition-all" style={{ width: 20, height: 20, left: on ? 20 : 2 }} />
+    </button>
+  );
+}
 
 export default function UnidadesEditor({
-  empresa, programa, onSaveProg,
+  empresa, programa, grupo, onSaveProg, onSaveGrupo,
 }: {
   empresa: string;
   programa: Programa;
+  grupo?: Grupo;
   onSaveProg: (id: number, data: Partial<CreateProgramaDto>) => Promise<unknown>;
+  onSaveGrupo?: (id: number, data: Partial<CreateGrupoDto>) => Promise<unknown>;
 }) {
   const confirm = useConfirm();
-  const esAdmin = useEsAdmin();   // ADMISION puede crear/editar unidades, no eliminarlas
+  const esAdmin = useEsAdmin();
+  const esAula  = !!grupo;
+
   const [unidades, setUnidades] = useState<Unidad[]>([]);
   const [loading,  setLoading]  = useState(true);
-  const [label,    setLabel]    = useState(programa.unidad_label || 'Unidad');
-  const [notaMin,  setNotaMin]  = useState<number>(Number(programa.nota_minima ?? 11));
-  const [nuevo,    setNuevo]    = useState('');
-  const [nuevoCred, setNuevoCred] = useState('');
-  const [savingProg, setSavingProg] = useState(false);
-  const [adding,   setAdding]   = useState(false);
-  const [error,    setError]    = useState<string | null>(null);
-  /** Créditos en edición por unidad: unidad_id -> texto. */
-  const [credEdits, setCredEdits] = useState<Record<number, string>>({});
-  /** unidad_id que acaba de guardar su crédito (para el ✓ efímero). */
-  const [savedCred, setSavedCred] = useState<number | null>(null);
-  /** ¿El programa lleva evaluación (notas + acta)? Si no, solo se emite el certificado. */
-  const [requiereNotas, setRequiereNotas] = useState<boolean>((programa.requiere_notas ?? 1) === 1);
+  const [requiereNotas, setRequiereNotas] = useState<boolean>(
+    (esAula ? (grupo!.requiere_notas ?? programa.requiere_notas) : programa.requiere_notas) !== 0);
+  const [llevaCreditos, setLlevaCreditos] = useState<boolean>(
+    Number(esAula ? (grupo!.es_creditos ?? programa.lleva_creditos ?? 0) : (programa.lleva_creditos ?? 0)) === 1);
+  const [notaMin, setNotaMin] = useState<number>(
+    Number((esAula ? (grupo!.nota_minima ?? programa.nota_minima) : programa.nota_minima) ?? 11));
 
-  const esCreditos = label.trim() === LABEL_CREDITOS;
-  // En modo créditos cada fila es un tema del temario (no "una crédito").
-  const itemNoun = esCreditos ? 'Tema' : label;
+  const [nuevaEval, setNuevaEval] = useState('');            // nombre del ítem de nota
+  const [nuevoCurso, setNuevoCurso] = useState('');          // nombre del ítem de crédito
+  const [nuevoCursoCred, setNuevoCursoCred] = useState('');  // créditos del ítem de crédito
+  const [savingProg, setSavingProg] = useState(false);
+  const [addingN, setAddingN] = useState(false);
+  const [addingC, setAddingC] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [credEdits, setCredEdits] = useState<Record<number, string>>({});
+  const [savedCred, setSavedCred] = useState<number | null>(null);
+  const [savedProg, setSavedProg] = useState(false);
+
+  const notaItems = unidades.filter(u => (u.tipo ?? 'nota') !== 'credito');
+  const credItems = unidades.filter(u => (u.tipo ?? 'nota') === 'credito');
+  const totalCreditos = credItems.reduce((s, u) => s + Number(u.creditos ?? 0), 0);
 
   useEffect(() => {
     setLoading(true);
-    unidadesApi.list(empresa, programa.id)
-      .then(us => {
+    const p = esAula ? unidadesApi.listByGrupo(empresa, grupo!.id) : unidadesApi.list(empresa, programa.id);
+    p.then(us => {
         setUnidades(us);
         setCredEdits(Object.fromEntries(us.map(u => [u.id, String(Number(u.creditos ?? 0))])));
       })
       .catch(e => setError((e as Error).message))
       .finally(() => setLoading(false));
-  }, [empresa, programa.id]);
+  }, [empresa, programa.id, esAula, grupo]);
 
-  // La config del programa se guarda SOLA (sin botón): el tipo al elegirlo y la
-  // nota mínima al salir del campo. Así el tipo "Crédito" queda persistido antes
-  // de agregar cursos y no se pierde al recargar.
-  const [savedProg, setSavedProg] = useState(false);
-  const guardarConfig = async (data: Partial<CreateProgramaDto>) => {
+  const guardarConfig = async (progPatch: Partial<CreateProgramaDto>, grupoPatch: Partial<CreateGrupoDto>) => {
     setSavingProg(true); setError(null);
     try {
-      await onSaveProg(programa.id, data);
+      if (esAula && onSaveGrupo) await onSaveGrupo(grupo!.id, grupoPatch);
+      else await onSaveProg(programa.id, progPatch);
       setSavedProg(true);
       setTimeout(() => setSavedProg(false), 1500);
-    }
-    catch (e: unknown) { setError((e as Error).message); }
+    } catch (e: unknown) { setError((e as Error).message); }
     finally { setSavingProg(false); }
   };
 
-  const cambiarTipo = (nuevoLabel: string) => {
-    setLabel(nuevoLabel);
-    void guardarConfig({ unidad_label: nuevoLabel || 'Unidad' });
-  };
-
-  const cambiarRequiereNotas = (val: boolean) => {
-    setRequiereNotas(val);
-    void guardarConfig({ requiere_notas: val ? 1 : 0 });
-  };
-
+  const toggleNotas = (v: boolean) => { setRequiereNotas(v); void guardarConfig({ requiere_notas: v ? 1 : 0 }, { requiere_notas: v ? 1 : 0 }); };
+  const toggleCreditos = (v: boolean) => { setLlevaCreditos(v); void guardarConfig({ lleva_creditos: v ? 1 : 0 }, { es_creditos: v ? 1 : 0 }); };
   const guardarNotaMin = () => {
-    if (notaMin === Number(programa.nota_minima ?? 11)) return;
-    void guardarConfig({ nota_minima: notaMin });
+    const base = Number((esAula ? (grupo!.nota_minima ?? programa.nota_minima) : programa.nota_minima) ?? 11);
+    if (notaMin === base) return;
+    void guardarConfig({ nota_minima: notaMin }, { nota_minima: notaMin });
   };
 
-  const agregar = async () => {
-    const nombre = nuevo.trim();
-    if (!nombre) return;
-    setAdding(true); setError(null);
-    try {
-      const u = await unidadesApi.create(empresa, {
-        programa_id: programa.id, nombre, orden: unidades.length + 1,
-        creditos: esCreditos ? Number(nuevoCred) || 0 : 0,
-      });
-      setUnidades(prev => [...prev, u]);
-      setCredEdits(prev => ({ ...prev, [u.id]: String(Number(u.creditos ?? 0)) }));
-      setNuevo(''); setNuevoCred('');
-    } catch (e: unknown) { setError((e as Error).message); }
-    finally { setAdding(false); }
+  const agregarItem = async (tipo: 'nota' | 'credito', nombre: string, creditos: number) => {
+    const u = await unidadesApi.create(empresa, {
+      programa_id: programa.id, grupo_id: esAula ? grupo!.id : null, tipo, nombre,
+      orden: unidades.length + 1, creditos: tipo === 'credito' ? creditos : 0,
+    });
+    setUnidades(prev => [...prev, u]);
+    setCredEdits(prev => ({ ...prev, [u.id]: String(Number(u.creditos ?? 0)) }));
+  };
+  const agregarEval = async () => {
+    const nombre = nuevaEval.trim(); if (!nombre) return;
+    setAddingN(true); setError(null);
+    try { await agregarItem('nota', nombre, 0); setNuevaEval(''); }
+    catch (e: unknown) { setError((e as Error).message); } finally { setAddingN(false); }
+  };
+  const agregarCurso = async () => {
+    const nombre = nuevoCurso.trim(); if (!nombre) return;
+    setAddingC(true); setError(null);
+    try { await agregarItem('credito', nombre, Number(nuevoCursoCred) || 0); setNuevoCurso(''); setNuevoCursoCred(''); }
+    catch (e: unknown) { setError((e as Error).message); } finally { setAddingC(false); }
   };
 
-  // Guarda los créditos de una unidad al salir del input o con Enter (solo si cambió).
   const guardarCredito = async (u: Unidad) => {
     const creditos = Number(credEdits[u.id]) || 0;
     if (creditos === Number(u.creditos ?? 0)) return;
@@ -118,171 +122,141 @@ export default function UnidadesEditor({
   };
 
   const eliminar = async (u: Unidad) => {
-    if (!(await confirm({
-      title: `Eliminar ${itemNoun.toLowerCase()}`,
-      message: `¿Eliminar "${u.nombre}"? Se borrarán también ${esCreditos ? 'sus créditos' : 'las notas registradas en esta ' + itemNoun.toLowerCase()}.`,
-      confirmText: 'Eliminar',
-      variant: 'danger',
-    }))) return;
+    if (!(await confirm({ title: `Eliminar "${u.nombre}"`, message: '¿Eliminar este ítem? Se borra también lo registrado.', confirmText: 'Eliminar', variant: 'danger' }))) return;
     try { await unidadesApi.remove(empresa, u.id); setUnidades(prev => prev.filter(x => x.id !== u.id)); }
     catch (e: unknown) { setError((e as Error).message); }
   };
 
-  const totalCreditos = unidades.reduce((s, u) => s + Number(u.creditos ?? 0), 0);
+  /* Fila de ítem reutilizable. `conCred` muestra el input de créditos. */
+  const Fila = (u: Unidad, i: number, conCred: boolean) => (
+    <div key={u.id} className="flex items-center gap-2.5 rounded-xl px-3 py-2" style={{ background: '#FAFAF8', border: '1px solid #EEECE6' }}>
+      <span className="w-5 h-5 rounded-md flex items-center justify-center text-[11px] font-bold flex-shrink-0" style={{ background: '#F3F0FF', color: '#7C3AED' }}>{i + 1}</span>
+      <p className="flex-1 text-[13px] truncate" style={{ color: '#0D0E12' }}>{u.nombre}</p>
+      {conCred && (
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          <input type="number" min={0} step="any" value={credEdits[u.id] ?? ''}
+            onChange={e => setCredEdits(prev => ({ ...prev, [u.id]: e.target.value }))}
+            onBlur={() => guardarCredito(u)}
+            onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+            className="vx-input text-center" style={{ width: 62, padding: '0.3rem 0.35rem' }} />
+          <span className="text-[11px] w-9 flex items-center" style={{ color: savedCred === u.id ? '#15803D' : '#9CA3AF' }}>
+            {savedCred === u.id ? <CheckCircle size={13} /> : 'créd.'}
+          </span>
+        </div>
+      )}
+      {esAdmin && (
+        <button onClick={() => eliminar(u)} className="p-1 rounded-lg transition-colors hover:bg-red-50 flex-shrink-0" style={{ color: '#C8C3BB' }}>
+          <Trash2 size={13} />
+        </button>
+      )}
+    </div>
+  );
 
   return (
-    <div className="rounded-2xl p-4 mt-1" style={{ background: '#FAFAF8', border: '1px solid #EEECE6' }}>
+    <div className="rounded-2xl p-4 mt-1 space-y-4" style={{ background: '#FAFAF8', border: '1px solid #EEECE6' }}>
       {error && (
-        <div className="flex items-center gap-2 text-[12px] px-3 py-2 rounded-xl mb-3"
-          style={{ background: '#FEF2F2', border: '1px solid #FECACA', color: '#B91C1C' }}>
+        <div className="flex items-center gap-2 text-[12px] px-3 py-2 rounded-xl" style={{ background: '#FEF2F2', border: '1px solid #FECACA', color: '#B91C1C' }}>
           <AlertCircle size={12} /> {error}
         </div>
       )}
 
-      {/* Interruptor: ¿el programa lleva evaluación? */}
-      <div className="flex items-start justify-between gap-3 rounded-xl px-3.5 py-3 mb-4 bg-white" style={{ border: '1px solid #EEECE6' }}>
-        <div className="min-w-0">
-          <p className="text-[13px] font-semibold" style={{ color: '#0D0E12' }}>Este programa lleva evaluación</p>
-          <p className="text-[12px] mt-0.5" style={{ color: '#9CA3AF' }}>
-            {requiereNotas
-              ? 'Se registran notas y el acta sale como 2ª hoja del certificado.'
-              : 'Sin evaluación: no se registran notas. Las unidades que agregues salen como temario en el acta; si no agregas ninguna, se emite solo el certificado.'}
-          </p>
+      {esAula && (
+        <div className="text-[12px] px-3 py-2 rounded-xl" style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', color: '#1D4ED8' }}>
+          Evaluación de <strong>esta aula</strong>. Si no agregas ítems, hereda los del programa.
         </div>
-        <button
-          type="button"
-          role="switch"
-          aria-checked={requiereNotas}
-          onClick={() => cambiarRequiereNotas(!requiereNotas)}
-          className="relative flex-shrink-0 rounded-full transition-colors"
-          style={{ width: 42, height: 24, background: requiereNotas ? '#7C3AED' : '#D1D5DB' }}
-        >
-          <span className="absolute top-0.5 rounded-full bg-white transition-all" style={{ width: 20, height: 20, left: requiereNotas ? 20 : 2 }} />
-        </button>
-      </div>
+      )}
 
-      {/* Config: tipo de evaluación + nota mínima */}
-      <div className="flex items-end gap-3 flex-wrap mb-4">
-        <div>
-          <label className="block text-[11px] font-semibold uppercase tracking-wider mb-1" style={{ color: '#9CA3AF' }}>
-            Tipo de evaluación
-          </label>
-          <select value={label} onChange={e => cambiarTipo(e.target.value)}
-            className="vx-input" style={{ padding: '0.45rem 0.7rem', width: 180 }}>
-            {/* Etiqueta legada que no esté en la lista fija */}
-            {!OPCIONES_LABEL.includes(label.trim()) && label.trim() && (
-              <option value={label.trim()}>{label.trim()}</option>
-            )}
-            {OPCIONES_LABEL.map(o => <option key={o} value={o}>{o}</option>)}
-          </select>
+      {/* Interruptores */}
+      <section className="bg-white rounded-xl p-3.5 space-y-3" style={{ border: '1px solid #EEECE6' }}>
+        <div className="flex items-center justify-between">
+          <p className="text-[13px] font-bold" style={{ color: '#0D0E12' }}>¿Cómo se evalúa?</p>
+          <span className="flex items-center gap-1.5 text-[11px] font-semibold" style={{ color: savedProg ? '#15803D' : '#B0A898' }}>
+            {savingProg ? <><Loader2 size={12} className="animate-spin" /> Guardando…</>
+              : savedProg ? <><CheckCircle size={12} /> Guardado</>
+              : <><Save size={12} /> Se guarda solo</>}
+          </span>
         </div>
-        {requiereNotas && !esCreditos && (
-          <div>
-            <label className="block text-[11px] font-semibold uppercase tracking-wider mb-1" style={{ color: '#9CA3AF' }}>
-              Nota mínima (0–20)
-            </label>
-            <input type="number" min={0} max={20} step={0.5} value={notaMin}
-              onChange={e => setNotaMin(Number(e.target.value))}
-              onBlur={guardarNotaMin}
+
+        <div className="flex items-start justify-between gap-3 rounded-xl px-3 py-2.5" style={{ background: '#FAFAF8', border: '1px solid #EEECE6' }}>
+          <div className="min-w-0">
+            <p className="text-[13px] font-semibold" style={{ color: '#0D0E12' }}>Lleva notas</p>
+            <p className="text-[12px] mt-0.5" style={{ color: '#9CA3AF' }}>Evaluaciones calificadas (examen, trabajo…). El acta muestra notas + promedio.</p>
+          </div>
+          <Toggle on={requiereNotas} onClick={() => toggleNotas(!requiereNotas)} />
+        </div>
+        {requiereNotas && (
+          <div className="pl-1">
+            <label className="block text-[11px] font-semibold uppercase tracking-wider mb-1" style={{ color: '#9CA3AF' }}>Nota mínima para aprobar (0–20)</label>
+            <input type="number" min={0} max={20} step="any" value={notaMin}
+              onChange={e => setNotaMin(Number(e.target.value))} onBlur={guardarNotaMin}
               className="vx-input" style={{ padding: '0.45rem 0.7rem', width: 120 }} />
           </div>
         )}
-        {/* Se guarda solo: solo mostramos el estado */}
-        <div className="flex items-center gap-1.5 text-[12px] font-semibold pb-2"
-          style={{ color: savedProg ? '#15803D' : '#9CA3AF' }}>
-          {savingProg ? <><Loader2 size={13} className="animate-spin" /> Guardando…</>
-            : savedProg ? <><CheckCircle size={13} /> Guardado</>
-            : <><Save size={13} /> Se guarda solo</>}
+
+        <div className="flex items-start justify-between gap-3 rounded-xl px-3 py-2.5" style={{ background: '#FAFAF8', border: '1px solid #EEECE6' }}>
+          <div className="min-w-0">
+            <p className="text-[13px] font-semibold" style={{ color: '#0D0E12' }}>Otorga créditos</p>
+            <p className="text-[12px] mt-0.5" style={{ color: '#9CA3AF' }}>Cursos/módulos con créditos (Soporte Técnico 1.5…). El acta muestra créditos + total. Convive con las notas.</p>
+          </div>
+          <Toggle on={llevaCreditos} onClick={() => toggleCreditos(!llevaCreditos)} />
         </div>
-      </div>
-
-      {esCreditos && (
-        <p className="text-[12px] px-3 py-2 rounded-xl mb-3"
-          style={{ background: '#F3F0FF', border: '1px solid #DDD6FE', color: '#5B21B6' }}>
-          Modo créditos: no se registran notas. Cada tema del temario otorga sus créditos por asistencia
-          y el acta muestra el total. La aprobación se marca por asistencia en la lista de inscripciones.
-        </p>
-      )}
-
-      {!requiereNotas && !esCreditos && (
-        <p className="text-[12px] px-3 py-2 rounded-xl mb-3"
-          style={{ background: '#FAFAF8', border: '1px solid #EEECE6', color: '#6B7280' }}>
-          Sin evaluación: no se registran notas. Las {plural(itemNoun.toLowerCase())} que agregues abajo saldrán como
-          un <strong>temario</strong> en el acta (sin notas ni promedio). Si no agregas ninguna, se emite solo el certificado.
-          Para emitir, marca a los alumnos como <strong>Aprobado</strong> (por asistencia) desde <strong>Inscripciones</strong>.
-        </p>
-      )}
-
-      {/* Lista de unidades */}
-      <div className="flex items-center justify-between mb-2">
-        <p className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: '#374151' }}>
-          {plural(itemNoun)} del programa
-        </p>
-        {esCreditos && unidades.length > 0 && (
-          <p className="text-[11px] font-semibold" style={{ color: '#7C3AED' }}>
-            Total: {totalCreditos} créditos
-          </p>
-        )}
-      </div>
+      </section>
 
       {loading ? (
         <div className="flex justify-center py-4" style={{ color: '#D1D5DB' }}><Loader2 size={16} className="animate-spin" /></div>
       ) : (
-        <div className="space-y-1.5">
-          {unidades.length === 0 && (
-            <p className="text-[12px] italic" style={{ color: '#B0A898' }}>
-              Aún no hay {plural(itemNoun.toLowerCase())}. Agrega {esCreditos ? 'el primero' : 'la primera'} abajo.
-            </p>
+        <>
+          {/* Lista de EVALUACIONES (notas) */}
+          {requiereNotas && (
+            <section className="bg-white rounded-xl p-3.5" style={{ border: '1px solid #EEECE6' }}>
+              <p className="text-[13px] font-bold mb-2" style={{ color: '#0D0E12' }}>Evaluaciones (notas)</p>
+              <div className="space-y-1.5">
+                {notaItems.length === 0 && <p className="text-[12px] italic" style={{ color: '#B0A898' }}>Agrega las evaluaciones (ej. Examen parcial, Trabajo final). La nota se pone por alumno en Inscripciones.</p>}
+                {notaItems.map((u, i) => Fila(u, i, false))}
+              </div>
+              <div className="flex gap-2 mt-3">
+                <input value={nuevaEval} onChange={e => setNuevaEval(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') agregarEval(); }}
+                  placeholder="Nombre de la evaluación (ej: Examen parcial)" className="vx-input flex-1" style={{ padding: '0.45rem 0.7rem' }} />
+                <button onClick={agregarEval} disabled={addingN || !nuevaEval.trim()}
+                  className="flex items-center gap-1.5 text-[12px] font-semibold px-3.5 py-2 rounded-xl flex-shrink-0" style={{ background: '#F3F0FF', color: '#7C3AED', border: '1px solid #DDD6FE' }}>
+                  {addingN ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />} Agregar
+                </button>
+              </div>
+            </section>
           )}
-          {unidades.map((u, i) => (
-            <div key={u.id} className="flex items-center gap-2.5 bg-white rounded-xl px-3 py-2"
-              style={{ border: '1px solid #EEECE6' }}>
-              <span className="w-5 h-5 rounded-md flex items-center justify-center text-[11px] font-bold flex-shrink-0"
-                style={{ background: '#F3F0FF', color: '#7C3AED' }}>{i + 1}</span>
-              <p className="flex-1 text-[13px] truncate" style={{ color: '#0D0E12' }}>{u.nombre}</p>
-              {esCreditos && (
-                <div className="flex items-center gap-1.5 flex-shrink-0">
-                  <input type="number" min={0} step={0.5}
-                    value={credEdits[u.id] ?? ''}
-                    onChange={e => setCredEdits(prev => ({ ...prev, [u.id]: e.target.value }))}
-                    onBlur={() => guardarCredito(u)}
-                    onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-                    className="vx-input text-center" style={{ width: 62, padding: '0.3rem 0.35rem' }} />
-                  <span className="text-[11px] w-9 flex items-center" style={{ color: savedCred === u.id ? '#15803D' : '#9CA3AF' }}>
-                    {savedCred === u.id ? <CheckCircle size={13} /> : 'créd.'}
-                  </span>
-                </div>
-              )}
-              {esAdmin && (
-              <button onClick={() => eliminar(u)} className="p-1 rounded-lg transition-colors hover:bg-red-50 flex-shrink-0" style={{ color: '#C8C3BB' }}>
-                <Trash2 size={13} />
-              </button>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
 
-      {/* Agregar unidad/curso — nombre + créditos se guardan en un solo clic */}
-      <div className="flex gap-2 mt-3">
-        <input value={nuevo} onChange={e => setNuevo(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter') agregar(); }}
-          placeholder={esCreditos ? 'Nombre del tema (ej: Terapia Física)' : `Nombre de la ${itemNoun.toLowerCase()} (ej: ${itemNoun} 1)`}
-          className="vx-input flex-1" style={{ padding: '0.45rem 0.7rem' }} />
-        {esCreditos && (
-          <input type="number" min={0} step={0.5} value={nuevoCred}
-            onChange={e => setNuevoCred(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') agregar(); }}
-            placeholder="Créditos"
-            className="vx-input text-center flex-shrink-0" style={{ width: 90, padding: '0.45rem 0.5rem' }} />
-        )}
-        <button onClick={agregar} disabled={adding || !nuevo.trim()}
-          className="flex items-center gap-1.5 text-[12px] font-semibold px-3.5 py-2 rounded-xl flex-shrink-0"
-          style={{ background: '#F3F0FF', color: '#7C3AED', border: '1px solid #DDD6FE' }}>
-          {adding ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
-          Agregar
-        </button>
-      </div>
+          {/* Lista de CURSOS con créditos */}
+          {llevaCreditos && (
+            <section className="bg-white rounded-xl p-3.5" style={{ border: '1px solid #EEECE6' }}>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-[13px] font-bold" style={{ color: '#0D0E12' }}>Cursos / módulos (créditos)</p>
+                {credItems.length > 0 && <p className="text-[12px] font-bold" style={{ color: '#7C3AED' }}>Total: {totalCreditos} créditos</p>}
+              </div>
+              <div className="space-y-1.5">
+                {credItems.length === 0 && <p className="text-[12px] italic" style={{ color: '#B0A898' }}>Agrega los cursos y sus créditos (ej. Soporte Técnico 1.5, Desarrollo Web 2.0).</p>}
+                {credItems.map((u, i) => Fila(u, i, true))}
+              </div>
+              <div className="flex gap-2 mt-3">
+                <input value={nuevoCurso} onChange={e => setNuevoCurso(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') agregarCurso(); }}
+                  placeholder="Nombre del curso (ej: Soporte Técnico)" className="vx-input flex-1" style={{ padding: '0.45rem 0.7rem' }} />
+                <input type="number" min={0} step="any" value={nuevoCursoCred} onChange={e => setNuevoCursoCred(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') agregarCurso(); }}
+                  placeholder="Créditos" className="vx-input text-center flex-shrink-0" style={{ width: 90, padding: '0.45rem 0.5rem' }} />
+                <button onClick={agregarCurso} disabled={addingC || !nuevoCurso.trim()}
+                  className="flex items-center gap-1.5 text-[12px] font-semibold px-3.5 py-2 rounded-xl flex-shrink-0" style={{ background: '#F3F0FF', color: '#7C3AED', border: '1px solid #DDD6FE' }}>
+                  {addingC ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />} Agregar
+                </button>
+              </div>
+            </section>
+          )}
+
+          {!requiereNotas && !llevaCreditos && (
+            <p className="text-[12px] italic px-1" style={{ color: '#B0A898' }}>Prende "Lleva notas" y/o "Otorga créditos" para configurar los ítems.</p>
+          )}
+        </>
+      )}
     </div>
   );
 }

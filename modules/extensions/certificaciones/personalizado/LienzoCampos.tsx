@@ -24,7 +24,9 @@ interface Props {
   /** Hoja a dibujar: 1 (principal, default) o 2 (acta/créditos). */
   pagina?: number;
   /** Unidades para la TABLA del acta (campo `actatabla`). */
-  actaUnidades?: { id: number; nombre: string }[];
+  actaUnidades?: { id: number; nombre: string; creditos?: number; tipo?: string }[];
+  /** Lleva créditos → además de la tabla de notas, dibuja la de créditos debajo. */
+  actaLlevaCreditos?: boolean;
   /** Modo de la tabla del acta: 'notas' (col NOTA), 'temario' (sin valor), 'creditos' (col CRÉDITOS). */
   actaMode?: 'notas' | 'temario' | 'creditos';
   /** Notas REALES por unidad (unidadId → nota) de la muestra. Vacío = valor de ejemplo. */
@@ -143,7 +145,7 @@ function useFuentesListas(familias: string): void {
   }, [familias]);
 }
 
-export default function LienzoCampos({ layout, vars, codigo, qrDataUrl, logos = [], firmas = [], pagina = 1, actaUnidades = [], actaMode = 'notas', actaNotas = {} }: Props) {
+export default function LienzoCampos({ layout, vars, codigo, qrDataUrl, logos = [], firmas = [], pagina = 1, actaUnidades = [], actaMode = 'notas', actaLlevaCreditos = false, actaNotas = {} }: Props) {
   const campos = layout.campos ?? {};
   const hayNotas = Object.keys(actaNotas).length > 0;
 
@@ -258,30 +260,52 @@ export default function LienzoCampos({ layout, vars, codigo, qrDataUrl, logos = 
           );
         }
 
-        // ── TABLA DEL ACTA (notas / temario / créditos) ──
+        // ── TABLAS DEL ACTA: `actatabla` (NOTAS) y `actatablacred` (CRÉDITOS), separadas ──
         if (tipoCampo(key) === 'actatabla') {
           const c = raw as CampoActaTabla;
           const x = c.x ?? 60, y = c.y ?? 210, w = c.w ?? 1002, size = c.size ?? 13, color = c.color ?? '#0f172a';
           const NAVY = '#12294d';
-          const esTemario = actaMode === 'temario';
-          const esCreditos = actaMode === 'creditos';
-          const colNum = 60, colValor = esTemario ? 0 : 140, colUni = w - colNum - colValor;
-          const filas = actaUnidades.length ? actaUnidades : [{ id: 0, nombre: 'Unidad de ejemplo' }];
-          const rowH = 28;
+          const esCred = key === 'actatablacred';
+          const rowH = 28, colNum = 60;
+          const notaItems = actaUnidades.filter(u => (u.tipo ?? 'nota') !== 'credito');
+          const credItems = actaUnidades.filter(u => (u.tipo ?? 'nota') === 'credito');
+          const notaFilas = notaItems.length ? notaItems : [{ id: 0, nombre: 'Examen parcial' }, { id: -9, nombre: 'Trabajo final' }];
+          const credFilas = credItems.length ? credItems : [{ id: -1, nombre: 'Soporte Técnico', creditos: 1.5 }, { id: -2, nombre: 'Desarrollo Web', creditos: 2 }];
+          const totalCred = credFilas.reduce((s, u) => s + Number(u.creditos ?? 0), 0);
+
+          const tabla = (colLabel: string, filas: { id: number; nombre: string; creditos?: number }[], valHeader: string | null, valFn: ((u: { id: number; nombre: string; creditos?: number }) => string) | null) => {
+            const colVal = valFn ? 120 : 0, colUni = w - colNum - colVal;
+            return (
+              <>
+                <div style={{ position: 'relative', height: rowH, background: NAVY }}>
+                  <span style={{ position: 'absolute', left: 14, top: 7, fontSize: 12, fontWeight: 700, color: '#fff' }}>{c.hNum?.trim() || 'N°'}</span>
+                  <span style={{ position: 'absolute', left: colNum + 14, top: 7, fontSize: 12, fontWeight: 700, color: '#fff' }}>{colLabel}</span>
+                  {valFn && valHeader && <span style={{ position: 'absolute', left: colNum + colUni, top: 7, width: colVal - 14, fontSize: 12, fontWeight: 700, color: '#fff', textAlign: 'right' }}>{valHeader}</span>}
+                </div>
+                {filas.map((u, i) => (
+                  <div key={u.id} style={{ position: 'relative', height: rowH, background: i % 2 === 0 ? '#fff' : '#f6f8fb' }}>
+                    <span style={{ position: 'absolute', left: 14, top: 7, fontSize: size, fontWeight: 700, color: '#2563eb' }}>{i + 1}</span>
+                    <span style={{ position: 'absolute', left: colNum + 14, top: 7, width: colUni - 28, fontSize: size, color }}>{u.nombre}</span>
+                    {valFn && <span style={{ position: 'absolute', left: colNum + colUni, top: 7, width: colVal - 14, fontSize: size, fontWeight: 700, color, textAlign: 'right' }}>{valFn(u)}</span>}
+                  </div>
+                ))}
+              </>
+            );
+          };
+
+          // La PLANTILLA manda: mostrar/ocultar por el elemento (on/off) y la columna por el check.
+          const ocultarValor = !!c.ocultarValor;
+          if (esCred) {
+            return (
+              <div key={key} style={{ position: 'absolute', left: x, top: y, width: w }}>
+                {tabla(c.hUni?.trim() || 'CURSO / MÓDULO', credFilas, ocultarValor ? null : (c.hVal?.trim() || 'CRÉD.'), ocultarValor ? null : (u => String(Number(u.creditos ?? 0))))}
+                {!ocultarValor && <div style={{ position: 'relative', marginTop: 8, fontSize: size, fontWeight: 700, color }}>Total de créditos: {totalCred}</div>}
+              </div>
+            );
+          }
           return (
             <div key={key} style={{ position: 'absolute', left: x, top: y, width: w }}>
-              <div style={{ position: 'relative', height: rowH, background: NAVY }}>
-                <span style={{ position: 'absolute', left: 14, top: 7, fontSize: 12, fontWeight: 700, color: '#fff' }}>{c.hNum?.trim() || 'N°'}</span>
-                <span style={{ position: 'absolute', left: colNum + 14, top: 7, fontSize: 12, fontWeight: 700, color: '#fff' }}>{c.hUni?.trim() || (esCreditos ? 'TEMA' : 'UNIDAD')}</span>
-                {!esTemario && <span style={{ position: 'absolute', left: colNum + colUni, top: 7, width: colValor - 14, fontSize: 12, fontWeight: 700, color: '#fff', textAlign: 'right' }}>{c.hVal?.trim() || (esCreditos ? 'CRÉDITOS' : 'NOTA')}</span>}
-              </div>
-              {filas.map((u, i) => (
-                <div key={u.id} style={{ position: 'relative', height: rowH, background: i % 2 === 0 ? '#fff' : '#f6f8fb' }}>
-                  <span style={{ position: 'absolute', left: 14, top: 7, fontSize: size, fontWeight: 700, color: '#2563eb' }}>{i + 1}</span>
-                  <span style={{ position: 'absolute', left: colNum + 14, top: 7, width: colUni - 28, fontSize: size, color }}>{u.nombre}</span>
-                  {!esTemario && <span style={{ position: 'absolute', left: colNum + colUni, top: 7, width: colValor - 14, fontSize: size, fontWeight: 700, color, textAlign: 'right' }}>{esCreditos ? '2' : (hayNotas ? (actaNotas[u.id] != null ? Number(actaNotas[u.id]).toFixed(2) : '—') : '16.00')}</span>}
-                </div>
-              ))}
+              {tabla(c.hUni?.trim() || 'EVALUACIÓN', notaFilas, ocultarValor ? null : (c.hVal?.trim() || 'NOTA'), ocultarValor ? null : (u => (hayNotas ? (actaNotas[u.id] != null ? Number(actaNotas[u.id]).toFixed(2) : '—') : '16.00')))}
             </div>
           );
         }

@@ -3,7 +3,7 @@ import { useParams, useSearchParams } from 'react-router-dom';
 import { certPath } from '@/lib/paths';
 import { Search, Loader2, BadgeCheck, XCircle, QrCode, Download } from '@/components/ui/icon';
 import { useValidarCertificado } from '../../shared/hooks/useCertificados';
-import { periodoCurso } from '../../shared/utils/certVariables';
+import { periodoCurso, duracionTexto } from '../../shared/utils/certVariables';
 import BrandRow from '../../shared/components/BrandRow';
 import BrandAside from '../../shared/components/BrandAside';
 import VaxaFooter from '../../shared/components/VaxaFooter';
@@ -181,7 +181,7 @@ export default function PublicValidar() {
                 <Field label="Tipo"      value={resultado.tipo_programa} />
                 <Field label="Modalidad" value={resultado.modalidad} />
                 <Field label="Grupo"     value={resultado.nombre_grupo} />
-                <Field label="Duración"  value={`${resultado.horas_academicas} horas académicas`} />
+                <Field label="Duración"  value={duracionTexto(resultado.horas_academicas, resultado.minutos_academicos) || '—'} />
                 <Field label="Periodo"   value={(() => {
                   const p = periodoCurso(resultado.fecha_inicio, resultado.fecha_fin, resultado.fecha_dia2, resultado.fecha_dia3);
                   return p ? p.charAt(0).toUpperCase() + p.slice(1) : formatDate(resultado.fecha_inicio);

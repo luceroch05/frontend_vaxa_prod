@@ -13,7 +13,7 @@ import CertificadoPreview from '../shared/components/CertificadoPreview';
 import { W, H } from '../shared/components/CertificadoPDF';
 import EditorLienzo from './EditorLienzo';
 import InspectorLienzo from './InspectorLienzo';
-import { type LayoutLienzo, sincronizarFirmas, sincronizarLogos, sincronizarLogoObligatorio, logoKey } from './layout';
+import { type LayoutLienzo, sincronizarFirmas, sincronizarLogos, sincronizarLogoObligatorio, logoKey, presetActa } from './layout';
 import { X } from '@/components/ui/icon';
 
 type PreviewProps = ComponentProps<typeof CertificadoPreview>;
@@ -26,6 +26,7 @@ interface Props {
   tipoPrograma?: string;
   programaNombre?: string;
   horas?: number;
+  minutos?: number;
   creditos?: number;
   /** Fechas reales del aula (ISO) para que el preview muestre las fechas correctas. */
   fechaInicio?: string | null;
@@ -39,9 +40,11 @@ interface Props {
   /** ¿El programa tiene acta (unidades)? Solo entonces se muestra la Hoja 2. */
   tieneActa?: boolean;
   /** Unidades del programa → réplica del acta real en la Hoja 2. */
-  actaUnidades?: { id: number; nombre: string; creditos?: number }[];
+  actaUnidades?: { id: number; nombre: string; creditos?: number; tipo?: string }[];
   /** El programa no lleva evaluación → la Hoja 2 se muestra como temario (sin notas). */
   actaEsTemario?: boolean;
+  /** Lleva créditos → columna CRÉD. + total en el acta (convive con notas). */
+  actaEsCreditos?: boolean;
   /** Config del acta (qué datos muestra, título y texto extra). */
   actaConfig?: import('../shared/types').ActaConfig | null;
   /** Muestra REAL (alumno + notas) para la vista previa. */
@@ -121,6 +124,26 @@ export default function EditorEnfocado(props: Props) {
     if (changed) props.onLayoutChange({ ...(actual ?? { activo: true }), activo: true, campos });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.logoObligIndex]);
+
+  // Al entrar a la Hoja 2, el acta ya debe quedar EDITABLE sin pulsar el botón "Acta":
+  // si el programa tiene acta y aún no está como lienzo, la convertimos sola (inyecta
+  // título, datos, tabla y resumen como elementos movibles/ocultables).
+  useEffect(() => {
+    if (pagina !== 2 || !tieneActa) return;
+    const actual = layoutRef.current;
+    if (!actual?.actaCustom) {
+      // Primera conversión: inyecta TODO el preset del acta.
+      props.onLayoutChange({
+        ...(actual ?? { activo: true }), activo: true, actaCustom: true,
+        campos: { ...(actual?.campos ?? {}), ...presetActa() },
+      });
+    } else if (!actual.campos?.actatablacred) {
+      // Layout viejo (convertido antes de existir la tabla de créditos): se la agregamos
+      // sin tocar lo demás, para que aparezca como elemento aparte.
+      props.onLayoutChange({ ...actual, campos: { ...actual.campos, actatablacred: presetActa().actatablacred } });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pagina, tieneActa]);
 
   // Esc cierra + bloquea scroll del fondo.
   useEffect(() => {
@@ -204,6 +227,7 @@ export default function EditorEnfocado(props: Props) {
                 tipoPrograma={props.tipoPrograma}
                 programaNombre={props.programaNombre}
                 horas={props.horas}
+                minutos={props.minutos}
                 creditos={props.creditos}
                 fechaInicio={props.fechaInicio}
                 fechaFin={props.fechaFin}
@@ -218,6 +242,7 @@ export default function EditorEnfocado(props: Props) {
                 pagina={pagina}
                 actaUnidades={props.actaUnidades}
                 actaEsTemario={props.actaEsTemario}
+                actaEsCreditos={props.actaEsCreditos}
                 actaConfig={props.actaConfig}
                 muestra={props.muestra}
               />

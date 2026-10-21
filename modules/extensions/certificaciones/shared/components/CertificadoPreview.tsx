@@ -1,7 +1,7 @@
 import {
   W, H, LogosFila, firmasGap, SIG_ITEM_W, SIG_IMG_H, nombreCortoDe,
 } from './CertificadoPDF';
-import { expandirVariablesCertificado, periodoCurso, fechaLargaISO, mesAnioISO } from '../utils/certVariables';
+import { expandirVariablesCertificado, periodoCurso, fechaLargaISO, mesAnioISO, duracionTexto } from '../utils/certVariables';
 import { imgUrl } from '@/lib/api/client';
 import LienzoCampos from '../../personalizado/LienzoCampos';
 import LienzoDragLayer from '../../personalizado/LienzoDragLayer';
@@ -19,6 +19,7 @@ interface Props {
   tipoPrograma?: string;
   programaNombre?: string;
   horas?: number;
+  minutos?: number;
   creditos?: number;
   /** Fechas REALES del aula seleccionada (ISO YYYY-MM-DD). Si faltan (config por
    *  defecto sin aula), se usan las de ejemplo. La fecha de emisión siempre es hoy. */
@@ -42,9 +43,11 @@ interface Props {
    *  muestra DEBAJO el acta real (referencia) y encima tus cositas. */
   pagina?: number;
   /** Unidades del programa → réplica del acta real en la Hoja 2. */
-  actaUnidades?: { id: number; nombre: string; creditos?: number }[];
+  actaUnidades?: { id: number; nombre: string; creditos?: number; tipo?: string }[];
   /** El programa no lleva evaluación → la Hoja 2 se muestra como temario (sin notas). */
   actaEsTemario?: boolean;
+  /** Lleva créditos → el acta muestra columna CRÉD. + total (convive con notas). */
+  actaEsCreditos?: boolean;
   /** Config del acta (qué datos muestra, título y texto extra) para reflejarla en la Hoja 2. */
   actaConfig?: import('../types').ActaConfig | null;
   /** Muestra REAL (un alumno del aula + sus notas) para que la vista previa use datos de verdad. */
@@ -70,9 +73,9 @@ const EJEMPLO = {
  * dónde caen las firmas y cómo se expande el texto con variables.
  * ─────────────────────────────────────────────────────────────── */
 export default function CertificadoPreview({
-  plantillaUrl, logos, firmas, texto, tipoPrograma, programaNombre, horas, creditos,
+  plantillaUrl, logos, firmas, texto, tipoPrograma, programaNombre, horas, minutos, creditos,
   fechaInicio, fechaFin, fechaDia2, fechaDia3, layout, displayWidth = 460,
-  editable = false, onLayoutChange, selectedKey, onSelectField, pagina = 1, actaUnidades = [], actaEsTemario = false, actaConfig = null, muestra = null,
+  editable = false, onLayoutChange, selectedKey, onSelectField, pagina = 1, actaUnidades = [], actaEsTemario = false, actaEsCreditos = false, actaConfig = null, muestra = null,
 }: Props) {
   const scale = displayWidth / W;
   // Datos de la vista previa: REALES si hay muestra (un alumno del aula), si no de ejemplo.
@@ -112,20 +115,28 @@ export default function CertificadoPreview({
     programa, curso: programa, tipo,
     fecha: fEmision, fechaemision: fEmision, fechaInicio: fInicio, fechaFin: fFin, periodo: periodoReal,
     mesEmision: fMesEmision,
-    horas: String(horas ?? 40), creditos: creditos ? String(creditos) : '', codigo: 'CERT-EJEMPLO',
+    horas: duracionTexto(horas ?? 40, minutos), creditos: creditos ? String(creditos) : '', codigo: 'CERT-EJEMPLO',
     // Variables del ACTA (hoja 2).
     grupo: grupoMuestra, promedio: promedioMuestra, condicion: condicionMuestra, notaminima: '11.00',
   };
   const actaMode: 'notas' | 'temario' = actaEsTemario ? 'temario' : 'notas';
 
   const periodo = `, realizado ${periodoReal || 'los días 15, 18 y 22 de agosto de 2026'}`;
-  const cuerpoDefault = `Por haber completado satisfactoriamente ${tipo} "${programa}" con una duración de ${horas ?? 40} horas académicas${periodo}.`;
+  // Cuerpo por defecto según cómo se configuró el programa: los créditos salen como
+  // "valor académico" en la hoja 1 (igual que el backend).
+  const dur = duracionTexto(horas ?? 40, minutos);
+  // Créditos con PRIORIDAD AL AULA: la suma de los cursos de crédito manda sobre el número del programa.
+  const credAula = actaEsCreditos ? actaUnidades.filter(u => (u.tipo ?? 'nota') === 'credito').reduce((s, u) => s + Number(u.creditos ?? 0), 0) : 0;
+  const credN  = credAula > 0 ? credAula : (Number(creditos) || 0);
+  const horasFrase = dur ? ` con una duración de ${dur}` : '';
+  const credFrase  = credN  > 0 ? `, como valor académico: ${credN} créditos` : '';
+  const cuerpoDefault = `Por haber completado satisfactoriamente ${tipo} "${programa}"${horasFrase}${credFrase}${periodo}.`;
   const cuerpoBase = texto?.trim() || cuerpoDefault;
   const cuerpo = expandirVariablesCertificado(cuerpoBase, {
     participante: EJEMPLO.participante,
     programa,
-    horas: horas ?? 40,
-    creditos: creditos ?? '',
+    horas: dur,
+    creditos: credN > 0 ? credN : '',
     tipoPrograma: tipo,
     tipoDocumento: EJEMPLO.tipoDocumento,
     documento: EJEMPLO.documento,
@@ -170,8 +181,8 @@ export default function CertificadoPreview({
           <>
             {/* Hoja 2: debajo va el ACTA real (referencia, como sale al emitir) y encima
                 las cositas que agregues en la hoja 2. */}
-            {esHoja2 && !actaEsLienzo(layout) && <ActaPreview unidades={actaUnidades} programa={programa} participante={nombreMuestra} documento={docMuestra} grupo={grupoMuestra} notas={notasMuestra} periodo={periodoReal} mostrarQr={!qrEnHoja2} esTemario={actaEsTemario} acta={actaConfig} />}
-            <LienzoCampos layout={layout!} vars={varsLienzo} codigo="CERT-EJEMPLO" logos={logos} firmas={firmas} pagina={pagina} actaUnidades={actaUnidades} actaMode={actaMode} actaNotas={notasMuestra} />
+            {esHoja2 && !actaEsLienzo(layout) && <ActaPreview unidades={actaUnidades} programa={programa} participante={nombreMuestra} documento={docMuestra} grupo={grupoMuestra} notas={notasMuestra} periodo={periodoReal} mostrarQr={!qrEnHoja2} esTemario={actaEsTemario} esCreditos={actaEsCreditos} acta={actaConfig} />}
+            <LienzoCampos layout={layout!} vars={varsLienzo} codigo="CERT-EJEMPLO" logos={logos} firmas={firmas} pagina={pagina} actaUnidades={actaUnidades} actaMode={actaMode} actaLlevaCreditos={actaEsCreditos} actaNotas={notasMuestra} />
             {editable && onLayoutChange && (
               <LienzoDragLayer
                 layout={layout!}
@@ -196,7 +207,7 @@ export default function CertificadoPreview({
           </>
         ) : esHoja2 ? (
           /* ── Modo normal, Hoja 2: el acta real (sin lienzo) ── */
-          <ActaPreview unidades={actaUnidades} programa={programa} participante={nombreMuestra} documento={docMuestra} grupo={grupoMuestra} notas={notasMuestra} periodo={periodoReal} esTemario={actaEsTemario} acta={actaConfig} />
+          <ActaPreview unidades={actaUnidades} programa={programa} participante={nombreMuestra} documento={docMuestra} grupo={grupoMuestra} notas={notasMuestra} periodo={periodoReal} esTemario={actaEsTemario} esCreditos={actaEsCreditos} acta={actaConfig} />
         ) : (
         <>
         {/* Logos — fila centrada (hasta 10, sin encimarse) */}

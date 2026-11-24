@@ -753,6 +753,8 @@ export const terapApi = {
     api.get<Venta>(`${B}/ventas/${id}`, opts(empresa)),
   createVenta: (empresa: string, data: VentaDto) =>
     api.post<Venta>(`${B}/ventas`, data, opts(empresa)),
+  updateVenta: (empresa: string, id: number, data: VentaDto) =>
+    api.put<Venta>(`${B}/ventas/${id}`, data, opts(empresa)),
   anularVenta: (empresa: string, id: number) =>
     api.post<Venta>(`${B}/ventas/${id}/anular`, {}, opts(empresa)),
 

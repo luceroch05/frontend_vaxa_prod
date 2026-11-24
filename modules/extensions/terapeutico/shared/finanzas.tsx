@@ -26,13 +26,23 @@ export const fmtFecha = (s: string) => {
   const d = new Date(s);
   return isNaN(+d) ? s : d.toLocaleDateString('es-PE', { day: '2-digit', month: 'short', year: 'numeric' });
 };
+/** Fecha + hora, tomando 'YYYY-MM-DD HH:mm:ss' como hora LOCAL DE PARED (sin correr la zona).
+ *  El backend manda la fecha como string literal para que la hora no se desplace −5h. */
+export const fmtFechaHora = (s: string) => {
+  const m = String(s ?? '').match(/(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/);
+  const d = m ? new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]) : new Date(s);
+  if (isNaN(+d)) return s;
+  return `${d.toLocaleDateString('es-PE', { day: '2-digit', month: 'short', year: 'numeric' })} · ${d.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}`;
+};
 
-export function Overlay({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
+export function Overlay({ children, onClose: _onClose }: { children: React.ReactNode; onClose: () => void }) {
+  // El click fuera del modal NO lo cierra (se perdía lo escrito sin querer): solo cierran
+  // la X de la cabecera o el botón «Cancelar». Se mantiene `onClose` en la firma para no
+  // tocar a quienes la usan. El prefijo _ evita el warning de parámetro sin uso.
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 vx-modal-in" style={{ background: 'rgba(10,22,24,0.55)', backdropFilter: 'blur(4px)' }} onMouseDown={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 vx-modal-in" style={{ background: 'rgba(10,22,24,0.55)', backdropFilter: 'blur(4px)' }}>
       <div className="bg-white rounded-2xl w-full max-w-lg max-h-[92vh] overflow-auto vx-modal-card"
-        style={{ boxShadow: '0 30px 80px -20px rgba(6,20,22,0.55)', border: '1px solid #EAEFEE' }}
-        onMouseDown={e => e.stopPropagation()}>{children}</div>
+        style={{ boxShadow: '0 30px 80px -20px rgba(6,20,22,0.55)', border: '1px solid #EAEFEE' }}>{children}</div>
     </div>
   );
 }
@@ -132,7 +142,7 @@ export function ModalDetalleVenta({ slug, ventaId, onClose, centro }: { slug: st
       ) : (
         <div className="p-5 space-y-4">
           <div className="grid grid-cols-2 gap-y-2 gap-x-4 text-[13px]">
-            <Dato label="Fecha" valor={fmtFecha(venta.fecha)} />
+            <Dato label="Fecha y hora" valor={fmtFechaHora(venta.fecha)} />
             <Dato label="Método de pago" valor={<span className="capitalize">{venta.metodo_pago === 'mixto' ? 'Mixto (ver desglose)' : venta.metodo_pago}</span>} />
             <Dato label="Cliente / Paciente" valor={venta.paciente_nombre ?? 'Mostrador'} />
             <Dato label="Estado" valor={venta.estado === 'anulada'

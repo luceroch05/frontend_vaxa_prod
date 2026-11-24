@@ -6,9 +6,11 @@ import {
   terapApi, type Cita, type Paciente, type Terapeuta, type Servicio, type Motivo, type Catalogos, type CitaDto, type SaldoSesiones,
 } from '../../shared/api/terapeutico.api';
 import Combobox from '../../shared/components/Combobox';
+import SelectBox from '../../shared/components/SelectBox';
 import { useConfirm } from '@/modules/extensions/certificaciones/shared/hooks/useConfirm';
 import TimeField from '@/modules/extensions/certificaciones/shared/components/TimeField';
 import DateField from '@/modules/extensions/certificaciones/shared/components/DateField';
+import { conLic } from '../../shared/terapeutas';
 
 const TEAL = '#0F766E';
 const puedeGestionar = (rol?: string) => ['ADMINISTRADOR', 'ADMISION'].includes((rol ?? '').toUpperCase());
@@ -54,7 +56,9 @@ export default function Agenda() {
   const slug = useEmpresaSlug()!;
   const rol = authStorage.getUser(slug)?.rol;
 
-  const [cursor, setCursor] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
+  // Arranca en HOY (no en el día 1): como la vista por defecto es "semana", así cae en la
+  // semana actual. Para la vista "mes" solo se usan año/mes del cursor, así que no afecta.
+  const [cursor, setCursor] = useState(() => new Date());
   const [citas, setCitas] = useState<Cita[]>([]);
   const [loading, setLoading] = useState(true);
   const [catalogos, setCatalogos] = useState<Catalogos | null>(null);
@@ -141,7 +145,7 @@ export default function Agenda() {
           {/* Filtro por terapeuta (buscable). "Todos" = id 0. */}
           <div className="w-56">
             <Combobox
-              options={terapeutas.map(t => ({ id: t.id, label: t.nombre }))}
+              options={terapeutas.map(t => ({ id: t.id, label: conLic(t.nombre) }))}
               value={terapFiltro}
               onChange={setTerapFiltro}
               placeholder="Elige un terapeuta…"
@@ -359,8 +363,8 @@ function ModalCita({ slug, dia, horaInicial, terapeutaInicial, cita, catalogos, 
     return () => { vivo = false; };
   }, [slug, f.paciente_id, f.servicio_id, f.motivo_id]);
 
-  // Duración (min): la del motivo elegido manda; si no, la del servicio; por defecto 45.
-  const duracionDe = (servicioId?: number | null) => motivoSel?.duracion_min || servicios.find(s => s.id === servicioId)?.duracion_min || 45;
+  // Duración (min): la define el MOTIVO de cita elegido; si aún no hay motivo, 45 por defecto.
+  const duracionDe = () => motivoSel?.duracion_min || 45;
 
   // ¿Cambió el "qué" de la cita (motivo o, en su defecto, servicio)? En edición, si es el mismo no se re-exige saldo.
   const refCambiado = esEdicion
@@ -390,7 +394,7 @@ function ModalCita({ slug, dia, horaInicial, terapeutaInicial, cita, catalogos, 
   const mins = (hhmm: string) => { const [h, m] = (hhmm || '').split(':').map(Number); return (h || 0) * 60 + (m || 0); };
   const minDe = (dt: string) => { const d = parseLocal(dt); return d.getHours() * 60 + d.getMinutes(); };
   const hhmmDe = (t: number) => `${pad2(Math.floor(t / 60))}:${pad2(t % 60)}`;
-  const dur = duracionDe(f.servicio_id);
+  const dur = duracionDe();
 
   // Todas las fechas/horas a agendar (principal + extras): para que no choquen ENTRE ellas.
   const nuevosSlots = [{ key: 'main', fecha, horaIni, horaFin }, ...extras];
@@ -537,8 +541,9 @@ function ModalCita({ slug, dia, horaInicial, terapeutaInicial, cita, catalogos, 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(13,26,26,0.5)', backdropFilter: 'blur(3px)' }} onMouseDown={onClose}>
-      <div className="bg-white rounded-2xl w-full max-w-md shadow-xl flex flex-col max-h-[90vh]" onMouseDown={e => e.stopPropagation()}>
+    /* El click fuera NO cierra el modal (evita perder lo escrito): solo la X o «Cancelar». */
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(13,26,26,0.5)', backdropFilter: 'blur(3px)' }}>
+      <div className="bg-white rounded-2xl w-full max-w-md shadow-xl flex flex-col max-h-[90vh]">
         <div className="flex items-center justify-between px-5 py-4 shrink-0" style={{ borderBottom: '1px solid #EEF2F1' }}>
           <div className="flex items-center gap-2.5">
             <div className="h-8 w-8 rounded-lg flex items-center justify-center" style={{ background: '#CCFBF1' }}><Calendar size={16} style={{ color: TEAL }} /></div>
@@ -560,30 +565,27 @@ function ModalCita({ slug, dia, horaInicial, terapeutaInicial, cita, catalogos, 
             />
           </Campo>
           <Campo label="Servicio">
-            <select className="vx-input" value={f.servicio_id || ''} disabled={soloLectura}
-              onChange={e => {
-                const id = e.target.value ? Number(e.target.value) : null;
+            <SelectBox value={f.servicio_id ? String(f.servicio_id) : ''} disabled={soloLectura}
+              onChange={v => {
+                const id = v ? Number(v) : null;
                 // Al cambiar de área se limpia el motivo (pertenece a la anterior).
                 setF(prev => ({ ...prev, servicio_id: id, motivo_id: null }));
-                if (horaIni) setHoraFin(sumarMin(horaIni, servicios.find(s => s.id === id)?.duracion_min || 45));
-              }}>
-              <option value="">(Cualquiera)</option>
-              {servicios.map(s => <option key={s.id} value={s.id}>{s.nombre} · {s.duracion_min ?? 45} min</option>)}
-            </select>
+                // La duración la define el motivo; al cambiar de servicio se resetea a 45 hasta elegir motivo.
+                if (horaIni) setHoraFin(sumarMin(horaIni, 45));
+              }}
+              options={[{ value: '', label: '(Cualquiera)' }, ...servicios.map(s => ({ value: String(s.id), label: s.nombre }))]} />
           </Campo>
           {/* Motivo de cita del servicio elegido: define precio, duración y saldo. */}
           {f.servicio_id && motivosDelServicio.length > 0 && (
             <Campo label="Motivo de cita">
-              <select className="vx-input" value={f.motivo_id || ''} disabled={soloLectura}
-                onChange={e => {
-                  const id = e.target.value ? Number(e.target.value) : null;
+              <SelectBox value={f.motivo_id ? String(f.motivo_id) : ''} disabled={soloLectura}
+                onChange={v => {
+                  const id = v ? Number(v) : null;
                   const m = motivos.find(x => x.id === id);
                   set('motivo_id', id);
                   if (horaIni && m) setHoraFin(sumarMin(horaIni, m.duracion_min || 45));
-                }}>
-                <option value="">(Sin especificar)</option>
-                {motivosDelServicio.map(m => <option key={m.id} value={m.id}>{m.nombre} · S/ {Number(m.precio).toFixed(2)} · {m.duracion_min} min</option>)}
-              </select>
+                }}
+                options={[{ value: '', label: '(Sin especificar)' }, ...motivosDelServicio.map(m => ({ value: String(m.id), label: `${m.nombre} · S/ ${Number(m.precio).toFixed(2)} · ${m.duracion_min} min` }))]} />
               {/* Saldo de sesiones (vínculo venta↔cita), por motivo si hay o por servicio (legacy) */}
               {saldo?.requiere && (f.motivo_id || f.servicio_id) ? (
                 sinSaldo ? (
@@ -601,10 +603,10 @@ function ModalCita({ slug, dia, horaInicial, terapeutaInicial, cita, catalogos, 
             </Campo>
           )}
           <Campo label="Terapeuta *">
-            <select className="vx-input" value={f.terapeuta_id || ''} disabled={soloLectura} onChange={e => set('terapeuta_id', Number(e.target.value))}>
-              <option value="">{f.servicio_id ? 'Terapeutas de ese servicio…' : 'Selecciona…'}</option>
-              {terapeutas.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
-            </select>
+            <SelectBox value={f.terapeuta_id ? String(f.terapeuta_id) : ''} disabled={soloLectura}
+              onChange={v => set('terapeuta_id', v ? Number(v) : 0)}
+              placeholder={f.servicio_id ? 'Terapeutas de ese servicio…' : 'Selecciona…'}
+              options={terapeutas.map(t => ({ value: String(t.id), label: conLic(t.nombre) }))} />
           </Campo>
           <Campo label="Fecha *">
             <DateField value={fecha} onChange={setFecha} disabled={soloLectura} />
@@ -616,7 +618,7 @@ function ModalCita({ slug, dia, horaInicial, terapeutaInicial, cita, catalogos, 
               <HoraCombo value={horaIni} disabled={soloLectura}
                 opciones={horariosLibres.map(s => s.hhmm)}
                 invalido={!soloLectura && !!horaIni && !horaDisponible}
-                onChange={v => { setHoraIni(v); setHoraFin(sumarMin(v, duracionDe(f.servicio_id))); }} />
+                onChange={v => { setHoraIni(v); setHoraFin(sumarMin(v, duracionDe())); }} />
               {!soloLectura && horaIni && !horaDisponible && (
                 <p className="text-[11px] mt-1" style={{ color: '#B91C1C' }}>Ese horario no está disponible. Elige uno de la lista.</p>
               )}
@@ -663,9 +665,9 @@ function ModalCita({ slug, dia, horaInicial, terapeutaInicial, cita, catalogos, 
 
           {esEdicion && (
             <Campo label="Estado">
-              <select className="vx-input" value={f.estado_id ?? ''} disabled={soloLectura} onChange={e => set('estado_id', Number(e.target.value))}>
-                {catalogos.estados_cita.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
-              </select>
+              <SelectBox value={f.estado_id != null ? String(f.estado_id) : ''} disabled={soloLectura}
+                onChange={v => set('estado_id', Number(v))}
+                options={catalogos.estados_cita.map(s => ({ value: String(s.id), label: s.nombre }))} />
             </Campo>
           )}
           <Campo label="Motivo"><input className="vx-input" disabled={soloLectura} value={f.motivo ?? ''} onChange={e => set('motivo', e.target.value)} placeholder="Opcional" /></Campo>

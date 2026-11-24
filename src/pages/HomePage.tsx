@@ -439,37 +439,35 @@ export default function HomePage() {
       </section>
 
       {/* ── CTA final ───────────────────────────────────────── */}
-      <section id="contacto" className="px-6 sm:px-10 py-16 sm:py-24">
-        <div className="max-w-[1150px] mx-auto rounded-3xl px-8 sm:px-14 py-14 sm:py-16 relative overflow-hidden grid lg:grid-cols-2 gap-12 items-center"
+      <section id="contacto" className="px-4 sm:px-10 py-14 sm:py-24">
+        <div className="max-w-[1150px] mx-auto rounded-3xl px-5 sm:px-14 py-10 sm:py-16 relative overflow-hidden grid lg:grid-cols-2 gap-9 lg:gap-12 items-center"
           style={{ background: 'linear-gradient(150deg, rgba(16,185,129,0.1), rgba(255,255,255,0.02))', border: `1px solid ${BORDER}` }}>
           <Aurora />
           <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(50% 80% at 20% 10%, rgba(16,185,129,0.18), transparent 70%)' }} />
           <Reveal className="relative">
-            <h2 style={{ fontFamily: DISPLAY }} className="text-[30px] sm:text-[44px] font-bold leading-[1.06] tracking-[-0.025em]">
-              Llevemos tu institución<br />al siguiente nivel
+            <span className="inline-flex items-center gap-2 text-[12.5px] font-semibold px-3 py-1.5 rounded-full mb-5"
+              style={{ background: 'rgba(16,185,129,0.12)', color: GREEN_BRIGHT, border: `1px solid rgba(16,185,129,0.25)` }}>
+              <Sparkles size={13} /> Solo 20 segundos
+            </span>
+            <h2 style={{ fontFamily: DISPLAY }} className="text-[26px] sm:text-[44px] font-bold leading-[1.1] sm:leading-[1.06] tracking-[-0.025em]">
+              Cuéntanos qué necesitas<br className="hidden sm:block" /> y te preparamos la demo
             </h2>
             <p className="text-[15.5px] mt-5 max-w-md leading-relaxed" style={{ color: MUTED }}>
-              Solicita una demostración y conoce cómo Vaxa puede ayudarte a optimizar tu certificación.
+              Responde 3 preguntas rápidas — sin formularios eternos. Con tus respuestas te contactamos con una propuesta hecha a tu medida.
             </p>
-            <div className="mt-8 flex flex-col sm:flex-row gap-3">
-              <a href={WA_LINK} target="_blank" rel="noreferrer"
-                className="group inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl text-[15px] font-semibold transition-transform hover:-translate-y-0.5"
-                style={{ background: GREEN, color: '#04110C', boxShadow: '0 14px 40px -10px rgba(16,185,129,0.6)' }}>
-                Solicitar demo <ArrowRight size={16} className="transition-transform group-hover:translate-x-0.5" />
-              </a>
-              <a href={`mailto:${EMAIL}?subject=Quiero%20una%20demo%20de%20Vaxa`}
-                className="inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl text-[15px] font-semibold"
-                style={{ background: SURFACE, color: TEXT, border: `1px solid ${BORDER}` }}>
-                Contáctanos
-              </a>
+            <div className="mt-7 flex flex-wrap items-center gap-x-4 gap-y-2 text-[13.5px]" style={{ color: MUTED }}>
+              <span className="inline-flex items-center gap-1.5"><Check size={15} style={{ color: GREEN_BRIGHT }} /> Sin compromiso</span>
+              <span className="inline-flex items-center gap-1.5"><Check size={15} style={{ color: GREEN_BRIGHT }} /> Respuesta en 24 h</span>
             </div>
+            <a href={WA_LINK} target="_blank" rel="noreferrer"
+              className="group inline-flex flex-wrap items-center gap-x-2 gap-y-1 mt-7 text-[14px] font-semibold transition-colors"
+              style={{ color: GREEN_BRIGHT }}>
+              <span className="inline-flex items-center gap-2"><MessageCircle size={16} /> ¿Prefieres escribirnos directo por WhatsApp?</span>
+              <ArrowRight size={15} className="transition-transform group-hover:translate-x-0.5" />
+            </a>
           </Reveal>
           <Reveal delay={120} className="relative">
-            <Shot src="/landing-media/cta.png" alt="Panel de reportes de Vaxa"
-              className="w-full h-auto rounded-2xl"
-              style={{ border: `1px solid ${BORDER}`, boxShadow: '0 40px 90px -30px rgba(0,0,0,0.8)' }}>
-              <CtaDashboard />
-            </Shot>
+            <ContactoQuiz wa={WA_LINK} />
           </Reveal>
         </div>
       </section>
@@ -545,6 +543,171 @@ export default function HomePage() {
 }
 
 /* ── Sub-componentes ─────────────────────────────────────────── */
+
+/**
+ * Mini-cuestionario de contacto (reemplaza el formulario largo que la gente abandona).
+ * Una pregunta por pantalla con opciones grandes que AVANZAN SOLAS al tocarlas; barra de
+ * progreso y, solo al final, nombre + WhatsApp/correo. Envía todo a /public/contacto
+ * (mismo buzón info@vaxa.com.pe) armando el "mensaje" con las respuestas. Sin backend nuevo.
+ */
+const QUIZ_PASOS = [
+  {
+    key: 'tipo', q: '¿Qué describe mejor a tu organización?',
+    ops: [
+      { v: 'Instituto / Academia', Icon: GraduationCap },
+      { v: 'Centro de salud / terapéutico', Icon: Users },
+      { v: 'Profesional independiente', Icon: UserPlus },
+      { v: 'Empresa u otro', Icon: Building2 },
+    ],
+  },
+  {
+    key: 'objetivo', q: '¿Qué te gustaría lograr con Vaxa?',
+    ops: [
+      { v: 'Emitir certificados con QR', Icon: QrCode },
+      { v: 'Gestionar historias clínicas', Icon: FileText },
+      { v: 'Tener mi web / marca personal', Icon: Sparkles },
+      { v: 'Reportes y automatizar mi gestión', Icon: BarChart3 },
+    ],
+  },
+  {
+    key: 'plazo', q: '¿Para cuándo lo necesitas?',
+    ops: [
+      { v: 'Lo necesito ya', Icon: Zap },
+      { v: 'Este mes', Icon: TrendingUp },
+      { v: 'Solo estoy explorando', Icon: MousePointerClick },
+    ],
+  },
+];
+
+function ContactoQuiz({ wa }: { wa: string }) {
+  const TOTAL = QUIZ_PASOS.length + 1;   // + paso de datos
+  const [paso, setPaso] = useState(0);
+  const [resp, setResp] = useState<Record<string, string>>({});
+  const [nombre, setNombre] = useState('');
+  const [tel, setTel] = useState('');
+  const [correo, setCorreo] = useState('');
+  const [enviando, setEnviando] = useState(false);
+  const [listo, setListo] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const elegir = (key: string, v: string) => {
+    setResp(p => ({ ...p, [key]: v }));
+    setError(null);
+    setTimeout(() => setPaso(s => s + 1), 180);   // pequeño feedback antes de avanzar
+  };
+  const atras = () => { setError(null); setPaso(s => Math.max(0, s - 1)); };
+
+  const enviar = async () => {
+    if (!nombre.trim()) { setError('Dinos tu nombre 🙂'); return; }
+    if (!tel.trim() && !correo.trim()) { setError('Déjanos un WhatsApp o un correo.'); return; }
+    setEnviando(true); setError(null);
+    try {
+      await api.post('/public/contacto', {
+        nombre: nombre.trim(),
+        telefono: tel.trim() || null,
+        correo: correo.trim() || null,
+        motivo: resp.objetivo || null,
+        mensaje: `Organización: ${resp.tipo || '—'} · Objetivo: ${resp.objetivo || '—'} · Plazo: ${resp.plazo || '—'}`,
+        origen: 'Landing Vaxa (cuestionario)',
+      });
+      setListo(true);
+    } catch (e: any) {
+      setError(e?.message ?? 'No se pudo enviar. Prueba por WhatsApp.');
+    } finally { setEnviando(false); }
+  };
+
+  const pct = Math.round(((paso + 1) / TOTAL) * 100);
+  const cardStyle = { background: 'rgba(8,16,14,0.72)', border: `1px solid ${BORDER}`, boxShadow: '0 40px 90px -30px rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)' } as const;
+
+  // ── Pantalla de éxito ──────────────────────────────────────────────
+  if (listo) {
+    return (
+      <div className="rounded-2xl p-8 sm:p-10 text-center page-fade" style={cardStyle}>
+        <div className="w-16 h-16 rounded-2xl mx-auto flex items-center justify-center mb-5" style={{ background: 'rgba(16,185,129,0.15)', border: `1px solid rgba(16,185,129,0.3)` }}>
+          <BadgeCheck size={32} style={{ color: GREEN_BRIGHT }} />
+        </div>
+        <h3 style={{ fontFamily: DISPLAY }} className="text-[22px] font-bold">¡Listo, {nombre.split(' ')[0] || 'gracias'}! 🎉</h3>
+        <p className="text-[14.5px] mt-2 leading-relaxed" style={{ color: MUTED }}>
+          Recibimos tus respuestas. Te contactamos con una propuesta a tu medida en menos de 24 horas.
+        </p>
+        <a href={wa} target="_blank" rel="noreferrer"
+          className="inline-flex items-center justify-center gap-2 mt-6 px-6 py-3 rounded-xl text-[14px] font-semibold transition-transform hover:-translate-y-0.5"
+          style={{ background: GREEN, color: '#04110C' }}>
+          <MessageCircle size={16} /> O escríbenos ya por WhatsApp
+        </a>
+      </div>
+    );
+  }
+
+  const esDatos = paso >= QUIZ_PASOS.length;
+  const pasoActual = QUIZ_PASOS[paso];
+
+  return (
+    <div className="rounded-2xl p-6 sm:p-7" style={cardStyle}>
+      {/* Progreso */}
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-[11.5px] font-semibold uppercase tracking-wider" style={{ color: GREEN_BRIGHT }}>Paso {paso + 1} de {TOTAL}</span>
+        {paso > 0 && (
+          <button onClick={atras} className="inline-flex items-center gap-1 text-[12.5px] font-medium transition-colors hover:text-white" style={{ color: MUTED }}>
+            <ArrowRight size={13} className="rotate-180" /> Atrás
+          </button>
+        )}
+      </div>
+      <div className="h-1.5 rounded-full overflow-hidden mb-6" style={{ background: 'rgba(255,255,255,0.08)' }}>
+        <div className="h-full rounded-full transition-all duration-300" style={{ width: `${pct}%`, background: `linear-gradient(90deg, ${GREEN}, ${GREEN_BRIGHT})` }} />
+      </div>
+
+      {/* Contenido del paso (fade al cambiar) */}
+      <div key={paso} className="page-fade">
+        {!esDatos ? (
+          <>
+            <h3 style={{ fontFamily: DISPLAY }} className="text-[20px] sm:text-[23px] font-bold leading-tight mb-5">{pasoActual.q}</h3>
+            <div className="grid gap-2.5">
+              {pasoActual.ops.map(({ v, Icon }) => {
+                const activo = resp[pasoActual.key] === v;
+                return (
+                  <button key={v} onClick={() => elegir(pasoActual.key, v)}
+                    className="group flex items-center gap-3 text-left px-4 py-3.5 rounded-xl transition-all hover:-translate-y-0.5"
+                    style={{ background: activo ? 'rgba(16,185,129,0.14)' : SURFACE, border: `1px solid ${activo ? 'rgba(16,185,129,0.5)' : BORDER}` }}>
+                    <span className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 transition-colors"
+                      style={{ background: activo ? GREEN : 'rgba(16,185,129,0.12)' }}>
+                      <Icon size={17} color={activo ? '#04110C' : GREEN_BRIGHT} />
+                    </span>
+                    <span className="text-[14.5px] font-semibold flex-1" style={{ color: TEXT }}>{v}</span>
+                    <ArrowRight size={16} className="transition-all opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0" style={{ color: GREEN_BRIGHT }} />
+                  </button>
+                );
+              })}
+            </div>
+          </>
+        ) : (
+          <>
+            <h3 style={{ fontFamily: DISPLAY }} className="text-[20px] sm:text-[23px] font-bold leading-tight mb-1">¿A dónde te escribimos?</h3>
+            <p className="text-[13.5px] mb-5" style={{ color: MUTED }}>Último paso — déjanos tus datos y listo.</p>
+            <div className="space-y-3">
+              <input value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Tu nombre" autoFocus
+                className="w-full px-4 py-3 rounded-xl text-[14.5px] outline-none transition-colors focus:border-[rgba(16,185,129,0.5)]"
+                style={{ background: SURFACE, border: `1px solid ${BORDER}`, color: TEXT }} />
+              <input value={tel} onChange={e => setTel(e.target.value.replace(/[^\d+ ]/g, ''))} inputMode="tel" placeholder="WhatsApp / teléfono"
+                className="w-full px-4 py-3 rounded-xl text-[14.5px] outline-none transition-colors focus:border-[rgba(16,185,129,0.5)]"
+                style={{ background: SURFACE, border: `1px solid ${BORDER}`, color: TEXT }} />
+              <input value={correo} onChange={e => setCorreo(e.target.value)} type="email" placeholder="Correo (opcional)"
+                className="w-full px-4 py-3 rounded-xl text-[14.5px] outline-none transition-colors focus:border-[rgba(16,185,129,0.5)]"
+                style={{ background: SURFACE, border: `1px solid ${BORDER}`, color: TEXT }} />
+            </div>
+            <button onClick={enviar} disabled={enviando}
+              className="w-full mt-5 inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl text-[15px] font-semibold transition-transform hover:-translate-y-0.5 disabled:opacity-60"
+              style={{ background: GREEN, color: '#04110C', boxShadow: '0 14px 40px -12px rgba(16,185,129,0.6)' }}>
+              {enviando ? 'Enviando…' : <>Quiero mi demo <ArrowRight size={16} /></>}
+            </button>
+          </>
+        )}
+        {error && <p className="text-[13px] mt-3 text-center" style={{ color: '#FCA5A5' }}>{error}</p>}
+      </div>
+    </div>
+  );
+}
+
 /** Logo oficial de WhatsApp (globo + teléfono). Negro por defecto. */
 function WhatsAppIcon({ size = 28, color = '#04110C' }: { size?: number; color?: string }) {
   return (

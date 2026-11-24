@@ -4,6 +4,7 @@ import { authStorage } from '@/lib/auth';
 import { useEmpresaSlug } from '@/lib/useEmpresa';
 import { terapApi, type Servicio, type Terapeuta } from '../../shared/api/terapeutico.api';
 import { Overlay, Cabecera, Campo } from '../../shared/finanzas';
+import { conLic } from '../../shared/terapeutas';
 import MotivosCentro from './Motivos';
 import PaquetesCentro from './Paquetes';
 
@@ -61,7 +62,6 @@ function CatalogoServicios({ slug, servicios, onChange }: {
 }) {
   const [nombre, setNombre] = useState('');
   const [desc, setDesc] = useState('');
-  const [dur, setDur] = useState('45');
   const [saving, setSaving] = useState(false);
   const [editar, setEditar] = useState<Servicio | null>(null);
 
@@ -69,9 +69,9 @@ function CatalogoServicios({ slug, servicios, onChange }: {
     e.preventDefault();
     if (!nombre.trim()) return;
     setSaving(true);
-    // El servicio es solo el ÁREA: NO lleva precio (el precio va en cada motivo de cita).
-    const s = await terapApi.createServicio(slug, { nombre, descripcion: desc || null, duracion_min: Number(dur) || 45 });
-    onChange([...servicios, s]); setNombre(''); setDesc(''); setDur('45'); setSaving(false);
+    // El servicio es solo el ÁREA: NO lleva precio ni duración (eso vive en cada motivo de cita).
+    const s = await terapApi.createServicio(slug, { nombre, descripcion: desc || null });
+    onChange([...servicios, s]); setNombre(''); setDesc(''); setSaving(false);
   };
   const toggle = async (s: Servicio) => {
     const upd = await terapApi.updateServicio(slug, s.id, { activo: !s.activo });
@@ -97,10 +97,6 @@ function CatalogoServicios({ slug, servicios, onChange }: {
           <label className="flex-1 min-w-[160px]">
             <span className="block text-[10.5px] font-semibold uppercase tracking-wider mb-1" style={{ color: '#64748B' }}>Descripción (opcional)</span>
             <input className="vx-input" value={desc} onChange={e => setDesc(e.target.value)} />
-          </label>
-          <label className="w-[110px]">
-            <span className="block text-[10.5px] font-semibold uppercase tracking-wider mb-1" style={{ color: '#64748B' }}>Duración (min)</span>
-            <input className="vx-input" type="number" min={5} step="5" value={dur} onChange={e => setDur(e.target.value)} placeholder="45" />
           </label>
           <button type="submit" disabled={saving || !nombre.trim()} className="px-5 py-2 rounded-xl text-white text-[13px] font-semibold flex items-center gap-1.5 disabled:opacity-50" style={{ background: TEAL }}>
             {saving ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />} Agregar
@@ -130,7 +126,6 @@ function CatalogoServicios({ slug, servicios, onChange }: {
                   </div>
                 </div>
                 <div className="flex items-center gap-3 shrink-0">
-                  <span className="text-[11.5px] font-semibold px-2 py-0.5 rounded-full" style={{ background: '#F1F5F4', color: '#475569' }}>{s.duracion_min ?? 45} min</span>
                   <button onClick={() => setEditar(s)} className="h-8 w-8 rounded-lg flex items-center justify-center hover:bg-[#F1F5F4] transition-colors" style={{ color: '#64748B' }} title="Editar">
                     <Pencil size={15} />
                   </button>
@@ -164,7 +159,6 @@ function ModalEditarServicio({ slug, servicio, onClose, onSaved }: {
 }) {
   const [nombre, setNombre] = useState(servicio.nombre);
   const [desc, setDesc] = useState(servicio.descripcion ?? '');
-  const [dur, setDur] = useState(String(servicio.duracion_min ?? 45));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -173,9 +167,9 @@ function ModalEditarServicio({ slug, servicio, onClose, onSaved }: {
     if (!nombre.trim()) { setError('El nombre es obligatorio.'); return; }
     setSaving(true); setError(null);
     try {
-      // El precio no se toca aquí: vive en los motivos de cita.
+      // El precio y la duración no se tocan aquí: viven en los motivos de cita.
       const upd = await terapApi.updateServicio(slug, servicio.id, {
-        nombre: nombre.trim(), descripcion: desc || null, duracion_min: Number(dur) || 45,
+        nombre: nombre.trim(), descripcion: desc || null,
       });
       onSaved(upd);
     } catch (err: any) { setError(err?.message ?? 'No se pudo guardar'); setSaving(false); }
@@ -188,9 +182,6 @@ function ModalEditarServicio({ slug, servicio, onClose, onSaved }: {
         <Campo label="Nombre del servicio *"><input className="vx-input" value={nombre} onChange={e => setNombre(e.target.value)} autoFocus placeholder="Ej. Terapia de lenguaje" /></Campo>
         <Campo label="Descripción (opcional)">
           <textarea className="vx-input" rows={3} value={desc} onChange={e => setDesc(e.target.value)} placeholder="¿Qué incluye este servicio?" />
-        </Campo>
-        <Campo label="Duración (min) · por defecto para sus citas">
-          <input className="vx-input" type="number" min={5} step="5" value={dur} onChange={e => setDur(e.target.value)} placeholder="45" />
         </Campo>
         {error && <p className="text-[12.5px] px-3 py-2 rounded-lg" style={{ background: '#FEF2F2', color: '#B91C1C' }}>{error}</p>}
         <div className="flex gap-2 pt-1">
@@ -253,7 +244,7 @@ function FilaTerapeuta({ slug, terapeuta, servicios }: { slug: string; terapeuta
   return (
     <div className="rounded-xl p-3" style={{ background: '#F6FAF9', border: '1px solid #E5E9E7' }}>
       <div className="flex items-center justify-between mb-2">
-        <p className="text-[13.5px] font-semibold" style={{ color: '#0E1A1A' }}>{terapeuta.nombre}</p>
+        <p className="text-[13.5px] font-semibold" style={{ color: '#0E1A1A' }}>{conLic(terapeuta.nombre)}</p>
         {dirty && (
           <button onClick={guardar} disabled={saving} className="text-[12px] font-semibold px-3 py-1.5 rounded-lg text-white flex items-center gap-1.5" style={{ background: TEAL }}>
             {saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Guardar

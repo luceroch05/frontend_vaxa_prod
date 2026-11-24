@@ -4,6 +4,8 @@ import { useEmpresaSlug } from '@/lib/useEmpresa';
 import { authStorage } from '@/lib/auth';
 import { terapApi, type CajaData, type CajaMov } from '../../shared/api/terapeutico.api';
 import { TEAL, hoy, primerDiaMes, ultimoDiaMes, soles, fmtFecha, Overlay, Cabecera, Campo, EncabezadoPagina, Resumen, Cargando, Vacio, ModalDetalleVenta } from '../../shared/finanzas';
+import DateField from '@/modules/extensions/certificaciones/shared/components/DateField';
+import SelectBox from '../../shared/components/SelectBox';
 
 /** Nombres bonitos de los métodos de pago (la BD guarda el slug). */
 const METODO_LABEL: Record<string, string> = {
@@ -46,17 +48,17 @@ export default function Caja() {
       />
 
       <div className="flex items-end gap-2 mb-4 flex-wrap">
-        <Campo label="Desde"><input type="date" className="vx-input" value={desde} onChange={e => setDesde(e.target.value)} /></Campo>
-        <Campo label="Hasta"><input type="date" className="vx-input" value={hasta} onChange={e => setHasta(e.target.value)} /></Campo>
+        <Campo label="Desde"><div className="w-40"><DateField value={desde} onChange={setDesde} /></div></Campo>
+        <Campo label="Hasta"><div className="w-40"><DateField value={hasta} onChange={setHasta} /></div></Campo>
         <Campo label="Método de pago">
-          <select className="vx-input" value={metodo} onChange={e => setMetodo(e.target.value)}>
-            <option value="">Todos</option>
-            <option value="efectivo">Efectivo</option>
-            <option value="tarjeta">Tarjeta</option>
-            <option value="yape">Yape / Plin</option>
-            <option value="transferencia">Transferencia</option>
-            <option value="mixto">Mixto (venta con varios pagos)</option>
-          </select>
+          <div className="w-56"><SelectBox value={metodo} onChange={setMetodo} options={[
+            { value: '', label: 'Todos' },
+            { value: 'efectivo', label: 'Efectivo' },
+            { value: 'tarjeta', label: 'Tarjeta' },
+            { value: 'yape', label: 'Yape / Plin' },
+            { value: 'transferencia', label: 'Transferencia' },
+            { value: 'mixto', label: 'Mixto (venta con varios pagos)' },
+          ]} /></div>
         </Campo>
       </div>
 
@@ -147,7 +149,7 @@ function ModalCaja({ slug, onClose, onDone }: { slug: string; onClose: () => voi
         </div>
         <div className="grid grid-cols-2 gap-3">
           <Campo label="Monto (S/)"><input type="number" min={0} step="0.01" className="vx-input" value={monto} onChange={e => setMonto(e.target.value)} autoFocus /></Campo>
-          <Campo label="Fecha"><input type="date" className="vx-input" value={fecha} onChange={e => setFecha(e.target.value)} /></Campo>
+          <Campo label="Fecha"><DateField value={fecha} onChange={setFecha} /></Campo>
         </div>
         <Campo label="Concepto *"><input className="vx-input" value={concepto} onChange={e => setConcepto(e.target.value)} placeholder="Ej. Pago de servicios, compra de insumos…" /></Campo>
         <Campo label="Categoría (opcional)"><input className="vx-input" value={categoria} onChange={e => setCategoria(e.target.value)} placeholder="Alquiler, sueldos, insumos…" /></Campo>

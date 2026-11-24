@@ -1,14 +1,15 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Plus, Trash2, Loader2, PrinterIcon, DollarSign, User, CreditCard, CheckCircle } from '@/components/ui/icon';
 import { useEmpresaSlug } from '@/lib/useEmpresa';
 import { useTerapCtx } from '../../shared/TerapShell';
 import { terapPath } from '@/lib/paths';
 import {
-  terapApi, type Producto, type Motivo, type Paquete, type Paciente, type Venta, type VentaItemDto,
+  terapApi, type Producto, type Motivo, type Paquete, type Paciente, type Venta, type VentaItem, type VentaItemDto,
 } from '../../shared/api/terapeutico.api';
 import { imprimirTicket, imprimirA4 } from './comprobante';
 import Combobox, { type ComboOption } from '../../shared/components/Combobox';
+import SelectBox from '../../shared/components/SelectBox';
 
 const TEAL = '#0F766E';
 const soles = (n: number) => `S/ ${(Number(n) || 0).toFixed(2)}`;
@@ -65,11 +66,31 @@ const descMonto = (base: number, tipo: 'monto' | 'pct', val: number) => {
   return Math.min(Math.max(bruto, 0), base);
 };
 
+/** Reconstruye las filas editables desde los ítems guardados de una venta. Las líneas de
+ *  CONTENIDO de un paquete (tipo 'servicio' con paquete_id) se omiten: el backend las vuelve
+ *  a expandir desde la línea cabecera del paquete al guardar. */
+function filasDesdeItems(items: VentaItem[]): Fila[] {
+  const out: Fila[] = [];
+  for (const it of items) {
+    if (it.paquete_id && it.tipo !== 'paquete') continue;   // contenido del paquete → lo arma el back
+    const base = { key: `${it.id}-${Math.random().toString(36).slice(2)}`, nombre: it.descripcion, precio_unit: Number(it.precio_unit) || 0, cantidad: Number(it.cantidad) || 1, descTipo: 'monto' as const, descVal: Number(it.descuento) || 0 };
+    if (it.tipo === 'paquete' && it.paquete_id) out.push({ ...base, tipo: 'paquete', refId: it.paquete_id });
+    else if (it.motivo_id) out.push({ ...base, tipo: 'motivo', refId: it.motivo_id });
+    else if (it.producto_id) out.push({ ...base, tipo: 'producto', refId: it.producto_id });
+    else if (it.servicio_id) out.push({ ...base, tipo: 'servicio', refId: it.servicio_id });
+  }
+  return out;
+}
+
 export default function NuevaVenta() {
   const slug = useEmpresaSlug()!;
   const navigate = useNavigate();
+  const { id } = useParams();
+  const editId = id ? Number(id) : null;
+  const esEdicion = !!editId;
   const { centro } = useTerapCtx();
 
+  const [cargandoVenta, setCargandoVenta] = useState(esEdicion);
   const [motivos, setMotivos] = useState<Motivo[]>([]);
   const [paquetes, setPaquetes] = useState<Paquete[]>([]);
   const [productos, setProductos] = useState<Producto[]>([]);
@@ -92,6 +113,28 @@ export default function NuevaVenta() {
     terapApi.listProductos(slug).then((p) => setProductos(p.filter((x) => x.activo))).catch(() => {});
     terapApi.listPacientes(slug).then(setPacientes).catch(() => {});
   }, [slug]);
+
+  // Modo edición: carga la venta y precarga el formulario (ítems, pagos, descuento, paciente).
+  useEffect(() => {
+    if (!editId) return;
+    let vivo = true;
+    setCargandoVenta(true);
+    terapApi.getVenta(slug, editId)
+      .then((v) => {
+        if (!vivo) return;
+        if (v.estado === 'anulada') { setError('Esta venta está anulada y no se puede editar.'); return; }
+        setFilas(filasDesdeItems(v.items ?? []));
+        setPacienteId(v.paciente_id ? String(v.paciente_id) : '');
+        setNota(v.nota ?? '');
+        setDescTipo('monto');
+        setDescVal(Number(v.descuento) || 0);
+        const ps = (v.pagos ?? []).map((p) => ({ metodo: p.metodo_pago, monto: Number(p.monto) || 0 }));
+        setPagos(ps.length ? ps : [{ metodo: 'efectivo', monto: 0 }]);
+      })
+      .catch((e) => { if (vivo) setError((e as Error)?.message ?? 'No se pudo cargar la venta'); })
+      .finally(() => { if (vivo) setCargandoVenta(false); });
+    return () => { vivo = false; };
+  }, [slug, editId]);
 
   const addMotivo = (id: number) => {
     const m = motivos.find((x) => x.id === id); if (!m) return;
@@ -183,13 +226,14 @@ export default function NuevaVenta() {
         // El paquete trae su precio fijo (el descuento ya está dentro): no se manda descuento de línea.
         descuento: f.tipo === 'paquete' ? 0 : +f.desc.toFixed(2),
       }));
-      const v = await terapApi.createVenta(slug, {
+      const dto = {
         paciente_id: pacienteId ? Number(pacienteId) : null,
         pagos: pagos.map((p) => ({ metodo: p.metodo, monto: +(Number(p.monto) || 0).toFixed(2) })),
         nota: nota || null,
         descuento: +descGlobal.toFixed(2), items,
-      });
-      // Reconstruimos la venta para el comprobante (createVenta devuelve la cabecera).
+      };
+      const v = esEdicion ? await terapApi.updateVenta(slug, editId!, dto) : await terapApi.createVenta(slug, dto);
+      // Reconstruimos la venta para el comprobante (create/update devuelven la cabecera).
       const completa = await terapApi.getVenta(slug, v.id).catch(() => null);
       setGuardada(completa ?? v);
     } catch (e) { setError((e as Error)?.message ?? 'No se pudo registrar la venta'); }
@@ -198,6 +242,15 @@ export default function NuevaVenta() {
 
   const volver = () => navigate(terapPath(slug, '/panel/ventas'));
 
+  // Cargando la venta a editar: evita que el formulario parpadee vacío antes de precargar.
+  if (cargandoVenta) {
+    return (
+      <div className="flex justify-center py-20">
+        <Loader2 size={26} className="animate-spin" style={{ color: TEAL }} />
+      </div>
+    );
+  }
+
   // ── Pantalla de éxito (con impresión) ──────────────────────────────────────────
   if (guardada) {
     return (
@@ -205,7 +258,7 @@ export default function NuevaVenta() {
         <div className="h-16 w-16 rounded-2xl mx-auto flex items-center justify-center mb-4" style={{ background: '#DCFCE7' }}>
           <CheckCircle size={30} style={{ color: '#15803D' }} />
         </div>
-        <h1 className="text-[20px] font-bold" style={{ color: '#0E1A1A' }}>Venta #{guardada.id} registrada</h1>
+        <h1 className="text-[20px] font-bold" style={{ color: '#0E1A1A' }}>Venta #{guardada.id} {esEdicion ? 'actualizada' : 'registrada'}</h1>
         <p className="text-[13.5px] mt-1" style={{ color: '#6B7280' }}>Total {soles(guardada.total)} · {guardada.metodo_pago === 'mixto' ? 'pago mixto' : guardada.metodo_pago}</p>
         <div className="flex flex-wrap justify-center gap-2 mt-6">
           <button onClick={() => imprimirTicket(guardada, centro ?? null)} className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-[13px] font-semibold" style={{ background: '#F1F5F4', color: '#374151' }}>
@@ -216,7 +269,9 @@ export default function NuevaVenta() {
           </button>
         </div>
         <div className="flex justify-center gap-3 mt-4 text-[13px] font-semibold">
-          <button onClick={() => { setGuardada(null); setFilas([]); setDescVal(0); setNota(''); setPacienteId(''); setPagos([{ metodo: 'efectivo', monto: 0 }]); }} style={{ color: TEAL }}>+ Nueva venta</button>
+          {esEdicion
+            ? <button onClick={() => navigate(terapPath(slug, '/panel/ventas/nueva'))} style={{ color: TEAL }}>+ Nueva venta</button>
+            : <button onClick={() => { setGuardada(null); setFilas([]); setDescVal(0); setNota(''); setPacienteId(''); setPagos([{ metodo: 'efectivo', monto: 0 }]); }} style={{ color: TEAL }}>+ Nueva venta</button>}
           <button onClick={volver} style={{ color: '#6B7280' }}>Volver a la lista</button>
         </div>
       </div>
@@ -232,7 +287,7 @@ export default function NuevaVenta() {
         </button>
         <div className="flex items-center gap-2">
           <DollarSign size={20} style={{ color: TEAL }} />
-          <h1 className="text-[19px] font-bold" style={{ color: '#0E1A1A' }}>Nueva venta</h1>
+          <h1 className="text-[19px] font-bold" style={{ color: '#0E1A1A' }}>{esEdicion ? `Editar venta #${editId}` : 'Nueva venta'}</h1>
         </div>
       </div>
 
@@ -288,12 +343,8 @@ export default function NuevaVenta() {
                   <button type="button" onClick={() => setFila(i, { cantidad: f.cantidad + 1 })} className="h-6 w-6 rounded-md text-[15px] leading-none" style={{ background: '#F1F5F4', color: '#374151' }}>+</button>
                 </div>
 
-                {f.tipo === 'paquete' ? (
-                  <span className="text-right text-[13px] tabular-nums" style={{ color: '#6B7280' }}>{soles(f.precio_unit)}</span>
-                ) : (
-                  <NumInput min={0} step="0.01" className="text-right text-[13px] rounded-md py-1 px-1.5" style={{ border: '1px solid #E5E9E7' }}
-                    value={f.precio_unit} onChange={(n) => setFila(i, { precio_unit: n })} />
-                )}
+                {/* Precio fijo del catálogo (no editable): se muestra, no se puede cambiar a mano. */}
+                <span className="text-right text-[13px] tabular-nums" style={{ color: '#6B7280' }}>{soles(f.precio_unit)}</span>
 
                 {/* Descuento por ítem con toggle S/ ↔ %. El paquete ya trae el descuento dentro. */}
                 {f.tipo === 'paquete' ? (
@@ -368,12 +419,12 @@ export default function NuevaVenta() {
             </div>
             {pagos.map((p, i) => (
               <div key={i} className="flex items-center gap-1.5">
-                <select className="vx-input flex-1" value={p.metodo} onChange={(e) => setPago(i, { metodo: e.target.value })}>
-                  <option value="efectivo">Efectivo</option>
-                  <option value="tarjeta">Tarjeta</option>
-                  <option value="yape">Yape / Plin</option>
-                  <option value="transferencia">Transferencia</option>
-                </select>
+                <SelectBox className="flex-1" value={p.metodo} onChange={(v) => setPago(i, { metodo: v })} options={[
+                  { value: 'efectivo', label: 'Efectivo' },
+                  { value: 'tarjeta', label: 'Tarjeta' },
+                  { value: 'yape', label: 'Yape / Plin' },
+                  { value: 'transferencia', label: 'Transferencia' },
+                ]} />
                 <NumInput min={0} step="0.01" disabled={pagos.length === 1}
                   className="w-24 text-right text-[13px] rounded-md py-1.5 px-2 disabled:opacity-60" style={{ border: '1px solid #E5E9E7' }}
                   value={p.monto} onChange={(n) => setPago(i, { monto: n })} />
@@ -393,7 +444,7 @@ export default function NuevaVenta() {
           {error && <p className="text-[12.5px] px-3 py-2 rounded-lg" style={{ background: '#FEF2F2', color: '#B91C1C' }}>{error}</p>}
 
           <button onClick={guardar} disabled={saving || !filas.length} className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-[14px] font-bold text-white disabled:opacity-60" style={{ background: TEAL }}>
-            {saving && <Loader2 size={15} className="animate-spin" />} Guardar venta
+            {saving && <Loader2 size={15} className="animate-spin" />} {esEdicion ? 'Guardar cambios' : 'Guardar venta'}
           </button>
         </div>
       </div>

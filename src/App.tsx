@@ -114,6 +114,7 @@ function terapeuticoChildren() {
           <Route path="servicios" element={<TerapServicios />} />
           <Route path="ventas" element={<TerapVentas />} />
           <Route path="ventas/nueva" element={<TerapNuevaVenta />} />
+          <Route path="ventas/:id/editar" element={<TerapNuevaVenta />} />
           <Route path="inventario" element={<TerapInventario />} />
           <Route path="caja" element={<TerapCaja />} />
           <Route path="reportes" element={<TerapReportes />} />
@@ -243,6 +244,7 @@ export default function App() {
               <Route path="servicios" element={<TerapServicios />} />
               <Route path="ventas" element={<TerapVentas />} />
           <Route path="ventas/nueva" element={<TerapNuevaVenta />} />
+          <Route path="ventas/:id/editar" element={<TerapNuevaVenta />} />
               <Route path="inventario" element={<TerapInventario />} />
               <Route path="caja" element={<TerapCaja />} />
               <Route path="web" element={<TerapMiWeb />} />

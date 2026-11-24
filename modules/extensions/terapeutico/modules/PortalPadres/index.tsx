@@ -4,6 +4,7 @@ import { Loader2, TrendingUp, Calendar, Activity, Home, CheckCircle } from '@/co
 import { imgUrl } from '@/lib/api/client';
 import { terapApi, type PortalData, type PortalObjetivo, type PortalTarea } from '../../shared/api/terapeutico.api';
 import { esVideoMime, youtubeEmbedUrl } from '../../shared/video';
+import { conLic } from '../../shared/terapeutas';
 
 const TEAL = '#0F766E';
 
@@ -153,7 +154,7 @@ export default function PortalPadres() {
                       {d.toLocaleDateString(undefined, { weekday: 'long' })} · {d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </p>
                     <p className="text-[12px] truncate" style={{ color: '#6B7280' }}>
-                      {c.servicio_nombre ?? 'Terapia'}{c.terapeuta_nombre ? ` · ${c.terapeuta_nombre}` : ''}
+                      {c.servicio_nombre ?? 'Terapia'}{c.terapeuta_nombre ? ` · ${conLic(c.terapeuta_nombre)}` : ''}
                     </p>
                   </div>
                 </div>

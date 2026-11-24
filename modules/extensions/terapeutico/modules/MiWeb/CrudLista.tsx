@@ -127,8 +127,9 @@ export default function CrudLista<T extends Item>({
       </div>
 
       {modal !== null && createPortal(
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" style={{ background: 'rgba(13,26,26,0.45)', backdropFilter: 'blur(4px)' }} onMouseDown={cerrar}>
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto" onMouseDown={(e) => e.stopPropagation()}>
+        /* El click fuera NO cierra el formulario (evita perder lo escrito): solo la X o «Cancelar». */
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" style={{ background: 'rgba(13,26,26,0.45)', backdropFilter: 'blur(4px)' }}>
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-[17px] font-bold" style={{ color: '#0E1A1A' }}>{editando ? 'Editar' : 'Agregar'}</h3>
               <button onClick={cerrar} style={{ color: '#94A3B8' }}><X size={18} /></button>

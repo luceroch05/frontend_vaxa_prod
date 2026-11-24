@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, FormEvent } from 'react';
 import { Loader2, Plus, Pencil, Save, Trash2, Layers } from '@/components/ui/icon';
 import { terapApi, type Paquete, type Motivo, type Servicio } from '../../shared/api/terapeutico.api';
 import { Overlay, Cabecera, Campo } from '../../shared/finanzas';
+import SelectBox from '../../shared/components/SelectBox';
 
 const TEAL = '#0F766E';
 const soles = (n: number | string) => `S/ ${Number(n || 0).toFixed(2)}`;
@@ -170,10 +171,8 @@ function ModalPaquete({ slug, servicios, motivos, paquete, onClose, onSaved }: {
         </Campo>
         <div className="grid grid-cols-2 gap-3">
           <Campo label="Área (opcional)">
-            <select className="vx-input" value={servicioId} onChange={e => setServicioId(e.target.value)}>
-              <option value="">— Sin área / combo —</option>
-              {servicios.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
-            </select>
+            <SelectBox value={String(servicioId ?? '')} onChange={setServicioId}
+              options={[{ value: '', label: '— Sin área / combo —' }, ...servicios.map(s => ({ value: String(s.id), label: s.nombre }))]} />
           </Campo>
           <Campo label="Descripción (opcional)">
             <input className="vx-input" value={desc} onChange={e => setDesc(e.target.value)} placeholder="¿Qué incluye?" />
@@ -189,10 +188,9 @@ function ModalPaquete({ slug, servicios, motivos, paquete, onClose, onSaved }: {
           <div className="space-y-2">
             {lineas.map((l, i) => (
               <div key={l.key} className="flex items-center gap-2">
-                <select className="vx-input flex-1" value={l.motivo_id || ''} onChange={e => setLinea(i, { motivo_id: Number(e.target.value) })}>
-                  <option value="">Elige un motivo…</option>
-                  {motivos.map(m => <option key={m.id} value={m.id}>{m.servicio_nombre} · {m.nombre} ({soles(m.precio)})</option>)}
-                </select>
+                <SelectBox className="flex-1" value={l.motivo_id ? String(l.motivo_id) : ''} onChange={v => setLinea(i, { motivo_id: v ? Number(v) : 0 })}
+                  placeholder="Elige un motivo…"
+                  options={motivos.map(m => ({ value: String(m.id), label: `${m.servicio_nombre} · ${m.nombre} (${soles(m.precio)})` }))} />
                 <div className="flex items-center gap-1">
                   <span className="text-[12px]" style={{ color: '#94A3B8' }}>×</span>
                   <input type="number" min={1} step={1} value={l.cantidad || ''} onChange={e => setLinea(i, { cantidad: Number(e.target.value) })}

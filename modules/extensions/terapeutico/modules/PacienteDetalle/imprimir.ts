@@ -1,5 +1,6 @@
 import { imgUrl } from '@/lib/api/client';
 import { terapAuthApi, type Paciente, type Historia, type Sesion, type Diagnostico } from '../../shared/api/terapeutico.api';
+import { conLic } from '../../shared/terapeutas';
 
 /**
  * Exportar la historia clínica a PDF sin tocar el backend: se arma un documento
@@ -53,7 +54,7 @@ export async function imprimirHistoria({ slug, paciente, historia, diagnosticos,
         <div class="sesion">
           <div class="sesion-h">
             <b>Sesión ${esc(s.numero_sesion ?? '')} · ${fecha(s.fecha)}</b>
-            <span>${esc(s.terapeuta_nombre ?? '')}${s.firmada ? ' · ✔ firmada' : ''}</span>
+            <span>${esc(conLic(s.terapeuta_nombre))}${s.firmada ? ' · ✔ firmada' : ''}</span>
           </div>
           ${s.subjetivo ? `<p><b>S:</b> ${texto(s.subjetivo)}</p>` : ''}
           ${s.objetivo ? `<p><b>O:</b> ${texto(s.objetivo)}</p>` : ''}

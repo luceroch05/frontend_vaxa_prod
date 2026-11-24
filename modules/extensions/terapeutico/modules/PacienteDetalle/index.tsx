@@ -14,6 +14,9 @@ import {
 import { imprimirHistoria } from './imprimir';
 import { esVideoMime, youtubeEmbedUrl } from '../../shared/video';
 import { useTerapCtx } from '../../shared/TerapShell';
+import { conLic } from '../../shared/terapeutas';
+import DateField from '@/modules/extensions/certificaciones/shared/components/DateField';
+import SelectBox from '../../shared/components/SelectBox';
 
 const TEAL = '#0F766E';
 const escribeClinico = (rol?: string) => ['ADMINISTRADOR', 'TERAPEUTA'].includes((rol ?? '').toUpperCase());
@@ -380,7 +383,7 @@ function ListaCitas({ titulo, citas }: { titulo: string; citas: Cita[] }) {
                 {parseLocal(c.inicio).toLocaleDateString()} · {parseLocal(c.inicio).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </span>
               <span className="text-[12px]" style={{ color: '#6B7280' }}>
-                {c.servicio_nombre ? ` · ${c.servicio_nombre}` : ''} · {c.terapeuta_nombre}
+                {c.servicio_nombre ? ` · ${c.servicio_nombre}` : ''} · {conLic(c.terapeuta_nombre)}
               </span>
             </div>
             <span className="text-[11px] px-2 py-0.5 rounded-full shrink-0" style={{ background: `${COLOR_ESTADO_CITA[c.estado_id] ?? '#6B7280'}1A`, color: COLOR_ESTADO_CITA[c.estado_id] ?? '#374151' }}>
@@ -514,9 +517,8 @@ function BloqueHistoria({ slug, historia, catalogos, puedeClinico, onSaved }: {
       </Campo>
       {catalogos && (
         <Campo label="Estado">
-          <select className="vx-input max-w-[220px]" disabled={!puedeClinico} value={estadoId} onChange={e => setEstadoId(Number(e.target.value))}>
-            {catalogos.estados_historia.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
-          </select>
+          <SelectBox className="max-w-[220px]" disabled={!puedeClinico} value={String(estadoId)} onChange={v => setEstadoId(Number(v))}
+            options={catalogos.estados_historia.map(s => ({ value: String(s.id), label: s.nombre }))} />
         </Campo>
       )}
     </Section>
@@ -563,9 +565,8 @@ function BloqueDiagnosticos({ slug, historia, diagnosticos, catalogos, puedeClin
             <input className="vx-input" placeholder="CIE-10 (opcional)" value={cie} onChange={e => setCie(e.target.value)} />
           </div>
           <div className="flex items-center gap-2">
-            <select className="vx-input max-w-[180px]" value={tipoId} onChange={e => setTipoId(Number(e.target.value))}>
-              {catalogos.tipos_diagnostico.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
-            </select>
+            <SelectBox className="max-w-[180px]" value={String(tipoId)} onChange={v => setTipoId(Number(v))}
+              options={catalogos.tipos_diagnostico.map(t => ({ value: String(t.id), label: t.nombre }))} />
             <button type="submit" disabled={saving} className="px-3 py-2 rounded-lg text-white text-[12.5px] font-semibold flex items-center gap-1.5" style={{ background: TEAL }}>
               {saving && <Loader2 size={13} className="animate-spin" />} Guardar
             </button>
@@ -636,7 +637,7 @@ function ServiciosPicker({ slug, servicios, value, onChange }: {
         <div className="flex flex-wrap gap-1.5">
           {value.map(v => (
             <span key={v.servicio_id} className="inline-flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 rounded-full text-[12px]" style={{ background: '#CCFBF1', color: TEAL }}>
-              <b>{v.servicio_nombre}</b>{v.terapeuta_nombre ? ` · ${v.terapeuta_nombre}` : ''}
+              <b>{v.servicio_nombre}</b>{v.terapeuta_nombre ? ` · ${conLic(v.terapeuta_nombre)}` : ''}
               <button type="button" onClick={() => onChange(value.filter(x => x.servicio_id !== v.servicio_id))}><X size={12} /></button>
             </span>
           ))}
@@ -646,14 +647,11 @@ function ServiciosPicker({ slug, servicios, value, onChange }: {
         <p className="text-[11.5px]" style={{ color: '#94A3B8' }}>Aún no hay servicios. Créalos en la sección «Servicios».</p>
       ) : (
         <div className="flex items-center gap-2 flex-wrap">
-          <select className="vx-input max-w-[190px]" value={servSel} onChange={e => setServSel(e.target.value)}>
-            <option value="">Servicio…</option>
-            {servicios.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
-          </select>
-          <select className="vx-input max-w-[190px]" value={terSel} onChange={e => setTerSel(e.target.value)} disabled={!servSel}>
-            <option value="">{servSel ? 'Terapeuta (opcional)…' : 'Elige servicio'}</option>
-            {teras.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
-          </select>
+          <SelectBox className="max-w-[190px]" value={servSel} onChange={setServSel} placeholder="Servicio…"
+            options={[{ value: '', label: 'Servicio…' }, ...servicios.map(s => ({ value: String(s.id), label: s.nombre }))]} />
+          <SelectBox className="max-w-[190px]" value={terSel} onChange={setTerSel} disabled={!servSel}
+            placeholder={servSel ? 'Terapeuta (opcional)…' : 'Elige servicio'}
+            options={[{ value: '', label: servSel ? 'Terapeuta (opcional)…' : 'Elige servicio' }, ...teras.map(t => ({ value: String(t.id), label: conLic(t.nombre) }))]} />
           <button type="button" onClick={agregar} disabled={!servSel} className="px-2.5 py-2 rounded-lg text-[12px] font-semibold disabled:opacity-40 flex items-center gap-1" style={{ background: '#CCFBF1', color: TEAL }}>
             <Plus size={13} /> Agregar
           </button>
@@ -757,7 +755,7 @@ function TratamientoCard({ slug, t, servicios, puedeClinico, onEstado, onServici
           <div className="flex flex-wrap gap-1.5">
             {t.servicios.map(s => (
               <span key={s.servicio_id} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[12px]" style={{ background: '#F0FDFA', color: TEAL, border: '1px solid #CCFBF1' }}>
-                <b>{s.servicio_nombre}</b>{s.terapeuta_nombre ? ` · ${s.terapeuta_nombre}` : ''}
+                <b>{s.servicio_nombre}</b>{s.terapeuta_nombre ? ` · ${conLic(s.terapeuta_nombre)}` : ''}
               </span>
             ))}
           </div>
@@ -868,10 +866,8 @@ function BloqueEvoluciones({ slug, historia, sesiones, puedeClinico, onAdd }: {
           {servicios.length > 0 && (
             <div className="flex items-center gap-2 flex-wrap">
               <label className="text-[12px]" style={{ color: '#64748B' }}>Servicio</label>
-              <select className="vx-input max-w-[240px]" value={servicioId} onChange={e => setServicioId(e.target.value === '' ? '' : Number(e.target.value))}>
-                <option value="">General (sin servicio)</option>
-                {servicios.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
-              </select>
+              <SelectBox className="max-w-[240px]" value={servicioId === '' ? '' : String(servicioId)} onChange={v => setServicioId(v === '' ? '' : Number(v))}
+                options={[{ value: '', label: 'General (sin servicio)' }, ...servicios.map(s => ({ value: String(s.id), label: s.nombre }))]} />
             </div>
           )}
           <SoapField label="S · Subjetivo" value={f.subjetivo} onChange={v => set('subjetivo', v)} placeholder="Lo que refiere el paciente…" />
@@ -910,7 +906,7 @@ function BloqueEvoluciones({ slug, historia, sesiones, puedeClinico, onAdd }: {
                 </span>
                 <div className="flex items-center gap-2">
                   {s.servicio_nombre && <span className="text-[11px] font-semibold" style={{ color: '#0F766E' }}>{s.servicio_nombre}</span>}
-                  <span className="text-[11px]" style={{ color: '#6B7280' }}>{s.terapeuta_nombre}</span>
+                  <span className="text-[11px]" style={{ color: '#6B7280' }}>{conLic(s.terapeuta_nombre)}</span>
                   {s.firmada
                     ? <span className="text-[10.5px] font-bold px-2 py-0.5 rounded-full" style={{ background: '#DCFCE7', color: '#15803D' }}>✔ Firmada</span>
                     : <span className="text-[10.5px] font-bold px-2 py-0.5 rounded-full" style={{ background: '#FEF3C7', color: '#B45309' }}>Borrador</span>}
@@ -974,7 +970,7 @@ function BloqueTerapeutas({ slug, pacienteId, puedeGestionar }: { slug: string; 
           <div className="flex flex-wrap gap-2">
             {asignados.map(a => (
               <span key={a.id} className="inline-flex items-center gap-1.5 pl-3 pr-2 py-1 rounded-full text-[12.5px]" style={{ background: '#CCFBF1', color: TEAL }}>
-                {a.servicio_nombre && <b className="font-semibold">{a.servicio_nombre}:</b>} {a.terapeuta_nombre}
+                {a.servicio_nombre && <b className="font-semibold">{a.servicio_nombre}:</b>} {conLic(a.terapeuta_nombre)}
                 {puedeGestionar && <button onClick={() => quitar(a)}><X size={12} /></button>}
               </span>
             ))}
@@ -985,14 +981,11 @@ function BloqueTerapeutas({ slug, pacienteId, puedeGestionar }: { slug: string; 
           ? <p className="text-[12px] mt-3" style={{ color: '#94A3B8' }}>Aún no hay servicios. Créalos en la sección «Servicios».</p>
           : (
             <div className="flex items-center gap-2 mt-3 flex-wrap">
-              <select className="vx-input max-w-[220px]" value={servSel} onChange={e => setServSel(e.target.value)}>
-                <option value="">1) Servicio…</option>
-                {servicios.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
-              </select>
-              <select className="vx-input max-w-[220px]" value={terSel} onChange={e => setTerSel(e.target.value)} disabled={!servSel}>
-                <option value="">{servSel ? '2) Terapeuta…' : '2) Elige servicio primero'}</option>
-                {terapeutas.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
-              </select>
+              <SelectBox className="max-w-[220px]" value={servSel} onChange={setServSel} placeholder="1) Servicio…"
+                options={[{ value: '', label: '1) Servicio…' }, ...servicios.map(s => ({ value: String(s.id), label: s.nombre }))]} />
+              <SelectBox className="max-w-[220px]" value={terSel} onChange={setTerSel} disabled={!servSel}
+                placeholder={servSel ? '2) Terapeuta…' : '2) Elige servicio primero'}
+                options={[{ value: '', label: servSel ? '2) Terapeuta…' : '2) Elige servicio primero' }, ...terapeutas.map(t => ({ value: String(t.id), label: conLic(t.nombre) }))]} />
               <button onClick={asignar} disabled={!servSel || !terSel || busy} className="px-3 py-2 rounded-lg text-white text-[12.5px] font-semibold flex items-center gap-1.5 disabled:opacity-50" style={{ background: TEAL }}>
                 {busy ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />} Asignar
               </button>
@@ -1131,11 +1124,8 @@ function FiltroServicio({ servicios, extra, value, onChange }: {
   return (
     <div className="flex items-center gap-2 mb-3">
       <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: '#94A3B8' }}>Servicio</span>
-      <select value={value ?? ''} onChange={e => onChange(e.target.value === '' ? null : Number(e.target.value))}
-        className="text-[12.5px] rounded-lg px-2.5 py-1.5" style={{ background: '#fff', border: '1px solid #E2E8F0', color: '#334155' }}>
-        <option value="">Todos</option>
-        {ops.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
-      </select>
+      <SelectBox className="max-w-[220px]" value={value != null ? String(value) : ''} onChange={v => onChange(v === '' ? null : Number(v))}
+        options={[{ value: '', label: 'Todos' }, ...ops.map(s => ({ value: String(s.id), label: s.nombre }))]} />
     </div>
   );
 }
@@ -1360,17 +1350,14 @@ function FormObjetivo({ slug, historiaId, niveles, servicios, onCreated, onCance
       {servicios.length > 0 && (
         <div className="flex items-center gap-2 flex-wrap">
           <label className="text-[12px]" style={{ color: '#64748B' }}>Servicio</label>
-          <select className="vx-input max-w-[220px]" value={servicioId} onChange={e => setServicioId(e.target.value === '' ? '' : Number(e.target.value))}>
-            <option value="">General (sin servicio)</option>
-            {servicios.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
-          </select>
+          <SelectBox className="max-w-[220px]" value={servicioId === '' ? '' : String(servicioId)} onChange={v => setServicioId(v === '' ? '' : Number(v))}
+            options={[{ value: '', label: 'General (sin servicio)' }, ...servicios.map(s => ({ value: String(s.id), label: s.nombre }))]} />
         </div>
       )}
       <div className="flex items-center gap-2 flex-wrap">
         <label className="text-[12px]" style={{ color: '#64748B' }}>Meta (a dónde llegar)</label>
-        <select className="vx-input max-w-[220px]" value={meta} onChange={e => setMeta(Number(e.target.value))}>
-          {niveles.filter(x => x.n >= 3).map(x => <option key={x.n} value={x.n}>{x.label}</option>)}
-        </select>
+        <SelectBox className="max-w-[220px]" value={String(meta)} onChange={v => setMeta(Number(v))}
+          options={niveles.filter(x => x.n >= 3).map(x => ({ value: String(x.n), label: x.label }))} />
         <div className="ml-auto flex gap-2">
           <button type="button" onClick={onCancel} className="px-3 py-2 rounded-lg text-[12.5px] font-semibold" style={{ background: '#F1F5F4', color: '#374151' }}>Cancelar</button>
           <button type="submit" disabled={saving} className="px-3 py-2 rounded-lg text-white text-[12.5px] font-semibold flex items-center gap-1.5" style={{ background: TEAL }}>
@@ -1476,7 +1463,7 @@ function FormAvance({ slug, objetivoId, meta, niveles, onAdded }: {
         </label>
         <label className="block">
           <span className="block text-[10.5px] font-semibold uppercase tracking-wider mb-1" style={{ color: '#64748B' }}>Fecha</span>
-          <input className="vx-input max-w-[150px]" type="date" value={fecha} onChange={e => setFecha(e.target.value)} />
+          <div className="max-w-[150px]"><DateField value={fecha} onChange={setFecha} /></div>
         </label>
         <button type="submit" disabled={saving} className="px-3 py-2 rounded-lg text-white text-[12.5px] font-semibold flex items-center gap-1.5 disabled:opacity-50" style={{ background: TEAL }}>
           {saving ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />} Guardar evaluación
@@ -1693,7 +1680,7 @@ function FormTarea({ slug, historiaId, onCreated, onCancel }: {
       <input className="vx-input" placeholder="Enlace de YouTube (opcional) — ej. https://youtu.be/…" value={videoUrl} onChange={e => setVideoUrl(e.target.value)} />
       <div className="flex items-center gap-2 flex-wrap">
         <label className="text-[12px]" style={{ color: '#64748B' }}>Fecha límite</label>
-        <input type="date" className="vx-input max-w-[160px]" value={fecha} onChange={e => setFecha(e.target.value)} />
+        <div className="max-w-[160px]"><DateField value={fecha} onChange={setFecha} /></div>
         <div className="ml-auto flex gap-2">
           <button type="button" onClick={onCancel} className="px-3 py-2 rounded-lg text-[12.5px] font-semibold" style={{ background: '#F1F5F4', color: '#374151' }}>Cancelar</button>
           <button type="submit" disabled={saving} className="px-3 py-2 rounded-lg text-white text-[12.5px] font-semibold flex items-center gap-1.5" style={{ background: TEAL }}>

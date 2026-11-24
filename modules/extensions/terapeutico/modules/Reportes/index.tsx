@@ -4,6 +4,7 @@ import { useEmpresaSlug } from '@/lib/useEmpresa';
 import { useTerapCtx } from '../../shared/TerapShell';
 import { terapApi, type ReportesData, type HcModulos } from '../../shared/api/terapeutico.api';
 import { TEAL, soles, primerDiaMes, ultimoDiaMes, EncabezadoPagina, Resumen, Campo, Cargando, Vacio } from '../../shared/finanzas';
+import DateField from '@/modules/extensions/certificaciones/shared/components/DateField';
 
 /** Paleta para las barras (se cicla). Tonos teal/slate del panel. */
 const COLORES = ['#0F766E', '#14B8A6', '#0EA5A0', '#2DD4BF', '#5EEAD4', '#99F6E4'];
@@ -68,8 +69,8 @@ export default function Reportes() {
       />
 
       <div className="flex items-end gap-2 mb-4 flex-wrap">
-        <Campo label="Desde"><input type="date" className="vx-input" value={desde} onChange={e => setDesde(e.target.value)} /></Campo>
-        <Campo label="Hasta"><input type="date" className="vx-input" value={hasta} onChange={e => setHasta(e.target.value)} /></Campo>
+        <Campo label="Desde"><div className="w-40"><DateField value={desde} onChange={setDesde} /></div></Campo>
+        <Campo label="Hasta"><div className="w-40"><DateField value={hasta} onChange={setHasta} /></div></Campo>
       </div>
 
       {loading ? <Cargando /> : !data ? (

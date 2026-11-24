@@ -5,6 +5,8 @@ import { useEmpresaSlug } from '@/lib/useEmpresa';
 import { authStorage } from '@/lib/auth';
 import { terapPath } from '@/lib/paths';
 import { terapApi, type Paciente, type Catalogos, type PacienteDto, type Apoderado } from '../../shared/api/terapeutico.api';
+import DateField from '@/modules/extensions/certificaciones/shared/components/DateField';
+import SelectBox from '../../shared/components/SelectBox';
 
 const TEAL = '#0F766E';
 const puedeGestionar = (rol?: string) => ['ADMINISTRADOR', 'ADMISION'].includes((rol ?? '').toUpperCase());
@@ -24,6 +26,21 @@ function edadDe(fechaNac?: string | null): number | null {
 
 /* ── Utilidades de presentación ─────────────────────────────────── */
 const DOC = { '1': 'DNI', '4': 'C.E.', '7': 'Pas.', '0': 'S/D' } as Record<string, string>;
+
+/** Largo máximo del documento por tipo (DNI 8, RUC 11, carnet/pasaporte 12). */
+const LARGO_DOC: Record<string, number> = { '1': 8, '6': 11, '4': 12, '7': 12 };
+/**
+ * Sanea el número de documento según su tipo: DNI y RUC solo aceptan dígitos; carnet de
+ * extranjería y pasaporte aceptan letras+números (sin símbolos). Siempre recorta al largo
+ * máximo del tipo. Así el DNI NO admite letras y nada se pasa del tamaño de la columna
+ * (evita el 500 en producción por valor demasiado largo).
+ */
+const sanearDoc = (tipo: string, valor: string): string => {
+  const t = tipo || '1';
+  const soloNumeros = t === '1' || t === '6';   // DNI / RUC
+  const limpio = soloNumeros ? valor.replace(/\D/g, '') : valor.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+  return limpio.slice(0, LARGO_DOC[t] ?? 15);
+};
 
 const iniciales = (n: string, a: string) =>
   `${(n.trim()[0] ?? '')}${(a.trim()[0] ?? '')}`.toUpperCase() || '?';
@@ -306,8 +323,9 @@ function ModalNuevoPaciente({ slug, catalogos, onClose, onCreate }: {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(13,26,26,0.5)', backdropFilter: 'blur(3px)' }} onMouseDown={onClose}>
-      <div className="bg-white rounded-2xl w-full max-w-lg max-h-[92vh] overflow-auto shadow-xl" onMouseDown={e => e.stopPropagation()}>
+    /* El click fuera NO cierra el modal (evita perder lo escrito): solo la X o «Cancelar». */
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(13,26,26,0.5)', backdropFilter: 'blur(3px)' }}>
+      <div className="bg-white rounded-2xl w-full max-w-lg max-h-[92vh] overflow-auto shadow-xl">
         <div className="flex items-center justify-between px-5 py-4 sticky top-0 bg-white z-10" style={{ borderBottom: '1px solid #EEF2F1' }}>
           <div className="flex items-center gap-2.5">
             <div className="h-8 w-8 rounded-lg flex items-center justify-center" style={{ background: '#CCFBF1' }}><UserPlus size={16} style={{ color: TEAL }} /></div>
@@ -324,14 +342,18 @@ function ModalNuevoPaciente({ slug, catalogos, onClose, onCreate }: {
           </div>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Tipo doc.">
-              <select className="vx-input" value={f.tipo_doc} onChange={e => set('tipo_doc', e.target.value)}>
-                <option value="1">DNI</option><option value="4">Carnet ext.</option>
-                <option value="7">Pasaporte</option><option value="0">Sin documento</option>
-              </select>
+              <SelectBox value={f.tipo_doc ?? '1'}
+                onChange={t => { setF(prev => ({ ...prev, tipo_doc: t, num_doc: sanearDoc(t, prev.num_doc ?? '') })); if (docMsg) setDocMsg(null); }}
+                options={[
+                  { value: '1', label: 'DNI' }, { value: '4', label: 'Carnet ext.' },
+                  { value: '7', label: 'Pasaporte' }, { value: '0', label: 'Sin documento' },
+                ]} />
             </Field>
             <Field label={sinDoc ? 'N° documento' : 'N° documento *'}>
               <input className="vx-input" value={f.num_doc ?? ''} disabled={sinDoc}
-                onChange={e => { set('num_doc', e.target.value); if (docMsg) setDocMsg(null); }}
+                inputMode={(f.tipo_doc === '1' || f.tipo_doc === '6') ? 'numeric' : 'text'}
+                maxLength={LARGO_DOC[f.tipo_doc ?? '1'] ?? 15}
+                onChange={e => { set('num_doc', sanearDoc(f.tipo_doc ?? '1', e.target.value)); if (docMsg) setDocMsg(null); }}
                 onBlur={verificarDoc}
                 style={docMsg ? { borderColor: '#DC2626' } : undefined} />
               {chkDoc && <p className="text-[11px] mt-1" style={{ color: '#94A3B8' }}>Verificando…</p>}
@@ -340,13 +362,11 @@ function ModalNuevoPaciente({ slug, catalogos, onClose, onCreate }: {
           </div>
           <div className="grid grid-cols-2 gap-3">
             <Field label={`Fecha nac.${edad !== null ? `  ·  ${edad} años${esMenor ? ' (menor)' : ''}` : ''}`}>
-              <input type="date" className="vx-input" value={f.fecha_nacimiento ?? ''} onChange={e => set('fecha_nacimiento', e.target.value)} />
+              <DateField value={f.fecha_nacimiento ?? ''} onChange={v => set('fecha_nacimiento', v)} />
             </Field>
             <Field label="Sexo">
-              <select className="vx-input" value={f.sexo_id ?? ''} onChange={e => set('sexo_id', e.target.value ? Number(e.target.value) : null)}>
-                <option value="">—</option>
-                {catalogos.sexos.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
-              </select>
+              <SelectBox value={f.sexo_id != null ? String(f.sexo_id) : ''} onChange={v => set('sexo_id', v ? Number(v) : null)}
+                options={[{ value: '', label: '—' }, ...catalogos.sexos.map(s => ({ value: String(s.id), label: s.nombre }))]} />
             </Field>
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -381,7 +401,7 @@ function ModalNuevoPaciente({ slug, catalogos, onClose, onCreate }: {
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <Field label="Teléfono"><input className="vx-input" value={a.telefono ?? ''} onChange={e => setApo(i, 'telefono', e.target.value)} /></Field>
-                    <Field label="N° documento"><input className="vx-input" value={a.num_doc ?? ''} onChange={e => setApo(i, 'num_doc', e.target.value)} /></Field>
+                    <Field label="N° documento (DNI)"><input className="vx-input" inputMode="numeric" maxLength={8} value={a.num_doc ?? ''} onChange={e => setApo(i, 'num_doc', e.target.value.replace(/\D/g, '').slice(0, 8))} /></Field>
                   </div>
                 </div>
               ))}

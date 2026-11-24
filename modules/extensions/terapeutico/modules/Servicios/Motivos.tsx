@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, FormEvent } from 'react';
 import { Loader2, Plus, Pencil, Save, Trash2, ClipboardList, Clock } from '@/components/ui/icon';
 import { terapApi, type Motivo, type MotivoTipo, type Servicio } from '../../shared/api/terapeutico.api';
 import { Overlay, Cabecera, Campo } from '../../shared/finanzas';
+import SelectBox from '../../shared/components/SelectBox';
 
 const TEAL = '#0F766E';
 const soles = (n: number | string) => `S/ ${Number(n || 0).toFixed(2)}`;
@@ -159,9 +160,8 @@ function ModalMotivo({ slug, servicios, motivo, onClose, onSaved }: {
       <Cabecera icon={<ClipboardList size={16} color="#fff" />} titulo={motivo ? 'Editar motivo' : 'Nuevo motivo de cita'} onClose={onClose} />
       <form onSubmit={submit} className="p-5 space-y-4">
         <Campo label="Servicio (área) *">
-          <select className="vx-input" value={servicioId} onChange={e => setServicioId(e.target.value)}>
-            {servicios.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
-          </select>
+          <SelectBox value={String(servicioId ?? '')} onChange={setServicioId}
+            options={servicios.map(s => ({ value: String(s.id), label: s.nombre }))} />
         </Campo>
         <Campo label="Nombre del motivo *">
           <input className="vx-input" value={nombre} onChange={e => setNombre(e.target.value)} autoFocus placeholder="Ej. Evaluación, Sesión individual, Informe…" />

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { DollarSign, Plus, Ban } from '@/components/ui/icon';
+import { DollarSign, Plus, Ban, Pencil } from '@/components/ui/icon';
 import { useEmpresaSlug } from '@/lib/useEmpresa';
 import { authStorage } from '@/lib/auth';
 import { terapPath } from '@/lib/paths';
@@ -79,9 +79,14 @@ export default function Ventas() {
                   <td className="px-4 py-2.5 text-right whitespace-nowrap" onClick={e => e.stopPropagation()}>
                     <button onClick={() => setVerId(v.id)} className="text-[11.5px] font-semibold mr-3" style={{ color: TEAL }}>Ver</button>
                     {v.estado === 'emitida' && esAdmin && (
-                      <button onClick={() => anular(v)} className="text-[11.5px] font-semibold inline-flex items-center gap-1" style={{ color: '#B91C1C' }}>
-                        <Ban size={13} /> Anular
-                      </button>
+                      <>
+                        <button onClick={() => navigate(terapPath(slug, `/panel/ventas/${v.id}/editar`))} className="text-[11.5px] font-semibold inline-flex items-center gap-1 mr-3" style={{ color: '#374151' }}>
+                          <Pencil size={13} /> Editar
+                        </button>
+                        <button onClick={() => anular(v)} className="text-[11.5px] font-semibold inline-flex items-center gap-1" style={{ color: '#B91C1C' }}>
+                          <Ban size={13} /> Anular
+                        </button>
+                      </>
                     )}
                   </td>
                 </tr>

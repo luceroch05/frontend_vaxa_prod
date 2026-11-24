@@ -4,6 +4,7 @@ import { authStorage } from '@/lib/auth';
 import { useEmpresaSlug } from '@/lib/useEmpresa';
 import { terapApi, type HcAuditoriaEvento } from '../../shared/api/terapeutico.api';
 import { EncabezadoPagina, Campo } from '../../shared/finanzas';
+import SelectBox from '../../shared/components/SelectBox';
 
 const TEAL = '#0F766E';
 const PAGE = 30;
@@ -71,18 +72,12 @@ export default function Auditoria() {
       {/* Filtros */}
       <div className="flex flex-wrap gap-2 items-end">
         <Campo label="Acción">
-          <select value={accion} onChange={e => setAccion(e.target.value)} className="vx-input">
-            <option value="">Todas</option>
-            {['crear', 'editar', 'eliminar', 'ver', 'asignar', 'revocar', 'adjuntar'].map(a =>
-              <option key={a} value={a}>{a}</option>)}
-          </select>
+          <div className="w-44"><SelectBox value={accion} onChange={setAccion}
+            options={[{ value: '', label: 'Todas' }, ...['crear', 'editar', 'eliminar', 'ver', 'asignar', 'revocar', 'adjuntar'].map(a => ({ value: a, label: a }))]} /></div>
         </Campo>
         <Campo label="Entidad">
-          <select value={entidad} onChange={e => setEntidad(e.target.value)} className="vx-input">
-            <option value="">Todas</option>
-            {['paciente', 'historia', 'diagnostico', 'objetivo', 'avance', 'sesion', 'tarea', 'tratamiento', 'servicio', 'cita', 'adjunto', 'acceso', 'asignacion'].map(e =>
-              <option key={e} value={e}>{e}</option>)}
-          </select>
+          <div className="w-44"><SelectBox value={entidad} onChange={setEntidad}
+            options={[{ value: '', label: 'Todas' }, ...['paciente', 'historia', 'diagnostico', 'objetivo', 'avance', 'sesion', 'tarea', 'tratamiento', 'servicio', 'cita', 'adjunto', 'acceso', 'asignacion'].map(e => ({ value: e, label: e }))]} /></div>
         </Campo>
       </div>
 

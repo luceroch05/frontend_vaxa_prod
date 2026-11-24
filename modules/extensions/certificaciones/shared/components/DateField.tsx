@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Calendar, ChevronLeft, ChevronRight } from '@/components/ui/icon';
 
 interface DateFieldProps {
@@ -29,6 +30,22 @@ export default function DateField({ value, onChange, placeholder = 'DD/MM/AAAA',
   const [open, setOpen] = useState(false);
   const [view, setView] = useState(() => parseView(value));   // mes mostrado en el calendario
   const ref = useRef<HTMLDivElement>(null);
+  const popupRef = useRef<HTMLDivElement>(null);
+  // Posición fija del calendario (se calcula desde el input): así va en un PORTAL y no lo
+  // recorta ningún contenedor con overflow (p. ej. el cuerpo de un modal).
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+
+  const POPUP_W = 264, POPUP_H = 320;
+  const recalcular = () => {
+    const el = ref.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    // Abre hacia abajo; si no hay espacio, hacia arriba. Y se acota al ancho de la ventana.
+    const abajo = r.bottom + 6;
+    const top = (abajo + POPUP_H > window.innerHeight && r.top - POPUP_H - 6 > 0) ? r.top - POPUP_H - 6 : abajo;
+    const left = Math.min(Math.max(8, r.left), window.innerWidth - POPUP_W - 8);
+    setPos({ top, left });
+  };
 
   useEffect(() => { setText(isoToText(value)); }, [value]);
 
@@ -38,11 +55,23 @@ export default function DateField({ value, onChange, placeholder = 'DD/MM/AAAA',
     if (value) setView(parseView(value));
   }, [open, value]);
 
-  // Cerrar al hacer clic fuera.
+  // Posiciona al abrir y mientras está abierto reacciona a scroll/resize.
+  useEffect(() => {
+    if (!open) { setPos(null); return; }
+    recalcular();
+    const fn = () => recalcular();
+    window.addEventListener('scroll', fn, true);
+    window.addEventListener('resize', fn);
+    return () => { window.removeEventListener('scroll', fn, true); window.removeEventListener('resize', fn); };
+  }, [open]);
+
+  // Cerrar al hacer clic fuera (el calendario vive en un portal: se comprueban ambos refs).
   useEffect(() => {
     if (!open) return;
     const onClick = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node;
+      if (ref.current?.contains(t) || popupRef.current?.contains(t)) return;
+      setOpen(false);
     };
     document.addEventListener('mousedown', onClick);
     return () => document.removeEventListener('mousedown', onClick);
@@ -109,11 +138,12 @@ export default function DateField({ value, onChange, placeholder = 'DD/MM/AAAA',
         className="vx-input vx-input-icon tabular-nums"
       />
 
-      {/* Calendario */}
-      {open && (
+      {/* Calendario (en PORTAL con posición fija: no lo recorta ningún modal con overflow) */}
+      {open && pos && createPortal(
         <div
-          className="absolute z-30 mt-1.5 left-0 bg-white rounded-2xl p-3 page-fade"
-          style={{ border: '1px solid #EEECE6', boxShadow: '0 10px 30px rgba(0,0,0,0.12)', width: 264 }}
+          ref={popupRef}
+          className="fixed z-[999] bg-white rounded-2xl p-3 page-fade"
+          style={{ top: pos.top, left: pos.left, width: POPUP_W, border: '1px solid #EEECE6', boxShadow: '0 10px 30px rgba(0,0,0,0.12)' }}
         >
           {/* Cabecera mes/año */}
           <div className="flex items-center justify-between mb-2">
@@ -160,7 +190,8 @@ export default function DateField({ value, onChange, placeholder = 'DD/MM/AAAA',
               );
             })}
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

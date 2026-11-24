@@ -156,7 +156,7 @@ body {
   font-size: 0.875rem;
   border: 1.5px solid #E9E6DF;
   border-radius: 10px;
-  background: #FAFAF8;
+  background-color: #FAFAF8;
   color: #0D0E12;
   outline: none;
   transition: border-color 150ms ease, box-shadow 150ms ease;
@@ -166,9 +166,25 @@ body {
 .vx-input:focus {
   border-color: #C9962C;
   box-shadow: 0 0 0 3px rgba(201,150,44,0.12);
-  background: #FFFFFF;
+  background-color: #FFFFFF;
 }
 .vx-input-icon { padding-left: 2.5rem; }
+
+/* ── Select: quita la flecha nativa del SO y pone un chevron propio
+   (coherente con el resto de inputs y con la paleta clara) ─────── */
+select.vx-input {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  padding-right: 2.25rem;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748B' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 16px;
+}
+select.vx-input::-ms-expand { display: none; }
+select.vx-input:disabled { cursor: not-allowed; opacity: 0.6; }
 
 /* ── Teléfono con banderita (react-phone-number-input) ─────── */
 .vx-phone {

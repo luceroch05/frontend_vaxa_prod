@@ -3,6 +3,7 @@ import { getHostMode } from '@/lib/host';
 import { certPath } from '@/lib/paths';
 import TenantLayout from './layouts/TenantLayout';
 import HomePage from './pages/HomePage';
+import SeAsesora from './pages/SeAsesora';
 import MarcaPersonal from './pages/MarcaPersonal';
 import LissethBaca from './pages/LissethBaca';
 import TenantRedirect from './pages/TenantRedirect';
@@ -159,6 +160,10 @@ function tenantChildren() {
         <Route path="infraestructura" element={<LazyRoute module="InfraestructuraVaxa" />} />
         {/* Libro de Reclamaciones: a nivel VAXA (INDECOPI), no de un producto */}
         <Route path="reclamos"    element={<LazyRoute module="ReclamosCertificaciones" />} />
+        {/* Solicitudes comerciales: leads del formulario inteligente de la landing */}
+        <Route path="solicitudes" element={<LazyRoute module="SolicitudesVaxa" />} />
+        {/* Asesoras comerciales: registro + fotocheck con QR verificable */}
+        <Route path="asesoras"    element={<LazyRoute module="AsesorasVaxa" />} />
         <Route path="certificaciones"                       element={<LazyRoute module="DashboardCertificaciones" />} />
         <Route path="historias-clinicas"                    element={<LazyRoute module="DashboardHistorias" />} />
         <Route path="historias-clinicas/empresas"           element={<LazyRoute module="EmpresasCertificaciones" />} />
@@ -274,6 +279,8 @@ export default function App() {
   return (
     <Routes>
       <Route path="/" element={<HomePage />} />
+      {/* Verificación pública de asesoras comerciales (QR del fotocheck → /se-asesora?codigo=…) */}
+      <Route path="/se-asesora" element={<SeAsesora />} />
 
       <Route path="/:empresa/certificados" element={<CertificadosLayout />}>
         {certificadosChildren()}

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Outlet, useNavigate, useLocation, useParams } from 'react-router-dom';
 import {
   LayoutDashboard, FileText, Activity, DollarSign, ClipboardList, CreditCard,
-  Building2, UserPlus, Package, Users, Globe, BookOpen, LogOut, Menu, X,
+  Building2, UserPlus, Package, Users, Globe, BookOpen, LogOut, Menu, X, MessageCircle, UserCheck,
 } from '@/components/ui/icon';
 import { getHostMode } from '@/lib/host';
 import { getTenantConfig } from '@/lib/tenants';
@@ -57,6 +57,8 @@ export default function SistemasShell() {
     { grupo: 'Gestión', items: [
       { label: 'Clientes',           to: tenantPath(tenantId, '/clientes'),                  Icon: Building2 },
       { label: 'Registrar cliente',  to: tenantPath(tenantId, '/registrar-empresa'),        Icon: UserPlus },
+      { label: 'Solicitudes',        to: tenantPath(tenantId, '/solicitudes'),               Icon: MessageCircle },
+      { label: 'Asesores',           to: tenantPath(tenantId, '/asesoras'),                  Icon: UserCheck },
       { label: 'Infraestructura',    to: tenantPath(tenantId, '/infraestructura'),           Icon: Package },
       { label: 'Libro de Reclamaciones', to: tenantPath(tenantId, '/reclamos'),              Icon: BookOpen },
       { label: 'Usuarios',           to: tenantPath(tenantId, '/usuarios'),                  Icon: Users },
